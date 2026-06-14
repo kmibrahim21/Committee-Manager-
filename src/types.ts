@@ -159,8 +159,23 @@ export interface Member {
   roll?: string | null;
   member_id_number: string | null;
   guardian_name?: string;
+  father_name?: string;
+  mother_name?: string;
+  dob?: string;
+  gender?: 'male' | 'female' | 'other';
+  blood_group?: string;
+  occupation?: string;
+  nid?: string;
   phone: string;
   email?: string;
+  address?: string;
+  present_address?: string;
+  permanent_address?: string;
+  education?: string;
+  reference?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  join_date?: string;
   photo_url?: string;
   member_type?: 'general' | 'executive' | 'volunteer' | 'donor';
   guardian_phone_2?: string;
@@ -421,5 +436,22 @@ export interface CalendarEvent {
   description?: string;
   event_date: string; // YYYY-MM-DD
   event_type: 'islamic' | 'madrasah' | 'holiday' | 'closed';
+  created_at: string;
+}
+
+export interface Event {
+  id: string;
+  institution_id: string;
+  title: string;
+  description?: string;
+  venue?: string;
+  event_type: string;
+  start_date: string;
+  end_date?: string;
+  organizer?: string;
+  guest_name?: string;
+  status: 'planned' | 'ongoing' | 'completed' | 'cancelled';
+  department_id?: string;
+  image_url?: string;
   created_at: string;
 }

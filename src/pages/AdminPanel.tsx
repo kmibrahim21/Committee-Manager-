@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 // Fix: Import icons from lucide-react instead of ../supabase
-import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2 } from 'lucide-react';
+import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2, PlusCircle } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Transaction, AdminSMSStock } from 'types';
 
@@ -21,6 +21,22 @@ interface AdminPanelProps {
   profile?: any;
   setStatusModal: (modal: {show: boolean, type: 'success' | 'error', title: string, message: string}) => void;
 }
+
+const COMMITTEE_TYPES = [
+  { id: 'committee', label: 'কমিটি', labelEn: 'Committee' },
+  { id: 'association', label: 'সমিতি', labelEn: 'Association' },
+  { id: 'organization', label: 'সংস্থা', labelEn: 'Organization' },
+  { id: 'club', label: 'ক্লাব', labelEn: 'Club' },
+  { id: 'foundation', label: 'ফাউন্ডেশন', labelEn: 'Foundation' },
+  { id: 'trust', label: 'ট্রাস্ট', labelEn: 'Trust' },
+  { id: 'council', label: 'পরিষদ', labelEn: 'Council' },
+  { id: 'union', label: 'সংঘ', labelEn: 'Sangha' },
+  { id: 'forum', label: 'ফোরাম', labelEn: 'Forum' },
+  { id: 'society', label: 'সোসাইটি', labelEn: 'Society' },
+  { id: 'federation', label: 'ফেডারেশন', labelEn: 'Federation' },
+  { id: 'governing_board', label: 'বোর্ড', labelEn: 'Board' },
+  { id: 'ngo', label: 'এনজিও', labelEn: 'NGO' },
+];
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dataVersion = 0, onProfileUpdate, madrasah, profile, setStatusModal }) => {
   const [madrasahs, setMadrasahs] = useState<InstitutionWithStats[]>([]);
@@ -99,7 +115,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     activeInstitutions: 0,
     totalVoiceBalance: 0,
     adminSMSStock: 0,
-    typeBreakdown: { madrasah: 0, school: 0, kindergarten: 0, nurani: 0, system: 0 }
+    typeBreakdown: {} as Record<string, number>
   });
   const [recentInstitutions, setRecentInstitutions] = useState<Institution[]>([]);
   const [selectedUser, setSelectedUser] = useState<InstitutionWithStats | null>(null);
@@ -184,10 +200,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       const adminStock = stockRes.data?.remaining_sms || 0;
 
       const typeBreakdown = (currentBalRes.data || []).reduce((acc: any, m) => {
-        const type = m.institution_type || 'madrasah';
+        const type = m.institution_type || 'committee';
         acc[type] = (acc[type] || 0) + 1;
         return acc;
-      }, { madrasah: 0, school: 0, kindergarten: 0, nurani: 0, system: 0 });
+      }, {} as Record<string, number>);
 
       return {
         totalStudents: studentsRes.count || 0,
@@ -465,8 +481,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     
     setShowConfirm({
       show: true,
-      title: "প্রতিষ্ঠান ডিলিট নিশ্চিত করুন",
-      message: `আপনি কি নিশ্চিত যে "${selectedUser.name}" প্রতিষ্ঠানটি চিরতরে ডিলিট করতে চান? এটি আর ফিরিয়ে আনা যাবে না এবং এর সকল ডাটা মুছে যাবে।`,
+      title: "কমিটি ডিলিট নিশ্চিত করুন",
+      message: `আপনি কি নিশ্চিত যে "${selectedUser.name}" কমিটিটি চিরতরে ডিলিট করতে চান? এটি আর ফিরিয়ে আনা যাবে না এবং এর সকল ডাটা মুছে যাবে।`,
       onConfirm: async () => {
         setIsDeletingUser(true);
         try {
@@ -484,7 +500,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
             show: true,
             type: "success",
             title: "সফল",
-            message: "প্রতিষ্ঠানটি সফলভাবে ডিলিট হয়েছে",
+            message: "কমিটিটি সফলভাবে ডিলিট হয়েছে",
           });
           setView('list');
           setSelectedUser(null);
@@ -495,7 +511,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
             show: true,
             type: "error",
             title: "ত্রুটি",
-            message: "প্রতিষ্ঠান ডিলিট করতে সমস্যা হয়েছে",
+            message: "কমিটি ডিলিট করতে সমস্যা হয়েছে",
           });
         } finally {
           setIsDeletingUser(false);
@@ -618,97 +634,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     
     setIsCreatingInst(true);
     try {
-      const { data: rpcUserId, error: rpcError } = await supabase.rpc('create_user_by_admin', {
-        p_email: newInstEmail.trim(),
-        p_password: newInstPassword.trim(),
-        p_user_data: {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('/api/admin/create-committee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newInstEmail.trim(),
+          password: newInstPassword.trim(),
           name: newInstName.trim(),
-          madrasah_name: newInstName.trim()
-        }
+          phone: newInstPhone.trim(),
+          login_code: newInstLoginCode.trim(),
+          type: newInstType,
+          auth_token: session?.access_token
+        })
       });
 
-      if (rpcError) throw rpcError;
-      if (!rpcUserId) throw new Error("User creation failed via RPC");
-      
-      const newUserId = rpcUserId;
-
-      // Wait a moment for the trigger to create the initial record
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Update the institution record with specific details
-      const { error: updateError } = await supabase.from('institutions').update({
-        phone: newInstPhone.trim(),
-        email: newInstEmail.trim(),
-        institution_type: newInstType,
-        login_code: newInstLoginCode.trim() || null,
-        status: 'active',
-        is_active: true,
-        config_json: {
-          modules: {
-            departments: true,
-            attendance: true,
-            results: true,
-            admit_card: true,
-            seat_plan: true,
-            accounting: true,
-            academic_year_promotion: true,
-            voice_broadcast: true,
-            sms: true
-          },
-          result_engine: 'school',
-          result_system: 'grading',
-          attendance_type: 'daily',
-          fee_structure: 'monthly',
-          ui_mode: 'madrasah'
-        }
-      }).eq('id', newUserId);
-      
-      if (updateError) {
-        // If update fails, try inserting (in case trigger failed or was slow)
-        const { error: insertError } = await supabase.from('institutions').upsert({
-          id: newUserId,
-          name: newInstName.trim(),
-          email: newInstEmail.trim(),
-          phone: newInstPhone.trim(),
-          institution_type: newInstType,
-          login_code: newInstLoginCode.trim() || null,
-          is_active: true,
-          is_super_admin: false,
-          balance: 0,
-          sms_balance: 0,
-          status: 'active',
-          config_json: {
-            modules: {
-              departments: true,
-              attendance: true,
-              results: true,
-              admit_card: true,
-              seat_plan: true,
-              accounting: true,
-              academic_year_promotion: true,
-              voice_broadcast: true,
-              sms: true
-            },
-            result_engine: 'school',
-            result_system: 'grading',
-            attendance_type: 'daily',
-            fee_structure: 'monthly',
-            ui_mode: 'madrasah'
-          }
-        });
-        if (insertError) throw insertError;
-        
-        // Also ensure profile exists
-        await supabase.from('profiles').upsert({
-          id: newUserId,
-          institution_id: newUserId,
-          full_name: newInstName.trim(),
-          role: 'org_admin',
-          is_active: true
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create committee');
       }
       
-      setStatusModal({ show: true, type: 'success', title: 'সফল', message: 'নতুন প্রতিষ্ঠান এবং ইউজার তৈরি করা হয়েছে।' });
+      setStatusModal({ show: true, type: 'success', title: 'সফল', message: 'নতুন কমিটি এবং ইউজার তৈরি করা হয়েছে।' });
       setShowCreateModal(false);
       setNewInstName('');
       setNewInstPhone('');
@@ -914,7 +861,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           {view === 'list' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between px-2">
-                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto`}>মাদরাসা লিস্ট</h1>
+                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto`}>কমিটি লিস্ট</h1>
+                <button 
+                  onClick={() => setShowCreateModal(true)} 
+                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-premium active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-[#2563EB] text-white hover:bg-blue-600'}`}
+                >
+                  <PlusCircle size={18} strokeWidth={2.5} />
+                  <span>নতুন কমিটি</span>
+                </button>
               </div>
 
               <div className="flex gap-2 px-1">
@@ -923,15 +877,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                   <input type="text" placeholder="Search name or code..." className={`w-full h-14 pl-14 pr-14 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'} border rounded-[2rem] outline-none font-bold shadow-bubble`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
                 <select 
-                  className={`h-14 px-4 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'} border rounded-[2rem] outline-none font-bold shadow-bubble text-xs`}
+                  className={`h-14 px-4 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'} border rounded-[2rem] outline-none font-bold shadow-bubble text-[10px] w-32`}
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value as any)}
                 >
-                  <option value="all">All</option>
-                  <option value="madrasah">Madrasah</option>
-                  <option value="school">School</option>
-                  <option value="kindergarten">Kindergarten</option>
-                  <option value="nurani">Nurani</option>
+                  <option value="all">All Types</option>
+                  {COMMITTEE_TYPES.map(type => (
+                    <option key={type.id} value={type.id}>{type.labelEn}</option>
+                  ))}
                 </select>
               </div>
 
@@ -1130,7 +1083,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       <ArrowLeft size={24} strokeWidth={3} />
                    </button>
                    <div className="min-w-0">
-                      <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto truncate leading-tight`}>Institution Details</h1>
+                      <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto truncate leading-tight`}>Committee Details</h1>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">UUID: {selectedUser.id}</p>
                    </div>
                 </div>
@@ -1168,7 +1121,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                    <div className={`space-y-6 pt-4 border-t ${madrasah?.theme === 'dark' ? 'border-slate-800' : 'border-slate-50'}`}>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Institution Name</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Committee Name</label>
                             <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} border rounded-2xl px-6 font-black outline-none focus:border-[#2563EB]/20`} value={editName} onChange={(e) => setEditName(e.target.value)} />
                          </div>
                          <div className="space-y-2">
@@ -1216,18 +1169,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                                   <input type="text" className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm`} value={editVoiceSenderId} onChange={(e) => setEditVoiceSenderId(e.target.value)} placeholder="e.g. 8801..." />
                                </div>
 
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Institution Type</label>
-                                  <select 
-                                    className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm outline-none`}
-                                    value={editInstitutionType}
-                                    onChange={(e) => setEditInstitutionType(e.target.value as any)}
-                                  >
-                                    <option value="madrasah">Madrasah</option>
-                                    <option value="school">School</option>
-                                    <option value="kindergarten">Kindergarten</option>
-                                    <option value="nurani">Nurani</option>
-                                  </select>
+                               <div className="space-y-3 lg:col-span-2">
+                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Committee Type</label>
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                                    {COMMITTEE_TYPES.map(type => (
+                                      <button
+                                        key={type.id}
+                                        type="button"
+                                        onClick={() => setEditInstitutionType(type.id)}
+                                        className={`px-3 py-2.5 rounded-xl border text-[10px] font-black transition-all ${
+                                          editInstitutionType === type.id 
+                                            ? (madrasah?.theme === 'dark' ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-[#2563EB] border-blue-600 text-white shadow-md')
+                                            : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50')
+                                        }`}
+                                      >
+                                        <div className="flex flex-col items-center">
+                                          <span>{type.label}</span>
+                                          <span className="text-[7px] opacity-60 uppercase tracking-tighter mt-0.5">{type.labelEn}</span>
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
                                </div>
                             </div>
                             
@@ -1355,7 +1317,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-black text-[#1E3A8A] font-noto">নতুন প্রতিষ্ঠান</h3>
+              <h3 className="text-xl font-black text-[#1E3A8A] font-noto">নতুন কমিটি</h3>
               <button onClick={() => setShowCreateModal(false)} className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
                 <X size={20} />
               </button>
@@ -1363,13 +1325,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
             
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">প্রতিষ্ঠানের নাম</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">কমিটির নাম</label>
                 <input 
                   type="text" 
                   className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#1E3A8A] outline-none focus:border-[#2563EB]/20" 
                   value={newInstName} 
                   onChange={(e) => setNewInstName(e.target.value)} 
-                  placeholder="Example Madrasah"
+                  placeholder="Example Committee"
                 />
               </div>
               
@@ -1406,18 +1368,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">ধরণ</label>
-                <select 
-                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#1E3A8A] outline-none focus:border-[#2563EB]/20"
-                  value={newInstType}
-                  onChange={(e) => setNewInstType(e.target.value as any)}
-                >
-                  <option value="madrasah">Madrasah</option>
-                  <option value="school">School</option>
-                  <option value="kindergarten">Kindergarten</option>
-                  <option value="nurani">Nurani</option>
-                </select>
+                <div className="grid grid-cols-3 gap-2">
+                  {COMMITTEE_TYPES.map(type => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setNewInstType(type.id)}
+                      className={`p-2 rounded-xl border text-[9px] font-black transition-all ${
+                        newInstType === type.id 
+                          ? 'bg-[#2563EB] border-blue-600 text-white shadow-md'
+                          : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">

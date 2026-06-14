@@ -1,0 +1,11 @@
+{
+  "name": "Committee Manager",
+  "description": "A professional Committee and Organization Management SaaS platform for associations, clubs, foundations, and social groups.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

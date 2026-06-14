@@ -94,7 +94,7 @@ export const CommitteeYearManager: React.FC<CommitteeYearManagerProps> = ({ inst
       if (!students) return;
 
       // Fetch all marks for selected exams
-      const selectedExamIds = (Object.values(promotionMap) as any[]).map(m => m?.examId).filter(id => id);
+      const selectedExamIds = Object.values(promotionMap).map(m => m.examId).filter(id => id);
       const { data: marks } = await supabase.from('exam_marks')
         .select('*')
         .in('exam_id', selectedExamIds);

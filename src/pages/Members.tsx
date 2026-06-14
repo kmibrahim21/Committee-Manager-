@@ -62,7 +62,7 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
       // Fix: Add institution_id to the select query to satisfy the Member type requirements.
       let query = supabase
         .from('members')
-        .select('id, institution_id, name, phone, roll, guardian_name, department_id, departments(name)')
+        .select('*, departments(name)')
         .eq('institution_id', institutionId)
         .order('roll', { ascending: true })
         .range(from, to);

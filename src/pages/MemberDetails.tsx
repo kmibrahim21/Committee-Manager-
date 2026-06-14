@@ -143,62 +143,74 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
           </button>
         </div>
 
-        {/* Detailed Info Section */}
-        <div className="mt-10 space-y-5">
-          <div className="flex items-center gap-3 px-2 mb-3">
-            <div className="w-1.5 h-6 bg-gradient-to-b from-[#2563EB] to-[#1E3A8A] rounded-full shadow-lg shadow-[#2563EB]/20" />
-            <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'অভিভাবকের তথ্য' : 'Guardian Details'}</h3>
+        {/* Detailed Info Sections */}
+        <div className="mt-10 space-y-8">
+          {/* Section: Personal Info */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 px-2 mb-1">
+              <div className="w-1.5 h-6 bg-[#2563EB] rounded-full shadow-lg shadow-[#2563EB]/20" />
+              <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'ব্যক্তিগত ও পরিচিতি তথ্য' : 'Personal & Identity'}</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <InfoRow label={lang === 'bn' ? 'সদস্য আইডি' : 'Member ID'} value={student.member_id_number} icon={<Hash size={18} />} isDark={isDark} />
+              <InfoRow label={lang === 'bn' ? 'সদস্য ধরণ' : 'Member Type'} value={student.member_type ? (lang === 'bn' ? (student.member_type === 'general' ? 'সাধারণ' : student.member_type === 'executive' ? 'কার্যনির্বাহী' : student.member_type === 'volunteer' ? 'স্বেচ্ছাসেবক' : 'দাতা') : student.member_type) : null} icon={<UserCheck size={18} />} isDark={isDark} />
+              <InfoRow label={lang === 'bn' ? 'পিতার নাম' : 'Father Name'} value={student.father_name} icon={<UserIcon size={18} />} isDark={isDark} />
+              <InfoRow label={lang === 'bn' ? 'জন্ম তারিখ' : 'Date of Birth'} value={student.dob} icon={<BookOpen size={18} />} isDark={isDark} />
+              <InfoRow label={lang === 'bn' ? 'রক্তের গ্রুপ' : 'Blood Group'} value={student.blood_group} icon={<AlertTriangle size={18} />} isDark={isDark} />
+              <InfoRow label={lang === 'bn' ? 'পেশা' : 'Occupation'} value={student.occupation} icon={<BookOpen size={18} />} isDark={isDark} />
+              <InfoRow label={lang === 'bn' ? 'জাতীয় পরিচয়পত্র' : 'NID Number'} value={student.nid} icon={<Hash size={18} />} isDark={isDark} />
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3">
-            <div className={`flex items-center gap-4 p-5 rounded-[2rem] border-2 transition-all group ${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-[#2563EB]/30' : 'bg-slate-50/80 border-slate-100 hover:bg-white hover:border-[#2563EB]/30 hover:shadow-lg hover:shadow-slate-200/50'}`}>
-              <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center text-[#2563EB] shrink-0 shadow-md border group-hover:bg-[#2563EB] group-hover:text-white transition-all duration-300 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-                <UserCheck size={22} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{t('guardian_name', lang)}</p>
-                <p className={`text-base font-black truncate font-noto leading-tight ${isDark ? 'text-slate-200' : 'text-[#1E293B]'}`}>{student.guardian_name || 'N/A'}</p>
-              </div>
+          {/* Section: Contact & Address */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 px-2 mb-1">
+              <div className="w-1.5 h-6 bg-[#2563EB] rounded-full shadow-lg shadow-[#2563EB]/20" />
+              <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'যোগাযোগ ও ঠিকানা' : 'Contact & Address'}</h3>
             </div>
-
-            <div className={`flex items-center justify-between p-5 rounded-[2rem] border-2 transition-all group ${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-[#2563EB]/30' : 'bg-slate-50/80 border-slate-100 hover:bg-white hover:border-[#2563EB]/30 hover:shadow-lg hover:shadow-slate-200/50'}`}>
-              <div className="flex items-center gap-4 min-w-0">
-                <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center text-[#2563EB] shrink-0 shadow-md border group-hover:bg-[#2563EB] group-hover:text-white transition-all duration-300 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-                  <Smartphone size={22} />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className={`flex items-center justify-between p-5 rounded-[2rem] border-2 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50/80 border-slate-100'}`}>
+                <div className="flex items-center gap-4">
+                   <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center text-[#2563EB] bg-white border border-slate-100 shadow-sm`}>
+                     <Smartphone size={22} />
+                   </div>
+                   <div>
+                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{lang === 'bn' ? 'মোবাইল নম্বর' : 'Phone Number'}</p>
+                     <p className={`text-lg font-black tracking-tight leading-none ${isDark ? 'text-slate-200' : 'text-[#1E293B]'}`}>{student.phone}</p>
+                   </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{t('phone', lang)}</p>
-                  <p className={`text-lg font-black tracking-tight leading-none ${isDark ? 'text-slate-200' : 'text-[#1E293B]'}`}>{student.phone}</p>
-                </div>
+                <button onClick={() => window.location.href = `tel:${student.phone}`} className="w-11 h-11 bg-gradient-to-br from-[#2563EB] to-[#1E3A8A] text-white rounded-[1rem] flex items-center justify-center shadow-lg"><Phone size={20} fill="currentColor" /></button>
               </div>
-              <button 
-                onClick={() => window.location.href = `tel:${student.phone}`}
-                className="w-11 h-11 bg-gradient-to-br from-[#2563EB] to-[#1E3A8A] text-white rounded-[1rem] flex items-center justify-center shadow-lg shadow-[#2563EB]/20 active:scale-90 transition-all hover:rotate-6"
-              >
-                <Phone size={20} fill="currentColor" />
-              </button>
+              
+              <InfoRow label={lang === 'bn' ? 'ইমেইল' : 'Email'} value={student.email} icon={<MessageCircle size={18} />} isDark={isDark} />
+              
+              <div className="md:col-span-2">
+                <InfoRow label={lang === 'bn' ? 'বর্তমান ঠিকানা' : 'Present Address'} value={student.present_address || student.address} icon={<Hash size={18} />} isDark={isDark} isTextArea />
+              </div>
+              {student.permanent_address && (
+                <div className="md:col-span-2">
+                  <InfoRow label={lang === 'bn' ? 'স্থায়ী ঠিকানা' : 'Permanent Address'} value={student.permanent_address} icon={<Hash size={18} />} isDark={isDark} isTextArea />
+                </div>
+              )}
             </div>
-
-            {student.guardian_phone_2 && (
-              <div className={`flex items-center justify-between p-5 rounded-[2rem] border-2 transition-all group animate-in slide-in-from-top-4 ${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 hover:border-blue-400/30' : 'bg-slate-50/80 border-slate-100 hover:bg-white hover:border-blue-400/30 hover:shadow-lg hover:shadow-slate-200/50'}`}>
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center text-blue-400 shrink-0 shadow-md border group-hover:bg-blue-400 group-hover:text-white transition-all duration-300 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-                    <Smartphone size={22} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{t('guardian_phone_2', lang)}</p>
-                    <p className={`text-lg font-black tracking-tight leading-none ${isDark ? 'text-slate-200' : 'text-[#1E293B]'}`}>{student.guardian_phone_2}</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => window.location.href = `tel:${student.guardian_phone_2}`}
-                  className="w-11 h-11 bg-gradient-to-br from-blue-400 to-blue-600 text-white rounded-[1rem] flex items-center justify-center shadow-lg shadow-blue-400/20 active:scale-90 transition-all hover:-rotate-6"
-                >
-                  <Phone size={20} fill="currentColor" />
-                </button>
-              </div>
-            )}
           </div>
+
+          {/* Section: Organizational Info */}
+          {(student.join_date || student.reference) && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 px-2 mb-1">
+              <div className="w-1.5 h-6 bg-[#2563EB] rounded-full shadow-lg shadow-[#2563EB]/20" />
+              <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'সাংগঠনিক তথ্য' : 'Organizational Info'}</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <InfoRow label={lang === 'bn' ? 'যোগদানের তারিখ' : 'Join Date'} value={student.join_date} icon={<BookOpen size={18} />} isDark={isDark} />
+              <InfoRow label={lang === 'bn' ? 'রেফারেন্স' : 'Reference'} value={student.reference} icon={<UserIcon size={18} />} isDark={isDark} />
+            </div>
+          </div>
+          )}
         </div>
       </div>
 
@@ -244,3 +256,18 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
 };
 
 export default StudentDetails;
+
+const InfoRow: React.FC<{ label: string; value: string | null | undefined; icon: React.ReactNode; isDark: boolean; isTextArea?: boolean }> = ({ label, value, icon, isDark, isTextArea }) => {
+  if (!value) return null;
+  return (
+    <div className={`flex items-start gap-4 p-5 rounded-[2rem] border-2 transition-all group ${isDark ? 'bg-slate-800 border-slate-700 hover:border-[#2563EB]/30' : 'bg-slate-50/80 border-slate-100 hover:bg-white hover:border-[#2563EB]/30 hover:shadow-lg hover:shadow-slate-200/50'}`}>
+      <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center text-[#2563EB] shrink-0 shadow-md border group-hover:bg-[#2563EB] group-hover:text-white transition-all duration-300 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{label}</p>
+        <p className={`${isTextArea ? 'text-xs' : 'text-base'} font-black font-noto leading-tight break-words ${isDark ? 'text-slate-200' : 'text-[#1E293B]'}`}>{value}</p>
+      </div>
+    </div>
+  );
+};

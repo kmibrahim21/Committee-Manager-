@@ -124,7 +124,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
         setStudents(stdData);
         const initial: Record<string, 'present' | 'absent' | 'late' | 'half_day'> = {};
         stdData.forEach(s => {
-          const existing = attData?.find(a => a.student_id === s.id);
+          const existing = attData?.find(a => a.member_id === s.id);
           initial[s.id] = existing ? (existing.status as any) : 'present';
         });
         setAttendance(initial);
@@ -178,7 +178,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
       const payload = Object.entries(attendance).map(([sid, status]) => ({
         institution_id: madrasah.id,
         department_id: selectedClass.id,
-        student_id: sid,
+        member_id: sid,
         status: status,
         date: date,
         recorded_by: userId

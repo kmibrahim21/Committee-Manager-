@@ -232,6 +232,25 @@ CREATE TABLE IF NOT EXISTS public.promotion_logs (
     status TEXT DEFAULT 'promoted'
 );
 
+-- Events
+CREATE TABLE IF NOT EXISTS public.events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    institution_id UUID REFERENCES public.institutions(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    venue TEXT,
+    event_type TEXT DEFAULT 'General',
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ,
+    organizer TEXT,
+    guest_name TEXT,
+    status TEXT DEFAULT 'planned',
+    department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
+    image_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Calendar Events
 CREATE TABLE IF NOT EXISTS public.calendar_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -382,6 +401,51 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Attendance Report Function
+CREATE OR REPLACE FUNCTION public.get_attendance_report(
+  p_class_id UUID,
+  p_start_date DATE,
+  p_end_date DATE
+)
+RETURNS TABLE (
+  student_id UUID,
+  name TEXT,
+  roll TEXT,
+  total_days BIGINT,
+  present_days BIGINT,
+  absent_days BIGINT,
+  late_days BIGINT,
+  half_days BIGINT
+) 
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    m.id AS student_id,
+    m.name::TEXT,
+    m.roll::TEXT,
+    COUNT(a.id)::BIGINT AS total_days,
+    COUNT(a.id) FILTER (WHERE a.status = 'present')::INT AS present_days,
+    COUNT(a.id) FILTER (WHERE a.status = 'absent')::INT AS absent_days,
+    COUNT(a.id) FILTER (WHERE a.status = 'late')::INT AS late_days,
+    COUNT(a.id) FILTER (WHERE a.status = 'half_day')::INT AS half_days
+  FROM 
+    public.members m
+  LEFT JOIN 
+    public.attendance a ON m.id = a.member_id 
+    AND a.date >= p_start_date 
+    AND a.date <= p_end_date
+  WHERE 
+    m.department_id = p_class_id
+  GROUP BY 
+    m.id, m.name, m.roll
+  ORDER BY 
+    m.roll ASC;
+END;
+$$;
+
 -- 6. RLS SETTINGS
 ALTER TABLE institutions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -402,6 +466,7 @@ ALTER TABLE tutorials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE academic_years ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promotion_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
 -- 7. CLEAN POLICIES (Idempotent approach)
 -- Helper to drop policy if exists
@@ -422,8 +487,9 @@ SELECT drop_policy_if_exists('institutions', 'Users can update their own institu
 CREATE POLICY "Users can update their own institution" ON institutions FOR UPDATE USING (auth.uid() = id);
 
 SELECT drop_policy_if_exists('institutions', 'Super admin can view all');
+-- Use auth.jwt metadata or ID check to avoid recursion if possible, or handle it via a function
 CREATE POLICY "Super admin can view all" ON institutions FOR ALL USING (
-    (SELECT is_super_admin FROM institutions WHERE id = auth.uid()) = true
+    (auth.uid() IN (SELECT id FROM profiles WHERE role = 'super_admin'))
 );
 
 -- Profiles

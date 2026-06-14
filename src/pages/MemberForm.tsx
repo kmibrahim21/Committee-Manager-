@@ -21,14 +21,39 @@ interface StudentFormProps {
 
 const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultClassId, isEditing, onSuccess, onCancel, lang, title }) => {
   const [name, setName] = useState(student?.name || '');
-  const [guardianName, setGuardianName] = useState(student?.guardian_name || '');
   const [roll, setRoll] = useState(student?.roll?.toString() || '');
-  const [phone, setPhone] = useState(student?.phone || '');
-  const [phone2, setPhone2] = useState(student?.guardian_phone_2 || '');
+  const [memberIdNumber, setMemberIdNumber] = useState(student?.member_id_number || '');
   const [classId, setClassId] = useState(student?.department_id || defaultClassId || '');
+  const [memberType, setMemberType] = useState<Member['member_type']>(student?.member_type || 'general');
+  
+  // Personal Info
+  const [fatherName, setFatherName] = useState(student?.father_name || '');
+  const [motherName, setMotherName] = useState(student?.mother_name || '');
+  const [dob, setDob] = useState(student?.dob || '');
+  const [gender, setGender] = useState<Member['gender']>(student?.gender || 'male');
+  const [bloodGroup, setBloodGroup] = useState(student?.blood_group || '');
+  const [occupation, setOccupation] = useState(student?.occupation || '');
+  const [nid, setNid] = useState(student?.nid || '');
+  const [education, setEducation] = useState(student?.education || '');
+
+  // Contact
+  const [phone, setPhone] = useState(student?.phone || '');
+  const [email, setEmail] = useState(student?.email || '');
+  const [guardianName, setGuardianName] = useState(student?.guardian_name || '');
+  const [phone2, setPhone2] = useState(student?.guardian_phone_2 || '');
+  const [presentAddress, setPresentAddress] = useState(student?.present_address || student?.address || '');
+  const [permanentAddress, setPermanentAddress] = useState(student?.permanent_address || '');
+
+  // Other
+  const [joinDate, setJoinDate] = useState(student?.join_date || new Date().toISOString().split('T')[0]);
+  const [reference, setReference] = useState(student?.reference || '');
+
   const [departments, setClasses] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
   const [showClassModal, setShowClassModal] = useState(false);
+  const [showMemberTypeModal, setShowMemberTypeModal] = useState(false);
+  const [showGenderModal, setShowGenderModal] = useState(false);
+  const [showBloodGroupModal, setShowBloodGroupModal] = useState(false);
   
   const [errorModal, setErrorModal] = useState<{show: boolean, message: string}>({show: false, message: ''});
 
@@ -52,10 +77,34 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
     }
   };
 
-
   const getSelectedClassName = () => {
     const cls = departments.find(c => c.id === classId);
-    return cls ? cls.name : t('class_choose', lang, madrasah?.institution_type);
+    return cls ? cls.name : (lang === 'bn' ? 'বিভাগ নির্বাচন করুন' : 'Choose Department');
+  };
+
+  const getMemberTypeLabel = (type: Member['member_type']) => {
+    if (lang === 'bn') {
+      switch (type) {
+        case 'general': return 'সাধারণ সদস্য';
+        case 'executive': return 'কার্যনির্বাহী সদস্য';
+        case 'volunteer': return 'স্বেচ্ছাসেবক';
+        case 'donor': return 'দাতা সদস্য';
+        default: return 'সাধারণ সদস্য';
+      }
+    }
+    return type?.charAt(0).toUpperCase() + type?.slice(1) || 'General';
+  };
+
+  const getGenderLabel = (g: Member['gender']) => {
+    if (lang === 'bn') {
+      switch (g) {
+        case 'male': return 'পুরুষ';
+        case 'female': return 'মহিলা';
+        case 'other': return 'অন্যান্য';
+        default: return 'পুরুষ';
+      }
+    }
+    return g?.charAt(0).toUpperCase() + g?.slice(1) || 'Male';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,11 +127,30 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
     try {
       const payload = {
         name: name.trim(),
-        guardian_name: guardianName.trim(),
         roll: roll ? parseInt(roll) : null,
-        phone: phone.trim(),
-        guardian_phone_2: phone2.trim() || null,
+        member_id_number: memberIdNumber.trim() || null,
         department_id: classId || null,
+        member_type: memberType,
+        
+        father_name: fatherName.trim() || null,
+        mother_name: motherName.trim() || null,
+        dob: dob || null,
+        gender: gender,
+        blood_group: bloodGroup,
+        occupation: occupation.trim() || null,
+        nid: nid.trim() || null,
+        education: education.trim() || null,
+
+        phone: phone.trim(),
+        email: email.trim() || null,
+        guardian_name: guardianName.trim() || null,
+        guardian_phone_2: phone2.trim() || null,
+        present_address: presentAddress.trim() || null,
+        permanent_address: permanentAddress.trim() || null,
+
+        join_date: joinDate || null,
+        reference: reference.trim() || null,
+        
         institution_id: madrasah.id
       };
 
@@ -91,7 +159,6 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
       } else {
         await OfflineService.safeInsert('members', payload);
       }
-      
       onSuccess();
     } catch (err: any) { 
       let msg = err.message;
@@ -123,124 +190,264 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
           </button>
           <div>
             <h1 className="text-lg font-black text-white font-noto tracking-tight drop-shadow-sm">
-              {title || (isEditing ? t('edit_student', lang, madrasah?.institution_type) : t('add_student', lang, madrasah?.institution_type))}
+              {title || (isEditing ? (lang === 'bn' ? 'সদস্য তথ্য আপডেট' : 'Update Member') : (lang === 'bn' ? 'নতুন সদস্য নিবন্ধন' : 'New Member Registration'))}
             </h1>
             <p className="text-white/60 text-[9px] font-bold uppercase tracking-[0.2em] mt-1">
-              {isEditing ? 'Update existing record' : 'Register new student'}
+              {isEditing ? 'Update existing record' : 'Register new member'}
             </p>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Form Container */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Section 1: Basic Info */}
         <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-none' : 'bg-white border-slate-100 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.08)]'} p-6 rounded-[2.5rem] border space-y-6`}>
-          
-          {/* Section: Basic Info */}
-          <div className="space-y-5">
-            <div className="flex items-center gap-3 px-2">
-              <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
-              <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'প্রাথমিক তথ্য' : 'Basic Information'}</h3>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
-                  <UserIcon size={11} className="text-[#2563EB]" /> 
-                  {t('name', lang, madrasah?.institution_type)}
-                </label>
-                <input 
-                  type="text" 
-                  required 
-                  placeholder="Full Name"
-                  className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
-                  <UserCheck size={11} className="text-[#2563EB]" /> 
-                  {t('guardian_name', lang, madrasah?.institution_type)}
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="Father/Guardian Name"
-                  className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
-                  value={guardianName} 
-                  onChange={(e) => setGuardianName(e.target.value)} 
-                />
-              </div>
-            </div>
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
+            <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'প্রাথমিক তথ্য' : 'Basic Information'}</h3>
           </div>
 
-          {/* Section: Academic & Contact */}
-          <div className={`space-y-5 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-50'}`}>
-            <div className="flex items-center gap-3 px-2">
-              <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
-              <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'একাডেমিক ও যোগাযোগ' : 'Academic & Contact'}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                <UserIcon size={11} className="text-[#2563EB]" /> 
+                {lang === 'bn' ? 'সদস্যের পুরো নাম' : 'Full Name'} *
+              </label>
+              <input 
+                type="text" required placeholder="Full Name"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={name} onChange={(e) => setName(e.target.value)} 
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-              <div className="space-y-2">
-                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
-                  <Hash size={11} className="text-[#2563EB]" /> 
-                  {t('roll', lang, madrasah?.institution_type)}
-                </label>
-                <input 
-                  type="number" 
-                  placeholder="00"
-                  className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] font-black text-lg outline-none text-center focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
-                  value={roll} 
-                  onChange={(e) => setRoll(e.target.value)} 
-                />
-              </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                <Hash size={11} className="text-[#2563EB]" /> 
+                {lang === 'bn' ? 'সদস্য আইডি (যদি থাকে)' : 'Member ID (Optional)'}
+              </label>
+              <input 
+                type="text" placeholder="ID Number"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={memberIdNumber} onChange={(e) => setMemberIdNumber(e.target.value)} 
+              />
+            </div>
 
-              {madrasah?.config_json?.modules?.departments !== false && (
-              <div className="space-y-2">
-                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
-                  <List size={11} className="text-[#2563EB]" /> 
-                  {t('departments', lang, madrasah?.institution_type)}
-                </label>
-                <div 
-                  onClick={() => setShowClassModal(true)} 
-                  className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 hover:border-blue-500/50' : 'bg-slate-50 border-slate-100 hover:border-[#2563EB]/30'} border-2 rounded-[1.2rem] flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm group`}
-                >
-                  <span className={`font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} truncate text-sm leading-none font-noto`}>{getSelectedClassName()}</span>
-                  <ChevronDown size={16} className="text-[#2563EB] shrink-0 group-hover:translate-y-0.5 transition-transform" />
-                </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                <UserCheck size={11} className="text-[#2563EB]" /> 
+                {lang === 'bn' ? 'সদস্যপদ ধরণ' : 'Member Type'}
+              </label>
+              <div 
+                onClick={() => setShowMemberTypeModal(true)} 
+                className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 hover:border-blue-500/50' : 'bg-slate-50 border-slate-100 hover:border-[#2563EB]/30'} border-2 rounded-[1.2rem] flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm group`}
+              >
+                <span className={`font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} truncate text-sm leading-none font-noto`}>{getMemberTypeLabel(memberType)}</span>
+                <ChevronDown size={16} className="text-[#2563EB] shrink-0 group-hover:translate-y-0.5 transition-transform" />
               </div>
-              )}
+            </div>
 
-              <div className="space-y-2">
-                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
-                  <Phone size={11} className="text-[#2563EB]" /> 
-                  {t('phone_primary_wa', lang, madrasah?.institution_type)}
-                </label>
-                <input 
-                  type="tel" 
-                  required 
-                  placeholder="01XXXXXXXXX"
-                  className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] font-black text-sm outline-none focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
-                  value={phone} 
-                  onChange={(e) => handlePhoneChange(e.target.value, setPhone)} 
-                />
+            {madrasah?.config_json?.modules?.departments !== false && (
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                <List size={11} className="text-[#2563EB]" /> 
+                {lang === 'bn' ? 'বিভাগ / শাখা' : 'Department/Branch'}
+              </label>
+              <div 
+                onClick={() => setShowClassModal(true)} 
+                className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 hover:border-blue-500/50' : 'bg-slate-50 border-slate-100 hover:border-[#2563EB]/30'} border-2 rounded-[1.2rem] flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm group`}
+              >
+                <span className={`font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} truncate text-sm leading-none font-noto`}>{getSelectedClassName()}</span>
+                <ChevronDown size={16} className="text-[#2563EB] shrink-0 group-hover:translate-y-0.5 transition-transform" />
               </div>
+            </div>
+            )}
+          </div>
+        </div>
 
-              <div className="space-y-2">
-                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
-                  <Phone size={11} className="text-[#2563EB]" /> 
-                  {t('phone_secondary_15', lang, madrasah?.institution_type)}
-                </label>
-                <input 
-                  type="tel" 
-                  placeholder="Optional Number"
-                  className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] font-black text-sm outline-none focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
-                  value={phone2} 
-                  onChange={(e) => handlePhoneChange(e.target.value, setPhone2)} 
-                />
+        {/* Section 2: Personal info */}
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-none' : 'bg-white border-slate-100 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.08)]'} p-6 rounded-[2.5rem] border space-y-6`}>
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
+            <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'ব্যক্তিগত তথ্য' : 'Personal Information'}</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'পিতার নাম' : 'Father Name'}
+              </label>
+              <input 
+                type="text" placeholder="Father Name"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={fatherName} onChange={(e) => setFatherName(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'মাতার নাম' : 'Mother Name'}
+              </label>
+              <input 
+                type="text" placeholder="Mother Name"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={motherName} onChange={(e) => setMotherName(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'জন্ম তারিখ' : 'Date of Birth'}
+              </label>
+              <input 
+                type="date"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={dob} onChange={(e) => setDob(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'লিঙ্গ' : 'Gender'}
+              </label>
+              <div 
+                onClick={() => setShowGenderModal(true)} 
+                className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 hover:border-blue-500/50' : 'bg-slate-50 border-slate-100 hover:border-[#2563EB]/30'} border-2 rounded-[1.2rem] flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm`}
+              >
+                <span className={`font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} text-sm leading-none font-noto`}>{getGenderLabel(gender)}</span>
+                <ChevronDown size={16} className="text-[#2563EB] shrink-0" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'রক্তের গ্রুপ' : 'Blood Group'}
+              </label>
+              <div 
+                onClick={() => setShowBloodGroupModal(true)} 
+                className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 hover:border-blue-500/50' : 'bg-slate-50 border-slate-100 hover:border-[#2563EB]/30'} border-2 rounded-[1.2rem] flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all shadow-sm`}
+              >
+                <span className={`font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} text-sm leading-none font-noto`}>{bloodGroup || (lang === 'bn' ? 'নির্বাচন করুন' : 'Select')}</span>
+                <ChevronDown size={16} className="text-[#2563EB] shrink-0" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'পেশা' : 'Occupation'}
+              </label>
+              <input 
+                type="text" placeholder="Occupation"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={occupation} onChange={(e) => setOccupation(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'জাতীয় পরিচয়পত্র / পাসপোর্ট' : 'NID / Passport'}
+              </label>
+              <input 
+                type="text" placeholder="NID Number"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={nid} onChange={(e) => setNid(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2 lg:col-span-1">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'শিক্ষাগত যোগ্যতা' : 'Education'}
+              </label>
+              <input 
+                type="text" placeholder="Education Qualification"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={education} onChange={(e) => setEducation(e.target.value)} 
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Contact & Address */}
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-none' : 'bg-white border-slate-100 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.08)]'} p-6 rounded-[2.5rem] border space-y-6`}>
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
+            <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'যোগাযোগ ও ঠিকানা' : 'Contact & Address'}</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                <Phone size={11} className="text-[#2563EB]" /> 
+                {lang === 'bn' ? 'প্রাথমিক মোবাইল নম্বর' : 'Primary Mobile Number'} *
+              </label>
+              <input 
+                type="tel" required placeholder="01XXXXXXXXX"
+                className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] font-black text-sm outline-none focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={phone} onChange={(e) => handlePhoneChange(e.target.value, setPhone)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'দ্বিতীয় মোবাইল (ঐচ্ছিক)' : 'Secondary Mobile (Optional)'}
+              </label>
+              <input 
+                type="tel" placeholder="Optional Number"
+                className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] font-black text-sm outline-none focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={phone2} onChange={(e) => handlePhoneChange(e.target.value, setPhone2)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'ইমেইল এড্রেস' : 'Email Address'}
+              </label>
+              <input 
+                type="email" placeholder="email@example.com"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={email} onChange={(e) => setEmail(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'বর্তমান ঠিকানা' : 'Present Address'}
+              </label>
+              <textarea 
+                rows={2} placeholder="Present Address"
+                className={`w-full p-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm resize-none`} 
+                value={presentAddress} onChange={(e) => setPresentAddress(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'স্থায়ী ঠিকানা' : 'Permanent Address'}
+              </label>
+              <textarea 
+                rows={2} placeholder="Permanent Address"
+                className={`w-full p-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm resize-none`} 
+                value={permanentAddress} onChange={(e) => setPermanentAddress(e.target.value)} 
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 4: Other info */}
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-none' : 'bg-white border-slate-100 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.08)]'} p-6 rounded-[2.5rem] border space-y-6`}>
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
+            <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'অন্যান্য তথ্য' : 'Other Information'}</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'যোগদানের তারিখ' : 'Join Date'}
+              </label>
+              <input 
+                type="date"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={joinDate} onChange={(e) => setJoinDate(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                {lang === 'bn' ? 'কার মাধ্যমে যুক্ত হয়েছেন' : 'Reference'}
+              </label>
+              <input 
+                type="text" placeholder="Reference Name"
+                className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                value={reference} onChange={(e) => setReference(e.target.value)} 
+              />
             </div>
           </div>
         </div>
@@ -263,26 +470,70 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
         </button>
       </form>
 
+      {/* Modals for selections */}
       {showClassModal && createPortal(
         <div className="modal-overlay bg-[#080A12]/60 backdrop-blur-2xl animate-in fade-in duration-300">
           <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-2xl' : 'bg-white border-[#2563EB]/5 shadow-[0_40px_100px_rgba(37,99,235,0.15)]'} w-full max-w-sm rounded-[2.5rem] p-8 relative animate-in zoom-in-95 duration-300 border`}>
             <button onClick={() => setShowClassModal(false)} className="absolute top-8 right-8 text-slate-400 hover:text-[#2563EB] transition-all"><X size={22} strokeWidth={3} /></button>
-            
-            <div className="flex items-center gap-4 mb-6">
-               <div className={`w-14 h-14 ${isDark ? 'bg-blue-900/30 border-blue-800/50 text-blue-400' : 'bg-blue-50 border-blue-100 text-[#2563EB]'} rounded-[1.5rem] flex items-center justify-center shrink-0 border shadow-inner`}>
-                  <BookOpen size={28} />
-               </div>
-               <div>
-                  <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto tracking-tight`}>{t('select_class', lang, madrasah?.institution_type)}</h2>
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Select a class</p>
-               </div>
-            </div>
-
+            <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto mb-6`}>{lang === 'bn' ? 'বিভাগ নির্বাচন' : 'Select Department'}</h2>
             <div className="space-y-2.5 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
                {departments.map(cls => (
                  <button key={cls.id} onClick={() => { setClassId(cls.id); setShowClassModal(false); }} className={`w-full p-4 rounded-[1.5rem] font-black transition-all flex items-center justify-between border-2 ${classId === cls.id ? 'bg-[#2563EB] border-[#2563EB] text-white shadow-xl' : isDark ? 'bg-slate-900 border-slate-700 text-blue-400' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
                     <span className="font-noto text-base">{cls.name}</span>
                     {classId === cls.id && <Check size={18} strokeWidth={4} />}
+                 </button>
+               ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showMemberTypeModal && createPortal(
+        <div className="modal-overlay bg-[#080A12]/60 backdrop-blur-2xl animate-in fade-in duration-300">
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-2xl' : 'bg-white border-[#2563EB]/5 shadow-[0_40px_100px_rgba(37,99,235,0.15)]'} w-full max-w-sm rounded-[2.5rem] p-8 relative animate-in zoom-in-95 duration-300 border`}>
+            <button onClick={() => setShowMemberTypeModal(false)} className="absolute top-8 right-8 text-slate-400 hover:text-[#2563EB] transition-all"><X size={22} strokeWidth={3} /></button>
+            <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto mb-6`}>{lang === 'bn' ? 'সদস্যপদ ধরণ' : 'Member Type'}</h2>
+            <div className="space-y-2.5">
+               {(['general', 'executive', 'volunteer', 'donor'] as Member['member_type'][]).map(type => (
+                 <button key={type} onClick={() => { setMemberType(type); setShowMemberTypeModal(false); }} className={`w-full p-4 rounded-[1.5rem] font-black transition-all flex items-center justify-between border-2 ${memberType === type ? 'bg-[#2563EB] border-[#2563EB] text-white shadow-xl' : isDark ? 'bg-slate-900 border-slate-700 text-blue-400' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
+                    <span className="font-noto text-base">{getMemberTypeLabel(type)}</span>
+                    {memberType === type && <Check size={18} strokeWidth={4} />}
+                 </button>
+               ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showGenderModal && createPortal(
+        <div className="modal-overlay bg-[#080A12]/60 backdrop-blur-2xl animate-in fade-in duration-300">
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-2xl' : 'bg-white border-[#2563EB]/5 shadow-[0_40px_100px_rgba(37,99,235,0.15)]'} w-full max-w-sm rounded-[2.5rem] p-8 relative animate-in zoom-in-95 duration-300 border`}>
+            <button onClick={() => setShowGenderModal(false)} className="absolute top-8 right-8 text-slate-400 hover:text-[#2563EB] transition-all"><X size={22} strokeWidth={3} /></button>
+            <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto mb-6`}>{lang === 'bn' ? 'লিঙ্গ নির্বাচন' : 'Select Gender'}</h2>
+            <div className="space-y-2.5">
+               {(['male', 'female', 'other'] as Member['gender'][]).map(g => (
+                 <button key={g} onClick={() => { setGender(g); setShowGenderModal(false); }} className={`w-full p-4 rounded-[1.5rem] font-black transition-all flex items-center justify-between border-2 ${gender === g ? 'bg-[#2563EB] border-[#2563EB] text-white shadow-xl' : isDark ? 'bg-slate-900 border-slate-700 text-blue-400' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
+                    <span className="font-noto text-base">{getGenderLabel(g)}</span>
+                    {gender === g && <Check size={18} strokeWidth={4} />}
+                 </button>
+               ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showBloodGroupModal && createPortal(
+        <div className="modal-overlay bg-[#080A12]/60 backdrop-blur-2xl animate-in fade-in duration-300">
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-2xl' : 'bg-white border-[#2563EB]/5 shadow-[0_40px_100px_rgba(37,99,235,0.15)]'} w-full max-w-sm rounded-[2.5rem] p-8 relative animate-in zoom-in-95 duration-300 border`}>
+            <button onClick={() => setShowBloodGroupModal(false)} className="absolute top-8 right-8 text-slate-400 hover:text-[#2563EB] transition-all"><X size={22} strokeWidth={3} /></button>
+            <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto mb-6`}>{lang === 'bn' ? 'রক্তের গ্রুপ' : 'Blood Group'}</h2>
+            <div className="grid grid-cols-2 gap-2.5">
+               {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => (
+                 <button key={bg} onClick={() => { setBloodGroup(bg); setShowBloodGroupModal(false); }} className={`p-4 rounded-[1.5rem] font-black transition-all flex items-center justify-center border-2 ${bloodGroup === bg ? 'bg-[#2563EB] border-[#2563EB] text-white shadow-xl' : isDark ? 'bg-slate-900 border-slate-700 text-blue-400' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
+                    <span className="font-noto text-base">{bg}</span>
                  </button>
                ))}
             </div>
@@ -304,7 +555,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                <button onClick={() => setErrorModal({show: false, message: ''})} className={`w-full py-5 ${isDark ? 'bg-slate-900 text-blue-400' : 'bg-slate-100 text-[#2E0B5E]'} rounded-full font-black text-sm uppercase tracking-widest active:scale-95 transition-all`}>ঠিক আছে</button>
             </div>
          </div>,
-         document.body
+        document.body
       )}
     </div>
   );

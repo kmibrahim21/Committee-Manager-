@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Play, UserCheck, LayoutDashboard } from 'lucide-react';
+import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Play, UserCheck, LayoutDashboard, Calendar } from 'lucide-react';
 import { View, Language, Institution, Transaction, Profile } from 'types';
 import { t } from 'translations';
 import { supabase } from 'supabase';
@@ -89,6 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
     if (tab === 'accounting' && currentView === 'accounting') return true;
     if (tab === 'attendance' && currentView === 'attendance') return true;
     if (tab === 'meetings' && (currentView === 'meetings' || currentView === 'minutes')) return true;
+    if (tab === 'events' && currentView === 'events') return true;
     if (tab === 'wallet' && currentView === 'wallet-sms') return true;
     if (tab === 'voice-broadcast' && currentView === 'voice-broadcast') return true;
     if (tab === 'sms-voice-menu' && currentView === 'sms-voice-menu') return true;
@@ -131,7 +132,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               {canAccess('organizations') && (
                 <button onClick={() => setView('admin-panel')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <Users size={22} strokeWidth={isTabActive('list') ? 2.5 : 2} />
-                  <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'সংগঠনসমূহ' : 'Organizations'}</span>
+                  <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'কমিটিসমূহ' : 'Committees'}</span>
                 </button>
               )}
               {canAccess('approvals') && (
@@ -207,6 +208,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                   <span className="text-sm font-bold font-noto">{t('meetings', lang)}</span>
                 </button>
               )}
+              {(isSuperAdmin || role === 'org_admin') && (
+                <button onClick={() => setView('events')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('events') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+                  <Calendar size={22} strokeWidth={isTabActive('events') ? 2.5 : 2} />
+                  <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'ইভেন্টসমূহ' : 'Events'}</span>
+                </button>
+              )}
               <button onClick={() => setView('account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <User size={22} strokeWidth={isTabActive('account') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{t('account', lang)}</span>
@@ -267,7 +274,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               {canAccess('organizations') && (
                 <button onClick={() => setView('admin-panel')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
                   <Users size={20} />
-                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'প্রতিষ্ঠান' : 'Organizations'}</span>
+                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'কমিটিসমূহ' : 'Committees'}</span>
                 </button>
               )}
               {canAccess('approvals') && (
@@ -333,6 +340,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 <button onClick={() => setView('meetings')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('meetings') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
                   <GraduationCap size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{t('meetings', lang)}</span>
+                </button>
+              )}
+              {(isSuperAdmin || role === 'org_admin') && (
+                <button onClick={() => setView('events')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('events') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
+                  <Calendar size={20} />
+                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'ইভেন্ট' : 'Events'}</span>
                 </button>
               )}
             </>

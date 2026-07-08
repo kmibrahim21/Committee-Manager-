@@ -375,13 +375,13 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
             <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900' : 'bg-slate-100'} p-1 rounded-xl flex`}>
                 <button 
                     onClick={() => setViewMode('monthly')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'monthly' ? (madrasah?.theme === 'dark' ? 'bg-slate-800 shadow-sm text-blue-400' : 'bg-white shadow-sm text-blue-600') : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'monthly' ? (madrasah?.theme === 'dark' ? 'bg-slate-800 shadow-sm text-[#42f5e9]' : 'bg-white shadow-sm text-[#0fb5ab]') : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     {localT.monthly[lang]}
                 </button>
                 <button 
                     onClick={() => setViewMode('yearly')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'yearly' ? (madrasah?.theme === 'dark' ? 'bg-slate-800 shadow-sm text-blue-400' : 'bg-white shadow-sm text-blue-600') : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'yearly' ? (madrasah?.theme === 'dark' ? 'bg-slate-800 shadow-sm text-[#42f5e9]' : 'bg-white shadow-sm text-[#0fb5ab]') : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     {localT.yearly[lang]}
                 </button>
@@ -392,13 +392,13 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
                     type="month" 
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
-                    className={`px-4 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                    className={`px-4 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#42f5e9]/20 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
                 />
             ) : (
                 <select 
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(e.target.value)}
-                    className={`px-4 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                    className={`px-4 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#42f5e9]/20 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
                 >
                     {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
                         <option key={y} value={y}>{y}</option>
@@ -412,7 +412,7 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
             <select 
                 value={selectedClassId}
                 onChange={(e) => setSelectedClassId(e.target.value)}
-                className={`px-4 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-w-[150px] ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                className={`px-4 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#42f5e9]/20 min-w-[150px] ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
             >
                 <option value="all">{localT.allClasses[lang]}</option>
                 {localClasses.map(c => (
@@ -427,17 +427,17 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
         {/* Expected Income */}
         <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-5 rounded-3xl border shadow-bubble hover:shadow-md transition-all group`}>
           <div className="flex items-center justify-between mb-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform ${madrasah?.theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-500'}`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
               <DollarSign size={24} />
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('expected_income', lang)}</p>
-              <h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>৳ {stats?.expected_income?.toLocaleString('bn-BD')}</h3>
+              <h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>৳ {stats?.expected_income?.toLocaleString('bn-BD')}</h3>
             </div>
           </div>
           <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
             <span>{localT.targetMonthly[lang]}</span>
-            <span className="text-blue-500">{localT.goal100[lang]}</span>
+            <span className="text-[#0fb5ab]">{localT.goal100[lang]}</span>
           </div>
         </div>
 
@@ -449,7 +449,7 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{viewMode === 'yearly' ? localT.totalCollected[lang] : t('predicted_total', lang)}</p>
-              <h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-[#1E3A8A]'}`}>৳ {stats?.prediction?.toLocaleString('bn-BD')}</h3>
+              <h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-[#0fb5ab]'}`}>৳ {stats?.prediction?.toLocaleString('bn-BD')}</h3>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -474,7 +474,7 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('collection_rate_label', lang)}</p>
-              <h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-indigo-400' : 'text-[#1E3A8A]'}`}>{stats?.collection_rate}%</h3>
+              <h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-indigo-400' : 'text-[#0fb5ab]'}`}>{stats?.collection_rate}%</h3>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -522,14 +522,14 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-50 text-purple-500'}`}>
               <PieChart size={20} />
            </div>
-           <h3 className={`text-lg font-black font-noto ${madrasah?.theme === 'dark' ? 'text-slate-200' : 'text-[#1E3A8A]'}`}>{localT.feeBreakdown[lang]} ({viewMode === 'monthly' ? selectedMonth : selectedYear})</h3>
+           <h3 className={`text-lg font-black font-noto ${madrasah?.theme === 'dark' ? 'text-slate-200' : 'text-[#0fb5ab]'}`}>{localT.feeBreakdown[lang]} ({viewMode === 'monthly' ? selectedMonth : selectedYear})</h3>
         </div>
         
         <div className="space-y-3">
            {breakdown.length > 0 ? breakdown.map((item, idx) => (
               <div key={idx} className={`p-4 rounded-2xl border flex items-center justify-between ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
                  <div>
-                    <h4 className={`font-black text-sm ${madrasah?.theme === 'dark' ? 'text-slate-300' : 'text-[#1E3A8A]'}`}>{item.name}</h4>
+                    <h4 className={`font-black text-sm ${madrasah?.theme === 'dark' ? 'text-slate-300' : 'text-[#0fb5ab]'}`}>{item.name}</h4>
                     <div className="flex items-center gap-3 mt-1">
                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><Users size={10}/> {item.students} {localT.students[lang]}</span>
                        <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-1"><CheckCircle2 size={10}/> {item.transactions} {localT.paid[lang]}</span>
@@ -537,7 +537,7 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
                  </div>
                  <div className="text-right">
                     <p className="text-[10px] font-black text-slate-400 uppercase">{localT.expectedCollected[lang]}</p>
-                    <p className={`text-sm font-black ${madrasah?.theme === 'dark' ? 'text-slate-300' : 'text-[#1E3A8A]'}`}>৳{item.expected.toLocaleString()} / <span className="text-emerald-500">৳{item.collected.toLocaleString()}</span></p>
+                    <p className={`text-sm font-black ${madrasah?.theme === 'dark' ? 'text-slate-300' : 'text-[#0fb5ab]'}`}>৳{item.expected.toLocaleString()} / <span className="text-emerald-500">৳{item.collected.toLocaleString()}</span></p>
                     <p className="text-[10px] font-bold text-red-400 mt-1">{localT.due[lang]}: ৳{(item.expected - item.collected).toLocaleString()}</p>
                  </div>
               </div>
@@ -555,7 +555,7 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
                 <h3 className="text-xl font-black font-noto">{t('reminders', lang)}</h3>
                 <p className="text-[10px] font-black uppercase opacity-60 tracking-widest">{reminders.length} {localT.studentsPending[lang]}</p>
             </div>
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${madrasah?.theme === 'dark' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-[#2563EB] border-blue-100'}`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9] border-[#42f5e9]/20' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/10'}`}>
                 <AlertCircle size={24} />
             </div>
             </div>

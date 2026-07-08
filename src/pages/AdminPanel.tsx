@@ -221,9 +221,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       };
     } catch (err) {
       console.error("Error fetching global counts:", err);
-      return globalStats; // Fallback to current stats
+      return {
+        totalStudents: 0,
+        totalClasses: 0,
+        totalDistributedSMS: 0,
+        totalSentSMS: 0,
+        currentInUserWallets: 0,
+        totalRevenue: 0,
+        pendingApprovals: 0,
+        totalInstitutions: 0,
+        activeInstitutions: 0,
+        totalVoiceBalance: 0,
+        adminSMSStock: 0,
+        typeBreakdown: {}
+      };
     }
-  }, [globalStats]);
+  }, []);
 
   const fetchAllMadrasahs = useCallback(async () => {
     const { data, error } = await supabase.from('institutions')
@@ -304,7 +317,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     } finally { 
       if (!silent) setLoading(false); 
     }
-  }, [view]);
+  }, [view, fetchAllMadrasahs, fetchGlobalCounts, fetchPendingTransactions, fetchTransactionHistory]);
 
   useEffect(() => { 
     initData(); 
@@ -691,55 +704,55 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
             <div className="space-y-6 animate-in slide-in-from-bottom-5">
               <div className="flex items-center justify-between px-2">
                 <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto`}>সিস্টেম ড্যাশবোর্ড</h1>
-                <button onClick={() => initData()} className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400 border-slate-700' : 'bg-blue-50 text-[#2563EB] border-blue-100'} rounded-xl active:scale-95 transition-all border shadow-sm`}>
+                <button onClick={() => initData()} className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#0fb5ab] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'} rounded-xl active:scale-95 transition-all border shadow-sm`}>
                    <RefreshCw size={18} />
                 </button>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center`}>
-                  <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
+                  <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
                     <Users2 size={20} />
                   </div>
-                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{globalStats.totalInstitutions}</h4>
+                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalInstitutions}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Portals</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center`}>
                   <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
                     <Activity size={20} />
                   </div>
-                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{globalStats.activeInstitutions}</h4>
+                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.activeInstitutions}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Active Portals</p>
                 </div>
                 <div onClick={() => setView('approvals')} className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none hover:border-yellow-900' : 'bg-white border-slate-100 shadow-bubble hover:border-yellow-200'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center cursor-pointer transition-all active:scale-95`}>
                   <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-50 text-yellow-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
                     <CreditCard size={20} />
                   </div>
-                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{globalStats.pendingApprovals}</h4>
+                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.pendingApprovals}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Pending Approvals</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center`}>
                   <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-50 text-purple-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
                     <Banknote size={20} />
                   </div>
-                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{globalStats.totalRevenue.toLocaleString('bn-BD')}</h4>
+                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalRevenue.toLocaleString('bn-BD')}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Revenue (৳)</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-4 rounded-[2rem] border flex flex-col items-center text-center`}>
-                  <div className={`w-8 h-8 ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-500'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
+                  <div className={`w-8 h-8 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
                     <GraduationCap size={16} />
                   </div>
-                  <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{globalStats.totalStudents.toLocaleString('bn-BD')}</h4>
+                  <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalStudents.toLocaleString('bn-BD')}</h4>
                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Students</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-4 rounded-[2rem] border flex flex-col items-center text-center`}>
                   <div className={`w-8 h-8 ${madrasah?.theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-50 text-orange-500'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
                     <Layers size={16} />
                   </div>
-                  <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{globalStats.totalClasses.toLocaleString('bn-BD')}</h4>
+                  <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalClasses.toLocaleString('bn-BD')}</h4>
                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Classes</p>
                 </div>
               </div>
@@ -747,13 +760,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'} font-noto`}>SMS Inventory</h3>
-                    <Zap size={24} className={madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]'} fill="currentColor" />
+                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>SMS Inventory</h3>
+                    <Zap size={24} className={madrasah?.theme === 'dark' ? 'text-[#0fb5ab]' : 'text-[#0fb5ab]'} fill="currentColor" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-5 rounded-3xl border`}>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">বিতরণকৃত SMS</p>
-                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{globalStats.totalDistributedSMS.toLocaleString('bn-BD')}</h5>
+                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalDistributedSMS.toLocaleString('bn-BD')}</h5>
                     </div>
                     <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-5 rounded-3xl border`}>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ব্যবহৃত SMS</p>
@@ -772,12 +785,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'} font-noto`}>System Info</h3>
+                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>System Info</h3>
                     <AlertCircle size={24} className="text-slate-300" />
                   </div>
                   <div className="flex flex-col justify-center h-full pb-8">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-center">Total Institutions</p>
-                    <h5 className={`text-4xl font-black text-center ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{globalStats.totalInstitutions.toLocaleString('bn-BD')}</h5>
+                    <h5 className={`text-4xl font-black text-center ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalInstitutions.toLocaleString('bn-BD')}</h5>
                   </div>
                 </div>
               </div>
@@ -785,7 +798,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'} font-noto`}>System Breakdown</h3>
+                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>System Breakdown</h3>
                     <PieChart size={24} className="text-slate-300" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -800,18 +813,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'} font-noto`}>Recent Portals</h3>
+                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>Recent Portals</h3>
                     <Building2 size={24} className="text-slate-300" />
                   </div>
                   <div className="space-y-3">
                     {recentInstitutions.map(inst => (
                       <div key={inst.id} className={`flex items-center justify-between p-4 rounded-2xl ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'} border`}>
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-500'}`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
                             <Building2 size={18} />
                           </div>
                           <div>
-                            <p className={`text-xs font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'}`}>{inst.name}</p>
+                            <p className={`text-xs font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{inst.name}</p>
                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{inst.institution_type}</p>
                           </div>
                         </div>
@@ -826,7 +839,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
               <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                 <div className="flex items-center justify-between">
-                  <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'} font-noto`}>সাম্প্রতিক লেনদেন</h3>
+                  <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>সাম্প্রতিক লেনদেন</h3>
                   <HistoryIcon size={24} className="text-slate-300" />
                 </div>
                 <div className="space-y-3">
@@ -851,7 +864,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                     <p className="text-center py-10 text-slate-400 text-xs font-bold italic">কোন লেনদেন পাওয়া যায়নি</p>
                   )}
                 </div>
-                <button onClick={() => setView('approvals')} className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50/50 rounded-2xl transition-colors">
+                <button onClick={() => setView('approvals')} className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-[#0fb5ab] hover:bg-[#42f5e9]/10 rounded-2xl transition-colors">
                   সকল লেনদেন দেখুন
                 </button>
               </div>
@@ -861,10 +874,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           {view === 'list' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between px-2">
-                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto`}>কমিটি লিস্ট</h1>
+                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>কমিটি লিস্ট</h1>
                 <button 
                   onClick={() => setShowCreateModal(true)} 
-                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-premium active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-[#2563EB] text-white hover:bg-blue-600'}`}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-premium active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9] text-[#0e8a84]' : 'bg-[#42f5e9] text-[#0e8a84] hover:opacity-90'}`}
                 >
                   <PlusCircle size={18} strokeWidth={2.5} />
                   <span>নতুন কমিটি</span>
@@ -890,20 +903,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filtered.length > 0 ? filtered.map(m => (
-                  <div key={m.id} onClick={() => handleUserClick(m)} className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none hover:border-blue-900' : 'bg-white border-slate-100 shadow-bubble hover:border-[#2563EB]/30'} p-5 rounded-[2.2rem] border active:scale-[0.98] transition-all cursor-pointer`}>
+                  <div key={m.id} onClick={() => handleUserClick(m)} className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none hover:border-[#0fb5ab]/50' : 'bg-white border-slate-100 shadow-bubble hover:border-[#42f5e9]/30'} p-5 rounded-[2.2rem] border active:scale-[0.98] transition-all cursor-pointer`}>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-4 min-w-0">
                         <div className={`w-14 h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} rounded-2xl flex items-center justify-center text-slate-300 border shadow-inner shrink-0 overflow-hidden`}>
                           {m.logo_url ? <img src={m.logo_url} className="w-full h-full object-contain" /> : <UserIcon size={24} />}
                         </div>
                         <div className="min-w-0">
-                          <h3 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'} truncate font-noto text-lg`}>{m.name}</h3>
+                          <h3 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} truncate font-noto text-lg`}>{m.name}</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <p className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${m.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
                               {m.is_active ? 'Active' : 'Blocked'}
                             </p>
                             <span className="text-[10px] text-slate-300">•</span>
-                            <p className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                            <p className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-[#42f5e9]/10 text-[#0fb5ab]">
                               {m.institution_type || 'madrasah'}
                             </p>
                             {m.config_json?.modules?.voice_broadcast !== false && (
@@ -929,8 +942,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           {view === 'approvals' && (
             <div className="space-y-8 px-1">
               <div className="flex items-center justify-between px-2">
-                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto`}>পেমেন্ট ম্যানেজমেন্ট</h1>
-                <button onClick={() => initData()} className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400 border-slate-700' : 'bg-blue-50 text-[#2563EB] border-blue-100'} rounded-xl active:scale-95 transition-all border shadow-sm`}>
+                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>পেমেন্ট ম্যানেজমেন্ট</h1>
+                <button onClick={() => initData()} className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#0fb5ab] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'} rounded-xl active:scale-95 transition-all border shadow-sm`}>
                    <RefreshCw size={18} />
                 </button>
               </div>
@@ -938,13 +951,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
               <div className={`flex ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'} p-1 rounded-2xl`}>
                 <button 
                   onClick={() => setPaymentTab('sms')}
-                  className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'sms' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-blue-400 shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}
+                  className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'sms' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
                 >
                   SMS Recharge
                 </button>
                 <button 
                   onClick={() => setPaymentTab('voice')}
-                  className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'voice' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-blue-400 shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}
+                  className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'voice' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
                 >
                   Voice Recharge
                 </button>
@@ -970,11 +983,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                         </div>
                       </div>
                       <div className="px-1 space-y-1">
-                        <p className="text-[15px] font-black text-[#1E3A8A] font-noto">{tr.institutions?.name}</p>
+                        <p className="text-[15px] font-black text-[#0fb5ab] font-noto">{tr.institutions?.name}</p>
                         <div className="flex flex-col gap-0.5">
-                           <p className="text-[10px] font-bold text-slate-400">TrxID: <span className="text-[#2563EB]">{tr.transaction_id}</span></p>
-                           <p className="text-[11px] font-black text-[#1E3A8A] flex items-center gap-1.5">
-                               <Smartphone size={12} className="text-[#2563EB]" /> 
+                           <p className="text-[10px] font-bold text-slate-400">TrxID: <span className="text-[#0fb5ab]">{tr.transaction_id}</span></p>
+                           <p className="text-[11px] font-black text-[#0fb5ab] flex items-center gap-1.5">
+                               <Smartphone size={12} className="text-[#0fb5ab]" /> 
                                বিকাশ নম্বর: <span className="text-slate-800">{tr.sender_phone || 'N/A'}</span>
                            </p>
                         </div>
@@ -982,12 +995,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       
                       <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex items-center gap-2">
-                           <MessageSquare size={16} className={smsEnabledMap[tr.id] ? "text-[#2563EB]" : "text-slate-300"} />
+                           <MessageSquare size={16} className={smsEnabledMap[tr.id] ? "text-[#0fb5ab]" : "text-slate-300"} />
                            <span className="text-[10px] font-black text-slate-500 uppercase">অ্যাপ্রুভ হলে SMS পাঠান</span>
                         </div>
                         <button onClick={() => toggleSmsForRequest(tr.id)} className="transition-all active:scale-90">
                            {smsEnabledMap[tr.id] ? (
-                             <ToggleRight className="text-[#2563EB]" size={28} />
+                             <ToggleRight className="text-[#0fb5ab]" size={28} />
                            ) : (
                              <ToggleLeft className="text-slate-300" size={28} />
                            )}
@@ -1000,7 +1013,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                             <input 
                               type="number" 
                               disabled={approvingIds.has(tr.id)}
-                              className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] font-black text-base text-center outline-none focus:border-[#2563EB]/20 disabled:opacity-50" 
+                              className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] font-black text-base text-center outline-none focus:border-[#42f5e9]/50 disabled:opacity-50" 
                               value={smsToCredit[tr.id] || ''} 
                               onChange={(e) => setSmsToCredit({...smsToCredit, [tr.id]: e.target.value})} 
                               placeholder="SMS Quantity" 
@@ -1009,7 +1022,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                           <button 
                             onClick={() => approveTransaction(tr)} 
                             disabled={approvingIds.has(tr.id) || (paymentTab === 'sms' && !smsToCredit[tr.id])}
-                            className="w-full h-14 bg-[#2563EB] text-white font-black rounded-[1.5rem] text-sm active:scale-95 transition-all shadow-premium disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center"
+                            className="w-full h-14 bg-[#42f5e9] text-[#0e8a84] font-black rounded-[1.5rem] text-sm active:scale-95 transition-all shadow-premium disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center"
                           >
                             {approvingIds.has(tr.id) ? <Loader2 className="animate-spin" size={20} /> : 'অনুমোদন দিন'}
                           </button>
@@ -1033,7 +1046,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
               <div className="space-y-6 pt-4 border-t border-slate-100">
                 <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
-                   <HistoryIcon size={14} className="text-blue-400" /> Recent Transactions
+                   <HistoryIcon size={14} className="text-[#0fb5ab]" /> Recent Transactions
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                   {transactionHistory.filter(tr => {
@@ -1046,15 +1059,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                     <div key={tr.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-bubble flex items-center justify-between">
                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                             <p className="text-[15px] font-black text-[#1E3A8A] leading-none">{tr.amount} ৳</p>
+                             <p className="text-[15px] font-black text-[#0fb5ab] leading-none">{tr.amount} ৳</p>
                              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${tr.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
                                 {tr.status}
                              </span>
                           </div>
-                          <p className="text-[12px] font-black text-[#1E3A8A] font-noto truncate">{tr.institutions?.name}</p>
+                          <p className="text-[12px] font-black text-[#0fb5ab] font-noto truncate">{tr.institutions?.name}</p>
                           <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-2">
                              <Smartphone size={10} /> বিকাশ: {tr.sender_phone || 'N/A'}
-                             {tr.sms_count && <span className="text-[#2563EB] font-black">({tr.sms_count} SMS)</span>}
+                             {tr.sms_count && <span className="text-[#0fb5ab] font-black">({tr.sms_count} SMS)</span>}
                           </p>
                           <div className="flex items-center gap-2 mt-1.5 text-slate-400">
                              <Clock size={10} />
@@ -1063,7 +1076,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                        </div>
                        <div className="text-right ml-4">
                           <p className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">TrxID</p>
-                          <p className="text-[10px] font-black text-[#2563EB] uppercase leading-tight">{tr.transaction_id}</p>
+                          <p className="text-[10px] font-black text-[#0fb5ab] uppercase leading-tight">{tr.transaction_id}</p>
                        </div>
                     </div>
                   )) : (
@@ -1079,7 +1092,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           {view === 'details' && selectedUser && (
              <div className="animate-in slide-in-from-right-10 duration-500 pb-20 space-y-8 pt-2">
                 <div className="flex items-center gap-5 px-1">
-                   <button onClick={() => setView('list')} className={`w-12 h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400 border-slate-700' : 'bg-blue-50 text-[#2563EB] border-blue-100'} rounded-2xl flex items-center justify-center active:scale-90 transition-all border shadow-sm`}>
+                   <button onClick={() => setView('list')} className={`w-12 h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'} rounded-2xl flex items-center justify-center active:scale-90 transition-all border shadow-sm`}>
                       <ArrowLeft size={24} strokeWidth={3} />
                    </button>
                    <div className="min-w-0">
@@ -1093,7 +1106,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       <div className={`w-24 h-24 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-white'} rounded-[2rem] flex items-center justify-center border-4 shadow-bubble overflow-hidden mb-4`}>
                          {selectedUser.logo_url ? <img src={selectedUser.logo_url} className="w-full h-full object-contain" /> : <UserIcon size={40} className="text-slate-300" />}
                       </div>
-                      <h2 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'} font-noto`}>{selectedUser.name}</h2>
+                      <h2 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>{selectedUser.name}</h2>
                       <div className={`mt-3 px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${editActive ? (madrasah?.theme === 'dark' ? 'bg-emerald-900/30 text-emerald-400 border-emerald-900/50' : 'bg-emerald-50 text-emerald-600 border-emerald-100') : (madrasah?.theme === 'dark' ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-50 text-red-600 border-red-100')}`}>
                          <Activity size={12} /> {editActive ? 'Active Portal' : 'Access Restricted'}
                       </div>
@@ -1101,15 +1114,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{userStats.students}</h5>
+                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{userStats.students}</h5>
                          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Students</p>
                       </div>
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{userStats.departments}</h5>
+                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{userStats.departments}</h5>
                          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Classes</p>
                       </div>
-                      <div className={`${madrasah?.theme === 'dark' ? 'bg-blue-900/30 border-blue-900/50' : 'bg-blue-50 border-blue-100'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>{selectedUser.sms_balance || 0}</h5>
+                      <div className={`${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 border-[#42f5e9]/50' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20'} p-4 rounded-3xl text-center border`}>
+                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{selectedUser.sms_balance || 0}</h5>
                          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">SMS Bal</p>
                       </div>
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-emerald-900/30 border-emerald-900/50' : 'bg-emerald-50 border-emerald-100'} p-4 rounded-3xl text-center border`}>
@@ -1122,20 +1135,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                          <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Committee Name</label>
-                            <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} border rounded-2xl px-6 font-black outline-none focus:border-[#2563EB]/20`} value={editName} onChange={(e) => setEditName(e.target.value)} />
+                            <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editName} onChange={(e) => setEditName(e.target.value)} />
                          </div>
                          <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Gmail / Email</label>
-                            <input type="email" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} border rounded-2xl px-6 font-black outline-none focus:border-[#2563EB]/20`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                            <input type="email" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
                          </div>
-                         <div className="grid grid-cols-2 gap-4 lg:col-span-2">
+                         <div className="grid grid-cols-1 gap-4 lg:col-span-2">
                             <div className="space-y-2">
                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Phone</label>
-                               <input type="tel" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} border rounded-2xl px-6 font-black outline-none`} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                               <input type="tel" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
                             </div>
                             <div className="space-y-2">
-                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Login Pin</label>
-                               <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-blue-400' : 'bg-slate-50 border-slate-100 text-[#2563EB]'} border rounded-2xl px-6 font-black outline-none`} value={editLoginCode} onChange={(e) => setEditLoginCode(e.target.value)} />
+                                {/* pin segment removed */}
+                               {/* pin removed */}
                             </div>
                          </div>
                       </div>
@@ -1143,7 +1156,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
                          <div className="flex items-center justify-between px-1">
                             <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                               <Sliders size={14} className={madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]'} /> Advanced Config
+                               <Sliders size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> Advanced Config
                             </h4>
                             <button onClick={() => setEditActive(!editActive)} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${editActive ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
                                {editActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
@@ -1179,7 +1192,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                                         onClick={() => setEditInstitutionType(type.id)}
                                         className={`px-3 py-2.5 rounded-xl border text-[10px] font-black transition-all ${
                                           editInstitutionType === type.id 
-                                            ? (madrasah?.theme === 'dark' ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-[#2563EB] border-blue-600 text-white shadow-md')
+                                            ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] border-[#42f5e9]/50 text-white shadow-lg' : 'bg-[#0fb5ab] border-[#0fb5ab] text-white shadow-md')
                                             : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50')
                                         }`}
                                       >
@@ -1204,10 +1217,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                                         e.preventDefault();
                                         setEditModules({...editModules, [key]: !value});
                                       }}
-                                      className={`p-3 rounded-xl border flex items-center justify-between transition-all ${value ? (madrasah?.theme === 'dark' ? 'bg-blue-900/30 border-blue-900/50 text-blue-400' : 'bg-blue-50 border-blue-100 text-[#1E3A8A]') : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-600' : 'bg-slate-50 border-slate-100 text-slate-400')}`}
+                                      className={`p-3 rounded-xl border flex items-center justify-between transition-all ${value ? (madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 border-[#42f5e9]/20 text-[#42f5e9]' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-600' : 'bg-slate-50 border-slate-100 text-slate-400')}`}
                                     >
                                       <span className="text-[10px] font-black uppercase tracking-wider">{key.replace('_', ' ')}</span>
-                                      {value ? <CheckCircle2 size={14} className={madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-blue-500'} /> : <XCircle size={14} />}
+                                      {value ? <CheckCircle2 size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> : <XCircle size={14} />}
                                     </button>
                                   ))}
                                </div>
@@ -1248,7 +1261,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
                          <div className="flex items-center justify-between px-1">
                             <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                               <Settings size={14} className={madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]'} /> System Settings
+                               <Settings size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> System Settings
                             </h4>
                          </div>
                          <div className="space-y-4">
@@ -1302,7 +1315,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                          </div>
                       </div>
 
-                      <button onClick={handleUserUpdate} disabled={isUpdatingUser} className="w-full h-16 bg-[#2563EB] text-white font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
+                      <button onClick={handleUserUpdate} disabled={isUpdatingUser} className="w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
                          {isUpdatingUser ? <Loader2 className="animate-spin" size={24} /> : <><Save size={24} /> Save Profile Changes</>}
                       </button>
                    </div>
@@ -1317,7 +1330,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-black text-[#1E3A8A] font-noto">নতুন কমিটি</h3>
+              <h3 className="text-xl font-black text-[#0fb5ab] font-noto">নতুন কমিটি</h3>
               <button onClick={() => setShowCreateModal(false)} className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors">
                 <X size={20} />
               </button>
@@ -1328,7 +1341,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">কমিটির নাম</label>
                 <input 
                   type="text" 
-                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#1E3A8A] outline-none focus:border-[#2563EB]/20" 
+                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#0fb5ab] outline-none focus:border-[#42f5e9]/30" 
                   value={newInstName} 
                   onChange={(e) => setNewInstName(e.target.value)} 
                   placeholder="Example Committee"
@@ -1339,7 +1352,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">মোবাইল নম্বর</label>
                 <input 
                   type="tel" 
-                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#1E3A8A] outline-none focus:border-[#2563EB]/20" 
+                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#0fb5ab] outline-none focus:border-[#42f5e9]/30" 
                   value={newInstPhone} 
                   onChange={(e) => setNewInstPhone(e.target.value)} 
                   placeholder="017..."
@@ -1350,7 +1363,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">ইমেইল</label>
                 <input 
                   type="email" 
-                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#1E3A8A] outline-none focus:border-[#2563EB]/20" 
+                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#0fb5ab] outline-none focus:border-[#42f5e9]/30" 
                   value={newInstEmail} 
                   onChange={(e) => setNewInstEmail(e.target.value)} 
                   placeholder="admin@madrasah.com"
@@ -1361,7 +1374,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">পাসওয়ার্ড</label>
                 <input 
                   type="password" 
-                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#1E3A8A] outline-none focus:border-[#2563EB]/20" 
+                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#0fb5ab] outline-none focus:border-[#42f5e9]/30" 
                   value={newInstPassword} 
                   onChange={(e) => setNewInstPassword(e.target.value)} 
                   placeholder="******"
@@ -1378,7 +1391,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       onClick={() => setNewInstType(type.id)}
                       className={`p-2 rounded-xl border text-[9px] font-black transition-all ${
                         newInstType === type.id 
-                          ? 'bg-[#2563EB] border-blue-600 text-white shadow-md'
+                          ? 'bg-[#0fb5ab] border-[#0fb5ab] text-white shadow-md'
                           : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
                       }`}
                     >
@@ -1388,21 +1401,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">লগইন পিন (Optional)</label>
-                <input 
-                  type="text" 
-                  className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#1E3A8A] outline-none focus:border-[#2563EB]/20" 
-                  value={newInstLoginCode} 
-                  onChange={(e) => setNewInstLoginCode(e.target.value)} 
-                  placeholder="1234"
-                />
-              </div>
-
               <button 
                 onClick={handleCreateInstitution} 
                 disabled={isCreatingInst}
-                className="w-full h-14 bg-[#2563EB] text-white font-black rounded-[1.5rem] mt-4 shadow-premium active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="w-full h-14 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-[1.5rem] mt-4 shadow-premium active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
                 {isCreatingInst ? <Loader2 className="animate-spin" /> : 'তৈরি করুন'}
               </button>
@@ -1419,7 +1421,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
               <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner border border-red-100">
                  <AlertTriangle size={32} />
               </div>
-              <h3 className="text-xl font-black text-[#1E3A8A] font-noto tracking-tight">আপনি কি নিশ্চিত?</h3>
+              <h3 className="text-xl font-black text-[#0fb5ab] font-noto tracking-tight">আপনি কি নিশ্চিত?</h3>
               <p className="text-[12px] font-bold text-slate-400 mt-2 font-noto leading-relaxed">
                  <span className="text-red-500">{rejectConfirm.institutions?.name}</span> এর <span className="text-slate-800">{rejectConfirm.amount} ৳</span> রিচার্জ রিকোয়েস্ট বাতিল করতে চাচ্ছেন।
               </p>
@@ -1440,7 +1442,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
               <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner border border-amber-100">
                  <AlertCircle size={32} />
               </div>
-              <h3 className="text-xl font-black text-[#1E3A8A] font-noto tracking-tight">{showConfirm.title}</h3>
+              <h3 className="text-xl font-black text-[#0fb5ab] font-noto tracking-tight">{showConfirm.title}</h3>
               <p className="text-[12px] font-bold text-slate-400 mt-2 font-noto leading-relaxed px-4">
                  {showConfirm.message}
               </p>

@@ -15,7 +15,7 @@ const Offline: React.FC = () => {
       </p>
       <button 
         onClick={() => window.location.reload()}
-        className="flex items-center gap-2 px-8 py-4 bg-[#2563EB] text-white rounded-2xl font-black shadow-premium active:scale-95 transition-all font-noto"
+        className="flex items-center gap-2 px-8 py-4 bg-[#42f5e9] text-[#0fb5ab] rounded-2xl font-black shadow-premium active:scale-95 transition-all font-noto"
       >
         <RefreshCw size={20} />
         পুনরায় চেষ্টা করুন

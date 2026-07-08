@@ -56,7 +56,6 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    pin: '',
     designation: '',
     is_active: true
   });
@@ -124,6 +123,7 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
     try {
       const payload = {
         ...formData,
+        pin: '1234', // Default pin as it's required in DB but removed from UI
         institution_id: madrasah.id,
         permissions
       };
@@ -199,7 +199,6 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
     setFormData({
       name: '',
       phone: '',
-      pin: '',
       designation: '',
       is_active: true
     });
@@ -223,7 +222,6 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
     setFormData({
       name: executive.name || '',
       phone: executive.phone || '',
-      pin: '', 
       designation: executive.designation || '',
       is_active: executive.is_active
     });
@@ -439,20 +437,6 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
                           className={`w-full pl-11 pr-4 py-3 border rounded-xl outline-none text-sm font-bold transition-all focus:border-blue-500/50 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-slate-700'}`}
                           value={formData.phone || ''}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('password', lang)}</label>
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                          type="password" 
-                          required={showAddModal}
-                          placeholder={showEditModal ? 'Leave blank to keep current' : ''}
-                          className={`w-full pl-11 pr-4 py-3 border rounded-xl outline-none text-sm font-bold transition-all focus:border-blue-500/50 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-slate-700'}`}
-                          value={formData.pin || ''}
-                          onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
                         />
                       </div>
                     </div>

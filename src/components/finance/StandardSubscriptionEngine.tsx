@@ -343,12 +343,12 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                {/* Department Selector */}
                <div className="relative flex-1 min-w-[140px]">
                   <button onClick={() => setShowClassDropdown(!showClassDropdown)} className="w-full h-11 px-4 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between group active:scale-[0.98] transition-all">
-                     <span className="text-[11px] font-black text-[#1E3A8A] truncate">{departments.find(c => c.id === selectedClass)?.name || 'সব জামাত (Classes)'}</span>
+                     <span className="text-[11px] font-black text-[#1E3A8A] truncate">{departments.find(c => c.id === selectedClass)?.name || 'সব কমিটি (All Committees)'}</span>
                      <ChevronDown size={16} className="text-slate-400 group-hover:text-[#2563EB] transition-colors" />
                   </button>
                   {showClassDropdown && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 z-50 p-1 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-                          <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className="w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-black text-slate-600 hover:bg-slate-50 hover:text-[#2563EB] transition-colors">সব জামাত</button>
+                          <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className="w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-black text-slate-600 hover:bg-slate-50 hover:text-[#2563EB] transition-colors">সব কমিটি</button>
                           {departments.map(c => (
                               <button key={c.id} onClick={() => { setSelectedClass(c.id); setShowClassDropdown(false); }} className="w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-black text-slate-600 hover:bg-slate-50 hover:text-[#2563EB] transition-colors">{c.name}</button>
                           ))}
@@ -476,7 +476,7 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                     {anyStudentsInMadrasah ? <Info size={32} /> : <Users size={32} />}
                  </div>
                  <h3 className="text-[#1E293B] text-lg font-black font-noto leading-tight">
-                   {anyStudentsInMadrasah ? 'কোনো ডাটা পাওয়া যায়নি' : 'কোনো ছাত্র পাওয়া যায়নি'}
+                   {anyStudentsInMadrasah ? 'কোনো ডাটা পাওয়া যায়নি' : 'কোনো সদস্য পাওয়া যায়নি'}
                  </h3>
               </div>
             )}
@@ -762,14 +762,14 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                  </div>
                  <div className="space-y-4">
                     <div className="relative">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">বিভাগ (Department) (ঐচ্ছিক)</label>
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">কমিটি (Committee) (ঐচ্ছিক)</label>
                        <button onClick={() => setShowClassDropdown(!showClassDropdown)} className="w-full h-14 px-6 rounded-2xl border-2 border-slate-100 bg-slate-50 flex items-center justify-between font-black text-[#1E3A8A]">
-                          <span className="truncate">{departments.find(c => c.id === selectedClass)?.name || 'সব বিভাগ (All Departments)'}</span>
+                          <span className="truncate">{departments.find(c => c.id === selectedClass)?.name || 'সব কমিটি (All Committees)'}</span>
                           <ChevronDown size={20} className="text-slate-300" />
                        </button>
                        {showClassDropdown && (
                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[1001] p-2 max-h-48 overflow-y-auto">
-                               <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className="w-full text-left px-5 py-3 rounded-xl hover:bg-slate-50 font-black text-[#1E3A8A]">সব বিভাগ (All Departments)</button>
+                               <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className="w-full text-left px-5 py-3 rounded-xl hover:bg-slate-50 font-black text-[#1E3A8A]">সব কমিটি (All Committees)</button>
                                {departments.map(c => (
                                    <button key={c.id} onClick={() => { setSelectedClass(c.id); setShowClassDropdown(false); }} className="w-full text-left px-5 py-3 rounded-xl hover:bg-slate-50 font-black text-[#1E3A8A]">{c.name}</button>
                                ))}

@@ -143,7 +143,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'planned': return 'bg-blue-100 text-blue-600 border-blue-200';
+      case 'planned': return 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20';
       case 'ongoing': return 'bg-amber-100 text-amber-600 border-amber-200';
       case 'completed': return 'bg-emerald-100 text-emerald-600 border-emerald-200';
       case 'cancelled': return 'bg-rose-100 text-rose-600 border-rose-200';
@@ -175,7 +175,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
         
         <button 
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-[#1E3A8A] text-white rounded-2xl font-black text-xs shadow-xl active:scale-95 transition-all"
+          className="flex items-center gap-2 px-5 py-3 bg-[#42f5e9] text-[#0e8a84] rounded-2xl font-black text-xs shadow-xl active:scale-95 transition-all"
         >
           <Plus size={18} />
           <span className="hidden sm:inline">{lang === 'bn' ? 'নতুন ইভেন্ট' : 'Create Event'}</span>
@@ -185,12 +185,12 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
       <div className="max-w-7xl mx-auto p-6 space-y-8">
         {/* Statistics Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-           {[
-             { label: 'Upcoming', count: events.filter(e => e.status === 'planned').length, icon: <Sparkles className="text-blue-500" /> },
-             { label: 'Ongoing', count: events.filter(e => e.status === 'ongoing').length, icon: <Megaphone className="text-amber-500" /> },
-             { label: 'Completed', count: events.filter(e => e.status === 'completed').length, icon: <CheckCircle2 className="text-emerald-500" /> },
-             { label: 'Total', count: events.length, icon: <History className="text-slate-500" /> }
-           ].map((stat, i) => (
+             {[
+               { label: 'Upcoming', count: events.filter(e => e.status === 'planned').length, icon: <Sparkles className="text-[#0fb5ab]" /> },
+               { label: 'Ongoing', count: events.filter(e => e.status === 'ongoing').length, icon: <Megaphone className="text-amber-500" /> },
+               { label: 'Completed', count: events.filter(e => e.status === 'completed').length, icon: <CheckCircle2 className="text-emerald-500" /> },
+               { label: 'Total', count: events.length, icon: <History className="text-slate-500" /> }
+             ].map((stat, i) => (
              <div key={i} className={`p-4 rounded-[2rem] border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'} flex items-center gap-4`}>
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
                   {stat.icon}
@@ -213,7 +213,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className={`w-full pl-12 pr-6 py-4 rounded-2xl outline-none border-2 transition-all font-bold text-sm ${
-                isDark ? 'bg-slate-800 border-transparent focus:border-blue-500 text-white' : 'bg-slate-50 border-transparent focus:border-blue-100 text-slate-700'
+                isDark ? 'bg-slate-800 border-transparent focus:border-[#42f5e9] text-white' : 'bg-slate-50 border-transparent focus:border-[#42f5e9]/10 text-slate-700'
               }`}
             />
           </div>
@@ -229,15 +229,15 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
              </select>
 
              <div className={`flex p-1 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
-                <button 
+                 <button 
                   onClick={() => setViewMode('grid')}
-                  className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? (isDark ? 'bg-slate-700 text-blue-400' : 'bg-white text-blue-600 shadow-sm') : 'text-slate-400'}`}
+                  className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? (isDark ? 'bg-slate-700 text-[#42f5e9]' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
                 >
                   <LayoutGrid size={18} />
                 </button>
                 <button 
                   onClick={() => setViewMode('list')}
-                  className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? (isDark ? 'bg-slate-700 text-blue-400' : 'bg-white text-blue-600 shadow-sm') : 'text-slate-400'}`}
+                  className={`p-3 rounded-xl transition-all ${viewMode === 'list' ? (isDark ? 'bg-slate-700 text-[#42f5e9]' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
                 >
                   <List size={18} />
                 </button>
@@ -248,7 +248,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
         {/* Content */}
         {loading ? (
           <div className="h-64 flex flex-col items-center justify-center gap-4">
-             <Loader2 className="animate-spin text-blue-500" size={40} />
+             <Loader2 className="animate-spin text-[#0fb5ab]" size={40} />
              <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Synchronizing Protocol...</p>
           </div>
         ) : filteredEvents.length > 0 ? (
@@ -259,7 +259,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   key={event.id}
-                  className={`group rounded-[2.5rem] border overflow-hidden transition-all hover:shadow-2xl hover:shadow-blue-900/10 ${
+                  className={`group rounded-[2.5rem] border overflow-hidden transition-all hover:shadow-2xl hover:shadow-[#42f5e9]/10 ${
                     isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
                   }`}
                 >
@@ -269,7 +269,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                           {event.status}
                        </div>
                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <button className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}><Edit2 size={16} className="text-blue-500" /></button>
+                         <button className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}><Edit2 size={16} className="text-[#0fb5ab]" /></button>
                          <button onClick={() => setShowDeleteConfirm(event.id)} className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}><Trash2 size={16} className="text-rose-500" /></button>
                        </div>
                     </div>
@@ -281,7 +281,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
 
                     <div className="space-y-3 pt-2">
                        <div className="flex items-center gap-3 text-slate-500">
-                          <Calendar size={16} className="text-blue-400 flex-shrink-0" />
+                          <Calendar size={16} className="text-[#0fb5ab] flex-shrink-0" />
                           <span className="text-[11px] font-bold">
                             {format(new Date(event.start_date), 'EEE, dd MMM yyyy • hh:mm a')}
                           </span>
@@ -310,7 +310,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                           <div className={`w-8 h-8 rounded-full border-2 ${isDark ? 'bg-slate-700 border-slate-900' : 'bg-slate-200 border-white'} flex items-center justify-center text-[10px] font-black`}>A</div>
                           <div className={`w-8 h-8 rounded-full border-2 ${isDark ? 'bg-slate-600 border-slate-900' : 'bg-slate-300 border-white'} flex items-center justify-center text-[10px] font-black`}>+</div>
                        </div>
-                       <button className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline">View Details</button>
+                       <button className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest hover:underline">View Details</button>
                     </div>
                   </div>
                 </motion.div>
@@ -318,8 +318,8 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
           </div>
         ) : (
           <div className="h-96 flex flex-col items-center justify-center text-center p-8">
-             <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${isDark ? 'bg-slate-900' : 'bg-blue-50'}`}>
-                <CalendarDays size={40} className="text-blue-200" />
+             <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${isDark ? 'bg-slate-900' : 'bg-[#42f5e9]/10'}`}>
+                <CalendarDays size={40} className="text-[#0fb5ab]/40" />
              </div>
              <h3 className="text-xl font-black mb-2">No Events Found</h3>
              <p className="text-slate-400 text-sm max-w-xs">Start building your organization strategy by adding your first event protocol.</p>
@@ -362,7 +362,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                       value={newEvent.title}
                       onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
                       className={`w-full h-14 rounded-2xl px-6 font-bold outline-none border-2 transition-all ${
-                        isDark ? 'bg-slate-800 border-transparent focus:border-blue-500' : 'bg-slate-50 border-transparent focus:border-blue-100'
+                        isDark ? 'bg-slate-800 border-transparent focus:border-[#42f5e9]' : 'bg-slate-50 border-transparent focus:border-[#42f5e9]/20'
                       }`}
                     />
                  </div>
@@ -450,7 +450,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                  <button 
                    onClick={handleCreateEvent}
                    disabled={loading || !newEvent.title}
-                   className="w-full py-6 bg-[#1E3A8A] text-white rounded-[2rem] font-black shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all text-xs uppercase tracking-widest disabled:opacity-50"
+                   className="w-full py-6 bg-[#42f5e9] text-[#0e8a84] rounded-[2rem] font-black shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all text-xs uppercase tracking-widest disabled:opacity-50"
                  >
                    {loading ? <Loader2 className="animate-spin" /> : <><Sparkles size={18} /> Initialize Event Protocol</>}
                  </button>

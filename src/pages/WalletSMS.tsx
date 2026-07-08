@@ -305,14 +305,14 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
       <div className="space-y-4 animate-in fade-in duration-500 pb-24">
         <div className="relative p-1.5 bg-slate-50 rounded-[3rem] border border-slate-100 shadow-sm flex items-center h-16 mb-2">
           <div 
-            className="absolute h-[calc(100%-12px)] rounded-[2.5rem] bg-[#2563EB] shadow-md transition-all duration-500 z-0"
+            className="absolute h-[calc(100%-12px)] rounded-[2.5rem] bg-[#42f5e9] shadow-md transition-all duration-500 z-0"
             style={{ 
               width: availableTabs.length > 0 ? `calc((100% - 12px) / ${availableTabs.length})` : '0',
               left: availableTabs.length > 0 ? `calc(6px + ${Math.max(0, availableTabs.indexOf(activeTab))} * (100% - 12px) / ${availableTabs.length})` : '0',
             }}
           />
           {availableTabs.map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} className={`relative flex-1 h-full rounded-[2.5rem] font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all z-10 ${activeTab === tab ? 'text-white' : 'text-slate-400'}`}>
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`relative flex-1 h-full rounded-[2.5rem] font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all z-10 ${activeTab === tab ? 'text-[#0e8a84]' : 'text-slate-400'}`}>
               {tab === 'templates' ? <MessageSquare size={16} /> : 
                tab === 'bulk-sms' ? <Send size={16} /> : 
                tab === 'history' ? <History size={16} /> :
@@ -331,23 +331,23 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
           <div className="space-y-5 animate-in slide-in-from-bottom-5">
             <div className="flex items-center justify-between px-2">
               <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('saved_templates', lang)}</h2>
-              <button onClick={() => { setEditingId(null); setTempTitle(''); setTempBody(''); setShowAddModal(true); }} className="bg-[#2563EB] text-white px-4 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 active:scale-95 transition-all border border-blue-100 shadow-premium">
+              <button onClick={() => { setEditingId(null); setTempTitle(''); setTempBody(''); setShowAddModal(true); }} className="bg-[#42f5e9] text-[#0e8a84] px-4 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 active:scale-95 transition-all border border-[#42f5e9]/20 shadow-premium">
                  <Plus size={14} strokeWidth={4} /> {t('new_template', lang)}
               </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                {loading ? (
-                  <div className="col-span-full flex justify-center py-10"><Loader2 className="animate-spin text-[#2563EB]" size={30} /></div>
+                  <div className="col-span-full flex justify-center py-10"><Loader2 className="animate-spin text-[#0fb5ab]" size={30} /></div>
                ) : templates.length > 0 ? (
                   templates.map(tmp => (
                     <div key={tmp.id} className="bg-white p-5 rounded-[2.2rem] border border-slate-100 shadow-bubble relative group flex flex-col">
                        <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-[#2563EB] border border-blue-100 shrink-0">
+                             <div className="w-10 h-10 bg-[#42f5e9]/10 rounded-xl flex items-center justify-center text-[#0fb5ab] border border-[#42f5e9]/20 shrink-0">
                                 <BookOpen size={18} />
                              </div>
-                             <h4 className="font-black text-[#1E3A8A] text-[15px] font-noto line-clamp-1">{tmp.title}</h4>
+                             <h4 className="font-black text-[#0fb5ab] text-[15px] font-noto line-clamp-1">{tmp.title}</h4>
                           </div>
                           <div className="flex gap-1.5 shrink-0">
                              <button onClick={() => { setEditingId(tmp.id); setTempTitle(tmp.title); setTempBody(tmp.body); setShowAddModal(true); }} className="w-8 h-8 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center active:scale-90 transition-all"><Edit3 size={14}/></button>
@@ -368,29 +368,29 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
 
         {activeTab === 'bulk-sms' && (
           <div className="space-y-5 animate-in slide-in-from-bottom-5">
-            <div className="bg-[#2563EB] p-6 rounded-[2.2rem] shadow-premium border border-blue-100 flex items-center justify-between text-white relative">
+            <div className="bg-[#42f5e9] p-6 rounded-[2.2rem] shadow-premium border border-[#42f5e9]/20 flex items-center justify-between text-[#0e8a84] relative">
                <div className="relative z-10">
                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">{t('available_sms', lang)}</p>
                  <h3 className="text-4xl font-black flex items-baseline gap-2">{madrasah?.sms_balance || 0}</h3>
                </div>
-               <Zap size={40} className="text-white opacity-20" />
+               <Zap size={40} className="text-[#0e8a84] opacity-20" />
             </div>
 
             <div className="bg-white p-6 rounded-[2.5rem] shadow-bubble border border-slate-100">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
                 <div className="space-y-7">
                   <div className="space-y-4">
-                    <h4 className="text-[11px] font-black text-[#1E3A8A] uppercase tracking-widest px-1">{t('step_1_class', lang)}</h4>
+                    <h4 className="text-[11px] font-black text-[#0fb5ab] uppercase tracking-widest px-1">{t('step_1_class', lang)}</h4>
                     <div className="relative space-y-3">
                       <button onClick={() => setShowClassDropdown(!showClassDropdown)} className="w-full h-[60px] px-6 rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 flex items-center justify-between">
-                        <span className="text-base font-black font-noto text-[#1E3A8A]">{getSelectedClassName()}</span>
+                        <span className="text-base font-black font-noto text-[#0fb5ab]">{getSelectedClassName()}</span>
                         <ChevronDown className={`text-slate-300 transition-all ${showClassDropdown ? 'rotate-180' : ''}`} size={20} />
                       </button>
                       
                       {selectedClassId && (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-top-2">
-                          <Users size={16} className="text-[#2563EB]" />
-                          <p className="text-[11px] font-black text-[#2563EB] uppercase tracking-wider">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-[#42f5e9]/10 rounded-xl border border-[#42f5e9]/20 animate-in fade-in slide-in-from-top-2">
+                          <Users size={16} className="text-[#0fb5ab]" />
+                          <p className="text-[11px] font-black text-[#0fb5ab] uppercase tracking-wider">
                             {t('total_students', lang)}: {classStudents.length} {t('students_count', lang)}
                           </p>
                         </div>
@@ -399,7 +399,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                       {showClassDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[2rem] shadow-bubble border border-slate-100 z-[100] p-2 max-h-60 overflow-y-auto">
                           {departments.map(cls => (
-                            <button key={cls.id} onClick={() => { setSelectedClassId(cls.id); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${selectedClassId === cls.id ? 'bg-[#2563EB] text-white' : 'hover:bg-slate-50 text-[#1E3A8A]'}`}>
+                            <button key={cls.id} onClick={() => { setSelectedClassId(cls.id); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${selectedClassId === cls.id ? 'bg-[#42f5e9] text-[#0e8a84]' : 'hover:bg-slate-50 text-[#0fb5ab]'}`}>
                               <span className="font-black font-noto">{cls.name}</span>
                             </button>
                           ))}
@@ -409,11 +409,11 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="text-[11px] font-black text-[#1E3A8A] uppercase tracking-widest px-1">{t('step_2_template', lang)}</h4>
+                    <h4 className="text-[11px] font-black text-[#0fb5ab] uppercase tracking-widest px-1">{t('step_2_template', lang)}</h4>
                     <div className="relative">
                       <button onClick={() => setShowTemplateDropdownBulk(!showTemplateDropdownBulk)} className="w-full h-[60px] px-6 rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <BookOpen size={18} className="text-[#2563EB]" />
+                          <BookOpen size={18} className="text-[#0fb5ab]" />
                           <span className="text-base font-black font-noto text-slate-400">{t('template_title', lang)}</span>
                         </div>
                         <ChevronDown className={`text-slate-300 transition-all ${showTemplateDropdownBulk ? 'rotate-180' : ''}`} size={20} />
@@ -422,8 +422,8 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                         <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[2rem] shadow-bubble border border-slate-100 z-[100] p-2 max-h-60 overflow-y-auto animate-in slide-in-from-top-2">
                           {templates.length > 0 ? templates.map(tmp => (
                             <button key={tmp.id} onClick={() => { setBulkMessage(tmp.body); setShowTemplateDropdownBulk(false); }} className="w-full text-left px-5 py-3.5 rounded-xl mb-1 hover:bg-slate-50">
-                              <p className="text-[10px] font-black text-[#2563EB] uppercase mb-0.5">{tmp.title}</p>
-                              <p className="text-xs font-bold text-[#1E3A8A] truncate">{tmp.body}</p>
+                              <p className="text-[10px] font-black text-[#0fb5ab] uppercase mb-0.5">{tmp.title}</p>
+                              <p className="text-xs font-bold text-[#0fb5ab] truncate">{tmp.body}</p>
                             </button>
                           )) : (
                             <div className="p-5 text-center text-slate-400 text-xs font-bold">{t('no_templates', lang)}</div>
@@ -437,17 +437,17 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                 <div className="space-y-7 flex flex-col">
                   <div className="space-y-4 flex-1 flex flex-col">
                     <div className="flex items-center justify-between px-1">
-                      <h4 className="text-[11px] font-black text-[#1E3A8A] uppercase tracking-widest">{t('step_3_message', lang)}</h4>
+                      <h4 className="text-[11px] font-black text-[#0fb5ab] uppercase tracking-widest">{t('step_3_message', lang)}</h4>
                       <button 
                         onClick={() => setShowShortcodes(!showShortcodes)}
-                        className="text-[10px] font-black text-[#2563EB] uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-all"
+                        className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-all"
                       >
                         <Info size={12} /> Shortcodes
                       </button>
                     </div>
 
                     {showShortcodes && (
-                      <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50 mb-2 animate-in slide-in-from-top-2">
+                      <div className="bg-[#42f5e9]/10 p-3 rounded-2xl border border-[#42f5e9]/20 mb-2 animate-in slide-in-from-top-2">
                         <div className="flex flex-wrap gap-1.5">
                           {availableShortcodes.map(sc => (
                             <button
@@ -455,7 +455,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                               onClick={() => {
                                 setBulkMessage(prev => prev + sc.code);
                               }}
-                              className="px-2 py-1 bg-white border border-blue-100 rounded-lg text-[10px] font-bold text-[#1E3A8A] hover:bg-blue-100 transition-colors"
+                              className="px-2 py-1 bg-white border border-[#42f5e9]/20 rounded-lg text-[10px] font-bold text-[#0fb5ab] hover:bg-[#42f5e9]/10 transition-colors"
                             >
                               {sc.code} <span className="text-slate-400 font-normal">({sc.label})</span>
                             </button>
@@ -465,23 +465,23 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                     )}
 
                     <div className="relative flex-1 flex flex-col">
-                      <textarea className="w-full flex-1 min-h-[128px] px-5 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.8rem] text-[#1E3A8A] font-bold outline-none font-noto resize-none" placeholder={t('sms', lang) + "..."} value={bulkMessage} onChange={(e) => setBulkMessage(e.target.value)} />
-                      <div className="absolute bottom-4 right-5 bg-white px-2 py-0.5 rounded-lg border border-slate-100 shadow-sm flex gap-2">
-                         {(() => {
-                            const info = getSmsLengthInfo(bulkMessage);
-                            return (
-                              <>
-                                <span className="text-[10px] font-black text-slate-400">{info.isBangla ? 'Bangla' : 'English'}</span>
-                                <span className="text-[10px] font-black text-[#2563EB]">{info.length}/{info.maxAllowed} ({info.parts} SMS)</span>
-                              </>
-                            );
-                         })()}
-                      </div>
+                       <textarea className="w-full flex-1 min-h-[128px] px-5 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.8rem] text-[#0fb5ab] font-bold outline-none font-noto resize-none" placeholder={t('sms', lang) + "..."} value={bulkMessage} onChange={(e) => setBulkMessage(e.target.value)} />
+                       <div className="absolute bottom-4 right-5 bg-white px-2 py-0.5 rounded-lg border border-slate-100 shadow-sm flex gap-2">
+                          {(() => {
+                             const info = getSmsLengthInfo(bulkMessage);
+                             return (
+                               <>
+                                 <span className="text-[10px] font-black text-slate-400">{info.isBangla ? 'Bangla' : 'English'}</span>
+                                 <span className="text-[10px] font-black text-[#0fb5ab]">{info.length}/{info.maxAllowed} ({info.parts} SMS)</span>
+                               </>
+                             );
+                          })()}
+                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 mt-auto">
-                    <button onClick={handleSendBulk} disabled={sendingBulk || !bulkMessage.trim() || !selectedClassId || classStudents.length === 0 || getSmsLengthInfo(bulkMessage).parts > 7} className="w-full h-[64px] bg-[#2563EB] text-white font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg disabled:opacity-40 active:scale-95 transition-all">
+                    <button onClick={handleSendBulk} disabled={sendingBulk || !bulkMessage.trim() || !selectedClassId || classStudents.length === 0 || getSmsLengthInfo(bulkMessage).parts > 7} className="w-full h-[64px] bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg disabled:opacity-40 active:scale-95 transition-all">
                       {sendingBulk ? <Loader2 className="animate-spin" size={24} /> : bulkSuccess ? (lang === 'bn' ? 'সফল!' : 'Success!') : <><Send size={20} /> {t('send_bulk_sms', lang)}</>}
                     </button>
                     
@@ -499,7 +499,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
           <div className="space-y-5 animate-in slide-in-from-bottom-5">
             <div className="flex items-center justify-between px-2">
               <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('sms_history', lang)}</h2>
-              <button onClick={fetchSmsHistory} className="text-[10px] font-black text-[#2563EB] uppercase tracking-widest flex items-center gap-1.5 hover:opacity-80 transition-all">
+              <button onClick={fetchSmsHistory} className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest flex items-center gap-1.5 hover:opacity-80 transition-all">
                 <History size={14} /> {lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}
               </button>
             </div>
@@ -510,7 +510,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                   <thead>
                     <tr className="bg-slate-50/50 border-b border-slate-100">
                       <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('date', lang)}</th>
-                      <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('recipient', lang)}</th>
+                      <th className="px-6 py-4 text-[10px) font-black text-slate-400 uppercase tracking-widest">{t('recipient', lang)}</th>
                       <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('message', lang)}</th>
                       <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('status', lang)}</th>
                     </tr>
@@ -519,7 +519,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                     {loadingHistory ? (
                       <tr>
                         <td colSpan={4} className="px-6 py-20 text-center">
-                          <Loader2 className="animate-spin text-[#2563EB] mx-auto" size={30} />
+                          <Loader2 className="animate-spin text-[#0fb5ab] mx-auto" size={30} />
                         </td>
                       </tr>
                     ) : smsHistory.length > 0 ? (
@@ -532,7 +532,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-xs font-black text-[#1E3A8A]">{item.recipient}</span>
+                            <span className="text-xs font-black text-[#0fb5ab]">{item.recipient}</span>
                           </td>
                           <td className="px-6 py-4">
                             <p className="text-xs font-bold text-slate-500 line-clamp-2 max-w-xs font-noto">{item.message}</p>
@@ -582,24 +582,24 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-5 duration-500">
              <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'} p-8 rounded-[3rem] shadow-bubble border space-y-6`}>
                 <div className="text-center">
-                  <div className={`inline-flex p-3 rounded-2xl mb-3 ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}><CreditCard size={32} /></div>
-                  <h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{t('recharge_request', lang)}</h3>
+                  <div className={`inline-flex p-3 rounded-2xl mb-3 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}><CreditCard size={32} /></div>
+                  <h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{t('recharge_request', lang)}</h3>
                   <p className="text-xs font-bold text-slate-400 font-noto">{t('recharge_desc', lang)}</p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
-                  <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-blue-50 border-blue-100'} p-4 rounded-[2rem] text-center border relative overflow-hidden`}>
-                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 relative z-10 ${madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]'}`}>SMS Rate</p>
-                    <h3 className={`text-xl font-black relative z-10 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{smsRate} ৳</h3>
+                  <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20'} p-4 rounded-[2rem] text-center border relative overflow-hidden`}>
+                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 relative z-10 ${madrasah?.theme === 'dark' ? 'text-[#0fb5ab]' : 'text-[#0fb5ab]'}`}>SMS Rate</p>
+                    <h3 className={`text-xl font-black relative z-10 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{smsRate} ৳</h3>
                   </div>
                 </div>
 
-                <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-blue-50 border-blue-100'} p-6 rounded-[2.2rem] text-center border relative overflow-hidden`}>
+                <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20'} p-6 rounded-[2.2rem] text-center border relative overflow-hidden`}>
                   <div className="absolute top-0 right-0 p-2 opacity-10">
                     <Smartphone size={60} />
                   </div>
-                  <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 relative z-10 ${madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]'}`}>{t('bkash_personal', lang)}</p>
-                  <h3 className={`text-3xl font-black relative z-10 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{adminBkash}</h3>
+                  <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 relative z-10 ${madrasah?.theme === 'dark' ? 'text-[#0fb5ab]' : 'text-[#0fb5ab]'}`}>{t('bkash_personal', lang)}</p>
+                  <h3 className={`text-3xl font-black relative z-10 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{adminBkash}</h3>
                 </div>
 
                 <div className="space-y-4">
@@ -610,18 +610,18 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                   )}
                   
                   <div className="space-y-1.5 px-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('amount', lang)}</label>
-                    <input type="number" className={`w-full h-14 px-6 rounded-full font-black text-lg outline-none border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500/50' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-blue-500/50'}`} value={rechargeAmount} onChange={(e) => setRechargeAmount(e.target.value)} placeholder="0.00" />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('amount', lang)}</label>
+                    <input type="number" className={`w-full h-14 px-6 rounded-full font-black text-lg outline-none border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/50' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={rechargeAmount} onChange={(e) => setRechargeAmount(e.target.value)} placeholder="0.00" />
                   </div>
                   <div className="space-y-1.5 px-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('bkash_number', lang)}</label>
-                    <input type="tel" className={`w-full h-14 px-6 rounded-full font-black text-lg outline-none border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500/50' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-blue-500/50'}`} value={rechargePhone} onChange={(e) => setRechargePhone(e.target.value)} placeholder="017XXXXXXXX" />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('bkash_number', lang)}</label>
+                    <input type="tel" className={`w-full h-14 px-6 rounded-full font-black text-lg outline-none border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/50' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={rechargePhone} onChange={(e) => setRechargePhone(e.target.value)} placeholder="017XXXXXXXX" />
                   </div>
                   <div className="space-y-1.5 px-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TrxID</label>
-                    <input type="text" className={`w-full h-14 px-6 rounded-full font-black text-lg uppercase outline-none border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500/50' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-blue-500/50'}`} value={rechargeTrx} onChange={(e) => setRechargeTrx(e.target.value)} placeholder="8X23M1..." />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">TrxID</label>
+                    <input type="text" className={`w-full h-14 px-6 rounded-full font-black text-lg uppercase outline-none border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/50' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={rechargeTrx} onChange={(e) => setRechargeTrx(e.target.value)} placeholder="8X23M1..." />
                   </div>
-                  <button onClick={handleRechargeRequest} disabled={requesting || !rechargeAmount || !rechargeTrx} className="w-full h-16 bg-[#2563EB] text-white font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg mt-4 disabled:opacity-40 active:scale-95 transition-all">
+                  <button onClick={handleRechargeRequest} disabled={requesting || !rechargeAmount || !rechargeTrx} className="w-full h-16 bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg mt-4 disabled:opacity-40 active:scale-95 transition-all border border-white/10">
                     {requesting ? <Loader2 className="animate-spin" size={24} /> : t('send_request', lang)}
                   </button>
                 </div>
@@ -647,7 +647,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                         </div>
                       </div>
                       <div className="text-right">
-                         <p className="text-[9px] font-black text-[#2563EB] uppercase tracking-tighter opacity-60">TrxID: {tr.transaction_id}</p>
+                         <p className="text-[9px] font-black text-[#0fb5ab] uppercase tracking-tighter opacity-60">TrxID: {tr.transaction_id}</p>
                       </div>
                     </div>
                   )) : (
@@ -680,7 +680,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                 )}
              </div>
 
-             <h3 className="text-[24px] font-black text-[#2E0B5E] font-noto leading-tight tracking-tight">{statusModal.title}</h3>
+             <h3 className="text-[24px] font-black text-[#0fb5ab] font-noto leading-tight tracking-tight">{statusModal.title}</h3>
              <p className="text-[13px] font-bold text-slate-500 mt-3 font-noto px-2 leading-relaxed">
                {statusModal.message}
              </p>
@@ -690,7 +690,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                   <>
                     <button 
                       onClick={() => { setStatusModal({ ...statusModal, show: false }); setActiveTab('recharge'); }} 
-                      className="w-full py-5 bg-[#8D30F4] text-white font-black rounded-full shadow-xl shadow-purple-100 active:scale-95 transition-all text-sm uppercase tracking-[0.1em] flex items-center justify-center gap-3"
+                      className="w-full py-5 bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-xl shadow-[#42f5e9]/20 active:scale-95 transition-all text-sm uppercase tracking-[0.1em] flex items-center justify-center gap-3"
                     >
                       <Zap size={18} fill="currentColor" /> রিচার্জ করুন
                     </button>
@@ -704,7 +704,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                 ) : (
                   <button 
                     onClick={() => setStatusModal({ ...statusModal, show: false })} 
-                    className={`w-full py-5 font-black rounded-full text-sm uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 ${statusModal.type === 'success' ? 'bg-[#2E0B5E] text-white shadow-slate-200' : 'bg-red-500 text-white shadow-red-100'}`}
+                    className={`w-full py-5 font-black rounded-full text-sm uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 ${statusModal.type === 'success' ? 'bg-[#42f5e9] text-[#0e8a84] shadow-slate-200' : 'bg-red-500 text-white shadow-red-100'}`}
                   >
                     {lang === 'bn' ? 'ঠিক আছে' : 'Continue'}
                   </button>

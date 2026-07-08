@@ -37,8 +37,8 @@ const SmsVoiceMenu: React.FC<SmsVoiceMenuProps> = ({ lang, madrasah, onBack, onN
             onClick={onNavigateToSms}
             className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-6 rounded-[2rem] shadow-bubble border flex items-center gap-5 active:scale-[0.98] transition-all text-left group`}
           >
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
-              <MessageSquare size={28} className="text-blue-600" />
+            <div className="w-16 h-16 bg-[#42f5e9]/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+              <MessageSquare size={28} className="text-[#0fb5ab]" />
             </div>
             <div>
               <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} font-noto mb-1`}>{t('send_sms', lang)}</h3>

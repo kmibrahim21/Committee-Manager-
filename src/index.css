@@ -6,15 +6,15 @@
 }
 
 @theme {
-  --color-brand-blue: #2563EB;
-  --color-brand-light: #EFF6FF;
-  --color-brand-soft: #F0F7FF;
-  --color-brand-lavender: #60A5FA;
-  --color-brand-deep: #1E3A8A;
+  --color-brand-blue: #42f5e9;
+  --color-brand-light: #f5fffd;
+  --color-brand-soft: #fafefe;
+  --color-brand-lavender: #89fdf6;
+  --color-brand-deep: #0e8a84;
   --color-brand-dark: #1E293B;
 
-  --shadow-bubble: 0 20px 40px -15px rgba(37, 99, 235, 0.2);
-  --shadow-premium: 0 12px 28px -5px rgba(37, 99, 235, 0.3);
+  --shadow-bubble: 0 20px 40px -15px rgba(66, 245, 233, 0.2);
+  --shadow-premium: 0 12px 28px -5px rgba(66, 245, 233, 0.3);
 
   --animate-mesh: mesh 15s ease infinite;
   --animate-float: float 3s ease-in-out infinite;
@@ -71,7 +71,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden; 
-  background-color: #B9D9FF; /* Slightly deeper blue for status bar visibility */
+  background-color: #bdfdfa; /* Updated to match the new theme */
   position: fixed; 
   left: 0;
   top: 0;
@@ -114,13 +114,13 @@ body {
 }
 
 .premium-btn {
-  background: linear-gradient(135deg, #2563EB 0%, #60A5FA 100%);
+  background: linear-gradient(135deg, #42f5e9 0%, #89fdf6 100%);
   box-shadow: var(--shadow-premium);
-  color: white;
+  color: #0e8a84;
 }
 
 .mesh-bg-vibrant {
-  background: linear-gradient(-45deg, #3B82F6, #2563EB, #1D4ED8, #60A5FA);
+  background: linear-gradient(-45deg, #89fdf6, #42f5e9, #0fb5ab, #e0fffe);
   background-size: 400% 400%;
   animation: mesh 15s ease infinite;
 }

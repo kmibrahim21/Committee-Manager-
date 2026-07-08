@@ -348,12 +348,12 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                {/* Department Selector */}
                <div className="relative flex-1 min-w-[140px]">
                   <button onClick={() => setShowClassDropdown(!showClassDropdown)} className={`w-full h-11 px-4 rounded-xl border flex items-center justify-between group active:scale-[0.98] transition-all ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                     <span className={`text-[11px] font-black truncate ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{departments.find(c => c.id === selectedClass)?.name || 'সব শ্রেণি'}</span>
+                     <span className={`text-[11px] font-black truncate ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{departments.find(c => c.id === selectedClass)?.name || 'সব কমিটি'}</span>
                      <ChevronDown size={16} className={`transition-colors ${isDark ? 'text-slate-500 group-hover:text-blue-400' : 'text-slate-400 group-hover:text-[#2563EB]'}`} />
                   </button>
                   {showClassDropdown && (
                       <div className={`absolute top-full left-0 right-0 mt-2 rounded-xl shadow-xl border z-50 p-1 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                          <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-black transition-colors ${isDark ? 'text-slate-400 hover:bg-slate-700 hover:text-blue-400' : 'text-slate-600 hover:bg-slate-50 hover:text-[#2563EB]'}`}>সব শ্রেণি</button>
+                          <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-black transition-colors ${isDark ? 'text-slate-400 hover:bg-slate-700 hover:text-blue-400' : 'text-slate-600 hover:bg-slate-50 hover:text-[#2563EB]'}`}>সব কমিটি</button>
                           {departments.map(c => (
                               <button key={c.id} onClick={() => { setSelectedClass(c.id); setShowClassDropdown(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg text-[11px] font-black transition-colors ${isDark ? 'text-slate-400 hover:bg-slate-700 hover:text-blue-400' : 'text-slate-600 hover:bg-slate-50 hover:text-[#2563EB]'}`}>{c.name}</button>
                           ))}
@@ -463,7 +463,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                            </h5>
                            <div className="flex items-center gap-2">
                               <p className="text-[10px] text-slate-400 font-bold uppercase">বকেয়া: ৳{Math.max(0, balance)}</p>
-                              {isNoFeeSet && <span className={`text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase ${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>No Fee Set</span>}
+                              {isNoFeeSet && <span className={`text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase ${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>No Subscription Set</span>}
                            </div>
                         </div>
                      </div>
@@ -483,7 +483,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                           disabled={isFullyPaid || isNoFeeSet} 
                           className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm ${isFullyPaid ? (isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-600 border border-emerald-200') : isNoFeeSet ? (isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed') : hasBalance ? 'bg-orange-500 text-white active:scale-95 shadow-orange-200' : 'bg-[#2563EB] text-white active:scale-95'}`}
                        >
-                          {isFullyPaid ? 'PAID' : 'ফি জমা নিন'}
+                          {isFullyPaid ? 'PAID' : 'চাঁদা জমা নিন'}
                        </button>
                      </div>
                   </div>
@@ -494,12 +494,12 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                     {anyStudentsInMadrasah ? <Info size={32} /> : <Users size={32} />}
                  </div>
                  <h3 className={`text-lg font-black font-noto leading-tight ${isDark ? 'text-slate-100' : 'text-[#1E293B]'}`}>
-                   {anyStudentsInMadrasah ? 'রিপোর্ট পাওয়া যায়নি' : 'কোনো ছাত্র পাওয়া যায়নি'}
+                   {anyStudentsInMadrasah ? 'রিপোর্ট পাওয়া যায়নি' : 'কোনো সদস্য পাওয়া যায়নি'}
                  </h3>
                  <p className="text-slate-400 text-[10px] font-bold mt-2 uppercase tracking-wide leading-relaxed">
                    {anyStudentsInMadrasah 
-                      ? 'আপনার ডাটাবেসে ছাত্র আছে, কিন্তু তারা সম্ভবত সঠিক শ্রেণিতে নিবন্ধিত নয় অথবা ডাটাবেস ফাংশনে সমস্যা হচ্ছে।'
-                      : 'এই মাদরাসার অধীনে কোনো ছাত্র নিবন্ধিত নেই। অনুগ্রহ করে ছাত্র যোগ করুন।'}
+                      ? 'আপনার ডাটাবেসে সদস্য আছে, কিন্তু তারা সম্ভবত সঠিক কমিটিতে নিবন্ধিত নয় অথবা ডাটাবেস ফাংশনে সমস্যা হচ্ছে।'
+                      : 'এই সংগঠনের অধীনে কোনো সদস্য নিবন্ধিত নেই। অনুগ্রহ করে সদস্য যোগ করুন।'}
                  </p>
               </div>
             )}
@@ -580,7 +580,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                     </div>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">সাবস্ক্রিপশন ধরণ (Subscription Type)</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">চাঁদার ধরণ (Contribution Type)</label>
                             <div className={`rounded-2xl p-4 border max-h-40 overflow-y-auto ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                                 <div className="space-y-2">
                                     {availableFeeItems.length > 0 ? (
@@ -622,7 +622,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                                             );
                                         })
                                     ) : (
-                                        <div className="text-center py-4 text-slate-400 text-xs font-bold">কোনো ফি আইটেম পাওয়া যায়নি। দয়া করে ফি সেটিংস থেকে আইটেম যোগ করুন।</div>
+                                        <div className="text-center py-4 text-slate-400 text-xs font-bold">কোনো চাঁদার ধরণ পাওয়া যায়নি। দয়া করে চাঁদা সেটিংস থেকে ধরণ যোগ করুন।</div>
                                     )}
                                 </div>
                             </div>
@@ -754,7 +754,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
             <div className="space-y-3">
                 {structures.length > 0 ? (
                     Object.entries(structures.reduce((acc: any, s: any) => {
-                        const className = s.departments?.name || 'সব শ্রেণি';
+                        const className = s.departments?.name || 'সব কমিটি';
                         if (!acc[className]) acc[className] = [];
                         acc[className].push(s);
                         return acc;
@@ -809,7 +809,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${isDark ? 'bg-slate-800 text-slate-700' : 'bg-white text-slate-200'}`}>
                             <Tag size={24} />
                         </div>
-                        <p className="text-slate-400 uppercase text-[10px] font-black">কোনো ফি আইটেম নেই</p>
+                        <p className="text-slate-400 uppercase text-[10px] font-black">কোনো চাঁদার ধরণ নেই</p>
                     </div>
                 )}
             </div>
@@ -825,14 +825,14 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                  </div>
                  <div className="space-y-4">
                     <div className="relative">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">বিভাগ নির্বাচন করুন (ঐচ্ছিক)</label>
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">কমিটি নির্বাচন করুন (ঐচ্ছিক)</label>
                        <button onClick={() => setShowClassDropdown(!showClassDropdown)} className={`w-full h-14 px-6 rounded-2xl border-2 flex items-center justify-between font-black transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
-                          <span className="truncate">{departments.find(c => c.id === selectedClass)?.name || 'সব বিভাগ (All Departments)'}</span>
+                          <span className="truncate">{departments.find(c => c.id === selectedClass)?.name || 'সব কমিটি (All Committees)'}</span>
                           <ChevronDown size={20} className="text-slate-300" />
                        </button>
                        {showClassDropdown && (
                            <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl shadow-2xl border z-[1001] p-2 max-h-48 overflow-y-auto ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                               <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black transition-colors ${isDark ? 'text-slate-100 hover:bg-slate-700' : 'text-[#1E3A8A] hover:bg-slate-50'}`}>সব বিভাগ (All Departments)</button>
+                               <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black transition-colors ${isDark ? 'text-slate-100 hover:bg-slate-700' : 'text-[#1E3A8A] hover:bg-slate-50'}`}>সব কমিটি (All Committees)</button>
                                {departments.map(c => (
                                    <button key={c.id} onClick={() => { setSelectedClass(c.id); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black transition-colors ${isDark ? 'text-slate-100 hover:bg-slate-700' : 'text-[#1E3A8A] hover:bg-slate-50'}`}>{c.name}</button>
                                ))}
@@ -840,11 +840,11 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                        )}
                     </div>
                     <div className="relative">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">সাবস্ক্রিপশন-এর নাম</label>
-                       <input type="text" className={`w-full h-14 rounded-2xl px-12 font-black text-sm outline-none border-2 border-transparent transition-all ${isDark ? 'bg-slate-800 text-slate-100 focus:border-blue-500/20' : 'bg-slate-50 text-slate-700 focus:border-[#2563EB]/20'}`} placeholder="যেমন: মাসিক বেতন" value={category} onChange={(e) => setCategory(e.target.value)} />
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">চাঁদার ক্যাটাগরি</label>
+                       <input type="text" className={`w-full h-14 rounded-2xl px-12 font-black text-sm outline-none border-2 border-transparent transition-all ${isDark ? 'bg-slate-800 text-slate-100 focus:border-blue-500/20' : 'bg-slate-50 text-slate-700 focus:border-[#2563EB]/20'}`} placeholder="যেমন: মাসিক চাঁদা" value={category} onChange={(e) => setCategory(e.target.value)} />
                        <Tag className="absolute left-4 top-[44px] text-slate-300" size={20}/>
                        <div className="flex flex-wrap gap-2 mt-2 px-1">
-                          {['পরীক্ষার ফি', 'কোচিং ফি', 'অন্যান্য ফি'].map(suggestion => (
+                          {['মাসিক চাঁদা', 'সদস্য ফি', 'বিশেষ অনুদান', 'অন্যান্য ফান্ড'].map(suggestion => (
                              <button 
                                 key={suggestion}
                                 type="button"

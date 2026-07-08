@@ -230,7 +230,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
           </button>
           <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto`}>Voice Service Dashboard</h1>
         </div>
-        <button onClick={() => fetchData()} className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400 border-slate-700' : 'bg-blue-50 text-[#2563EB] border-blue-100'} rounded-xl active:scale-95 transition-all border shadow-sm`}>
+        <button onClick={() => fetchData()} className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/30'} rounded-xl active:scale-95 transition-all border shadow-sm`}>
           <RefreshCw size={18} />
         </button>
       </div>
@@ -240,7 +240,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-none px-4 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-[#2563EB] text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+            className={`flex-none px-4 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-[#42f5e9] text-[#0fb5ab] shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
           >
             {tab.replace('_', ' ')}
           </button>
@@ -272,11 +272,11 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                   voices.map((voice) => (
                     <div key={voice.id} className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2rem] border flex flex-col md:flex-row md:items-center justify-between gap-4`}>
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-500'} rounded-2xl flex items-center justify-center shadow-inner shrink-0`}>
+                        <div className={`w-12 h-12 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-2xl flex items-center justify-center shadow-inner shrink-0`}>
                           <Mic size={20} />
                         </div>
                         <div>
-                          <h4 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{voice.name}</h4>
+                          <h4 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{voice.name}</h4>
                           <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                             Created: {new Date(voice.createdAt || voice.created_at).toLocaleDateString()}
                           </p>
@@ -335,7 +335,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                         <CheckCircle2 size={20} />
                       </div>
                       <div>
-                        <h4 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{voice.title}</h4>
+                        <h4 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{voice.title}</h4>
                         <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                           User: <span className={madrasah?.theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}>{voice.institutions?.name || 'Unknown'}</span>
                         </p>
@@ -378,7 +378,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                         <Smartphone size={20} />
                       </div>
                       <div>
-                        <h4 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{sender.number}</h4>
+                        <h4 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{sender.number}</h4>
                         <p className="text-[10px] font-bold text-slate-400 mt-0.5">Caller ID</p>
                       </div>
                     </div>
@@ -409,7 +409,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                           <PhoneCall size={20} />
                         </div>
                         <div>
-                          <h4 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{b.name}</h4>
+                          <h4 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{b.name}</h4>
                           <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                             {new Date(b.createdAt || b.created_at).toLocaleString()}
                           </p>
@@ -417,13 +417,13 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                       </div>
                       <button 
                         onClick={() => { setSelectedItem(b); fetchBroadcastResult(b.id); }}
-                        className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'} rounded-xl transition-colors self-end sm:self-auto`}
+                        className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9] hover:bg-[#42f5e9]/20' : 'bg-[#42f5e9]/10 text-[#0fb5ab] hover:bg-[#42f5e9]/20'} rounded-xl transition-colors self-end sm:self-auto`}
                       >
                         <ChevronRight size={20} />
                       </button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${b.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                      <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${b.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}>
                         {b.status}
                       </span>
                     </div>
@@ -482,7 +482,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                   {itemResult.map((res: any, idx: number) => (
                     <div key={idx} className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-800' : 'bg-slate-50 border-slate-100'} p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3`}>
                       <div>
-                        <p className={`text-sm font-black ${madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{res.phone}</p>
+                        <p className={`text-sm font-black ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{res.phone}</p>
                         <p className="text-[10px] font-bold text-slate-400">Duration: {res.duration}s</p>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest self-start sm:self-auto ${res.status === 'answered' ? (madrasah?.theme === 'dark' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : (madrasah?.theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
@@ -522,7 +522,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                 <select
                   value={assignInstitutionId}
                   onChange={(e) => setAssignInstitutionId(e.target.value)}
-                  className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100'} border rounded-xl px-4 font-black text-sm mt-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none`}
+                  className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100'} border rounded-xl px-4 font-black text-sm mt-1 focus:ring-2 focus:ring-[#42f5e9] focus:border-transparent outline-none`}
                 >
                   <option value="">Select an institution...</option>
                   {institutions.map(m => (
@@ -533,7 +533,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
               <button
                 onClick={handleAssignVoice}
                 disabled={isAssigning || !assignInstitutionId}
-                className="w-full h-12 bg-[#2563EB] text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+                className="w-full h-12 bg-[#42f5e9] text-[#0fb5ab] rounded-xl font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4 shadow-bubble"
               >
                 {isAssigning ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
                 {isAssigning ? 'Assigning...' : 'Assign Voice'}

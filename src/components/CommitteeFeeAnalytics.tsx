@@ -183,20 +183,20 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
 
   if (loading) return (
     <div className="flex justify-center py-20">
-      <Loader2 className="animate-spin text-[#2563EB]" size={40} />
+      <Loader2 className="animate-spin text-[#0fb5ab]" size={40} />
     </div>
   );
 
   if (!data) return null;
 
-  const COLORS = ['#8D30F4', '#2563EB', '#10B981', '#F59E0B', '#EF4444'];
+  const COLORS = ['#8D30F4', '#0fb5ab', '#10B981', '#F59E0B', '#EF4444'];
 
   return (
     <div className="space-y-8 pb-10">
       {/* Header & Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className={`text-2xl font-black font-noto ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{localT.title[lang]}</h2>
+          <h2 className={`text-2xl font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{localT.title[lang]}</h2>
           <p className={`text-sm font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.subtitle[lang]}</p>
         </div>
         <div className={`flex items-center gap-2 p-1.5 rounded-2xl border shadow-sm ${
@@ -204,13 +204,13 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
         }`}>
           <button 
             onClick={() => setTimeRange('month')}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${timeRange === 'month' ? 'bg-[#2563EB] text-white shadow-md' : isDark ? 'text-slate-500 hover:bg-slate-700' : 'text-slate-400 hover:bg-slate-50'}`}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${timeRange === 'month' ? 'bg-[#42f5e9] text-[#0fb5ab] shadow-md' : isDark ? 'text-slate-500 hover:bg-slate-700' : 'text-slate-400 hover:bg-slate-50'}`}
           >
             {localT.monthly[lang]}
           </button>
           <button 
             onClick={() => setTimeRange('year')}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${timeRange === 'year' ? 'bg-[#2563EB] text-white shadow-md' : isDark ? 'text-slate-500 hover:bg-slate-700' : 'text-slate-400 hover:bg-slate-50'}`}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${timeRange === 'year' ? 'bg-[#42f5e9] text-[#0fb5ab] shadow-md' : isDark ? 'text-slate-500 hover:bg-slate-700' : 'text-slate-400 hover:bg-slate-50'}`}
           >
             {localT.yearly[lang]}
           </button>
@@ -236,7 +236,7 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
               <ArrowUpCircle size={24} />
             </div>
             <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.totalIncome[lang]}</p>
-            <h3 className={`text-3xl font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>৳ {data.summary.totalIncome.toLocaleString('bn-BD')}</h3>
+            <h3 className={`text-3xl font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>৳ {data.summary.totalIncome.toLocaleString('bn-BD')}</h3>
           </div>
         </div>
 
@@ -258,7 +258,7 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
         }`}>
           <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-50 group-hover:scale-110 transition-transform ${isDark ? 'bg-blue-900/20' : 'bg-blue-50'}`} />
           <div className="relative z-10">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shadow-inner ${isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shadow-inner ${isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
               <Wallet size={24} />
             </div>
             <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.balance[lang]}</p>
@@ -280,7 +280,7 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${isDark ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-500'}`}>
                 <TrendingUp size={24} />
               </div>
-              <h3 className={`text-xl font-black font-noto ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{localT.incomeReport[lang]}</h3>
+              <h3 className={`text-xl font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{localT.incomeReport[lang]}</h3>
             </div>
           </div>
           
@@ -321,7 +321,7 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
             {data.incomeBreakdown.map((item: any, idx: number) => (
               <div key={idx} className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                 <p className={`text-[9px] font-black uppercase mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{item.name}</p>
-                <p className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>৳{item.value.toLocaleString()}</p>
+                <p className={`text-lg font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>৳{item.value.toLocaleString()}</p>
               </div>
             ))}
           </div>
@@ -336,7 +336,7 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-500'}`}>
                 <TrendingDown size={24} />
               </div>
-              <h3 className={`text-xl font-black font-noto ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{localT.expenseReport[lang]}</h3>
+              <h3 className={`text-xl font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{localT.expenseReport[lang]}</h3>
             </div>
           </div>
 
@@ -389,18 +389,18 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
           isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
       }`}>
         <div className="flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
             <Users size={24} />
           </div>
-          <h3 className={`text-xl font-black font-noto ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{localT.studentFinancialStatus[lang]}</h3>
+          <h3 className={`text-xl font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{localT.studentFinancialStatus[lang]}</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className={`p-6 rounded-[2rem] border flex flex-col items-center text-center ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-sm ${isDark ? 'bg-slate-800 text-blue-400' : 'bg-white text-[#2563EB]'}`}>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-sm ${isDark ? 'bg-slate-800 text-[#42f5e9]' : 'bg-white text-[#0fb5ab]'}`}>
               <Users size={28} />
             </div>
-            <h4 className={`text-2xl font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{data.studentStats.total}</h4>
+            <h4 className={`text-2xl font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{data.studentStats.total}</h4>
             <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.totalStudents[lang]}</p>
           </div>
 
@@ -424,7 +424,7 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${isDark ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-50 text-purple-500'}`}>
               <BarChart3 size={24} />
             </div>
-            <h3 className={`text-xl font-black font-noto ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{localT.monthlyDonationTrend[lang]}</h3>
+            <h3 className={`text-xl font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{localT.monthlyDonationTrend[lang]}</h3>
           </div>
 
           <div className="h-[300px] w-full">
@@ -479,7 +479,7 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${isDark ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-50 text-pink-500'}`}>
               <Heart size={24} />
             </div>
-            <h3 className={`text-xl font-black font-noto ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{localT.topDonors[lang]}</h3>
+            <h3 className={`text-xl font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{localT.topDonors[lang]}</h3>
           </div>
 
           <div className="space-y-4">
@@ -489,7 +489,7 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black border ${isDark ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-white text-slate-400 border-slate-100'}`}>
                     {idx + 1}
                   </div>
-                  <p className={`text-sm font-black truncate max-w-[120px] ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{donor.name}</p>
+                  <p className={`text-sm font-black truncate max-w-[120px] ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{donor.name}</p>
                 </div>
                 <p className="text-sm font-black text-emerald-600">৳{donor.amount.toLocaleString()}</p>
               </div>

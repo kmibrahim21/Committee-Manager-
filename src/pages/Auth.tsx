@@ -10,15 +10,16 @@ import { useOfflineStatus } from '../hooks/useOffline';
 
 interface AuthProps {
   lang: Language;
+  signInAsMember?: (phone: string, memberId: string) => Promise<boolean>;
 }
 
-const Auth: React.FC<AuthProps> = ({ lang }) => {
+const Auth: React.FC<AuthProps> = ({ lang, signInAsMember }) => {
   const isOnline = useOfflineStatus();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [phone, setPhone] = useState('');
-  const [pin, setPin] = useState('');
-  const [loginType, setLoginType] = useState<'admin' | 'executive'>('admin');
+  const [memberId, setMemberId] = useState('');
+  const [loginType, setLoginType] = useState<'admin' | 'executive' | 'member'>('admin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [brandInfo, setBrandInfo] = useState({ name: 'কমিটি ম্যানেজার' });
@@ -74,53 +75,46 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
     setError('');
     
     try {
-      // 1. Call RPC to verify credentials and ensure Supabase user exists
-      const { data: rpcData, error: rpcError } = await supabase.rpc('check_teacher_login', {
-        p_phone: phone.trim(),
-        p_pin: pin.trim()
-      });
+      // Login by phone only as per user request to remove PIN
+      const { data, error: fetchError } = await supabase
+        .from('executives')
+        .select('*')
+        .eq('phone', phone.trim())
+        .eq('is_active', true)
+        .maybeSingle();
 
-      if (rpcError) {
-        // Fallback to direct table query if RPC doesn't exist yet (before user runs SQL)
-        const { data, error: fetchError } = await supabase
-          .from('executives')
-          .select('*')
-          .eq('phone', phone.trim())
-          .eq('pin', pin.trim())
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (fetchError) throw fetchError;
-        
-        if (data) {
-          localStorage.setItem('executive_session', JSON.stringify(data));
-          window.location.reload();
-        } else {
-          setError(lang === 'bn' ? 'ভুল ফোন নম্বর বা পিন' : 'Invalid phone number or PIN');
-        }
-        return;
-      }
+      if (fetchError) throw fetchError;
       
-      if (rpcData && rpcData.length > 0) {
-        const teacherData = rpcData[0];
-        
-        // 2. Sign in with Supabase Auth
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: teacherData.supabase_email,
-          password: pin.trim()
-        });
-        
-        if (signInError) throw signInError;
-        
-        // 3. Store executive session data
-        localStorage.setItem('executive_session', JSON.stringify(teacherData));
+      if (data) {
+        localStorage.setItem('executive_session', JSON.stringify(data));
         window.location.reload();
       } else {
-        setError(lang === 'bn' ? 'ভুল ফোন নম্বর বা পিন' : 'Invalid phone number or PIN');
+        setError(lang === 'bn' ? 'ভুল ফোন নম্বর' : 'Invalid phone number');
       }
     } catch (err: any) {
       console.error('Executive login error:', err);
       setError(lang === 'bn' ? 'লগইন করতে সমস্যা হচ্ছে' : 'Error logging in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMemberAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signInAsMember) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const success = await signInAsMember(phone.trim(), memberId.trim());
+      if (!success) {
+        setError(lang === 'bn' ? 'ভুল মোবাইল নম্বর বা সদস্য পরিচিতি নম্বর' : 'Invalid phone or member ID');
+      } else {
+        window.location.reload();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error logging in');
     } finally {
       setLoading(false);
     }
@@ -133,19 +127,19 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
         <motion.div 
           animate={{ rotate: 360 }}
           transition={{ duration: 100, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-20 -right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"
+          className="absolute -top-20 -right-20 w-96 h-96 bg-[#42f5e9]/10 rounded-full blur-3xl"
         />
         <motion.div 
           animate={{ rotate: -360 }}
           transition={{ duration: 80, repeat: Infinity, ease: "linear" }}
-          className="absolute -bottom-20 -left-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl"
+          className="absolute -bottom-20 -left-20 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"
         />
         
         {/* Islamic Decorative Icons */}
         <motion.div 
           animate={{ y: [0, -20, 0], opacity: [0.3, 0.6, 0.3] }}
           transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-20 left-[15%] text-blue-400/20"
+          className="absolute top-20 left-[15%] text-[#42f5e9]/20"
         >
           <Moon size={120} strokeWidth={1} />
         </motion.div>
@@ -186,8 +180,8 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
             className="relative inline-block"
           >
             <div className="w-24 h-24 bg-white/5 backdrop-blur-xl rounded-[2.5rem] mx-auto flex items-center justify-center border border-white/20 shadow-2xl relative group">
-              <div className="absolute inset-0 bg-blue-500/20 rounded-[2.5rem] blur-xl group-hover:bg-blue-500/30 transition-colors" />
-              <BookOpen size={48} strokeWidth={1.5} className="text-blue-400 relative z-10" />
+              <div className="absolute inset-0 bg-[#42f5e9]/20 rounded-[2.5rem] blur-xl group-hover:bg-[#42f5e9]/30 transition-colors" />
+              <BookOpen size={48} strokeWidth={1.5} className="text-[#42f5e9] relative z-10" />
             </div>
           </motion.div>
           
@@ -195,7 +189,7 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
             <h1 className="text-4xl font-black text-white font-noto tracking-tight">
               {brandInfo.name}
             </h1>
-            <div className="flex items-center justify-center gap-2 text-blue-400/60">
+            <div className="flex items-center justify-center gap-2 text-[#42f5e9]/60">
               <Sparkles size={14} />
               <p className="text-[10px] font-bold uppercase tracking-[0.3em]">Secure Portal Login</p>
               <Sparkles size={14} />
@@ -215,25 +209,31 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
               repeat: Infinity,
               ease: "linear",
             }}
-            className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-transparent via-blue-400/5 to-transparent pointer-events-none"
+            className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-transparent via-[#42f5e9]/5 to-transparent pointer-events-none"
           />
           
           {/* Subtle inner glow */}
-          <div className="absolute -top-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
+          <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#42f5e9]/10 rounded-full blur-[80px] pointer-events-none" />
           
           <div className="flex p-1 bg-black/40 rounded-2xl border border-white/5 relative mb-6">
-            <div className={`absolute h-[calc(100%-8px)] w-[calc(50%-4px)] bg-blue-600 rounded-xl shadow-lg shadow-blue-600/20 transition-transform duration-300 ${loginType === 'executive' ? 'translate-x-full' : 'translate-x-0'}`} />
+            <div className={`absolute h-[calc(100%-8px)] w-[calc(33.33%-4px)] bg-[#42f5e9] rounded-xl shadow-lg shadow-[#42f5e9]/20 transition-transform duration-300 ${loginType === 'executive' ? 'translate-x-full' : loginType === 'member' ? 'translate-x-[200%]' : 'translate-x-0'}`} />
             <button 
               onClick={() => { setLoginType('admin'); setError(''); }}
-              className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest relative z-10 transition-colors ${loginType === 'admin' ? 'text-white' : 'text-slate-400 hover:text-slate-300'}`}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest relative z-10 transition-colors ${loginType === 'admin' ? 'text-[#0fb5ab]' : 'text-slate-400 hover:text-slate-300'}`}
             >
-              Admin Login
+              Admin
             </button>
             <button 
               onClick={() => { setLoginType('executive'); setError(''); }}
-              className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest relative z-10 transition-colors ${loginType === 'executive' ? 'text-white' : 'text-slate-400 hover:text-slate-300'}`}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest relative z-10 transition-colors ${loginType === 'executive' ? 'text-[#0fb5ab]' : 'text-slate-400 hover:text-slate-300'}`}
             >
-              Executive Login
+              Exec
+            </button>
+            <button 
+              onClick={() => { setLoginType('member'); setError(''); }}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest relative z-10 transition-colors ${loginType === 'member' ? 'text-[#0fb5ab]' : 'text-slate-400 hover:text-slate-300'}`}
+            >
+              Member
             </button>
           </div>
 
@@ -255,23 +255,23 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
 
               <div className="space-y-4">
                 <div className="group relative">
-                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={20} />
+                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#42f5e9] transition-colors" size={20} />
                   <input
                     type="email"
                     required
                     placeholder="ইমেইল এড্রেস"
-                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-blue-500/50 focus:bg-white/10 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-600"
+                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-[#42f5e9]/50 focus:bg-white/10 focus:ring-4 focus:ring-[#42f5e9]/10 transition-all placeholder:text-slate-600"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
                 <div className="group relative">
-                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={20} />
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#42f5e9] transition-colors" size={20} />
                   <input
                     type="password"
                     required
                     placeholder="পাসওয়ার্ড"
-                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-blue-500/50 focus:bg-white/10 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-600"
+                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-[#42f5e9]/50 focus:bg-white/10 focus:ring-4 focus:ring-[#42f5e9]/10 transition-all placeholder:text-slate-600"
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                   />
@@ -283,12 +283,12 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 text-lg font-noto shadow-xl shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-5 bg-[#42f5e9] hover:bg-[#3ce0d5] text-[#0fb5ab] font-black rounded-2xl transition-all flex items-center justify-center gap-3 text-lg font-noto shadow-xl shadow-[#42f5e9]/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? <Loader2 className="animate-spin" size={24} /> : 'লগইন করুন'}
               </motion.button>
             </form>
-          ) : (
+          ) : loginType === 'executive' ? (
             <form onSubmit={handleTeacherAuth} className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               <AnimatePresence mode="wait">
                 {error && (
@@ -306,25 +306,14 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
 
               <div className="space-y-4">
                 <div className="group relative">
-                  <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={20} />
+                  <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#42f5e9] transition-colors" size={20} />
                   <input
                     type="tel"
                     required
                     placeholder="ফোন নম্বর (01...)"
-                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-blue-500/50 focus:bg-white/10 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-600"
+                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-[#42f5e9]/50 focus:bg-white/10 focus:ring-4 focus:ring-[#42f5e9]/10 transition-all placeholder:text-slate-600"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                  />
-                </div>
-                <div className="group relative">
-                  <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={20} />
-                  <input
-                    type="password"
-                    required
-                    placeholder="লগইন পিন"
-                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-blue-500/50 focus:bg-white/10 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-600"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
                   />
                 </div>
               </div>
@@ -334,9 +323,60 @@ const Auth: React.FC<AuthProps> = ({ lang }) => {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 text-lg font-noto shadow-xl shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-5 bg-[#42f5e9] hover:bg-[#3ce0d5] text-[#0fb5ab] font-black rounded-2xl transition-all flex items-center justify-center gap-3 text-lg font-noto shadow-xl shadow-[#42f5e9]/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? <Loader2 className="animate-spin" size={24} /> : 'নির্বাহী লগইন'}
+              </motion.button>
+            </form>
+          ) : (
+            <form onSubmit={handleMemberAuth} className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+              <AnimatePresence mode="wait">
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center gap-3 text-red-400 font-bold text-xs"
+                  >
+                    <AlertCircle size={18} />
+                    {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="space-y-4">
+                <div className="group relative">
+                  <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#42f5e9] transition-colors" size={20} />
+                  <input
+                    type="tel"
+                    required
+                    placeholder={lang === 'bn' ? 'মোবাইল নম্বর' : 'Mobile Number'}
+                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-[#42f5e9]/50 focus:bg-white/10 focus:ring-4 focus:ring-[#42f5e9]/10 transition-all placeholder:text-slate-600"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
+                <div className="group relative">
+                  <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#42f5e9] transition-colors" size={20} />
+                  <input
+                    type="text"
+                    required
+                    placeholder={lang === 'bn' ? 'সদস্য পরিচিতি নম্বর' : 'Member ID Number'}
+                    className="w-full pl-14 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold text-sm focus:border-[#42f5e9]/50 focus:bg-white/10 focus:ring-4 focus:ring-[#42f5e9]/10 transition-all placeholder:text-slate-600"
+                    value={memberId}
+                    onChange={(e) => setMemberId(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                disabled={loading}
+                className="w-full py-5 bg-[#42f5e9] hover:bg-[#3ce0d5] text-[#0fb5ab] font-black rounded-2xl transition-all flex items-center justify-center gap-3 text-lg font-noto shadow-xl shadow-[#42f5e9]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? <Loader2 className="animate-spin" size={24} /> : 'সদস্য লগইন'}
               </motion.button>
             </form>
           )}

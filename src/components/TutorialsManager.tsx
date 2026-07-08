@@ -82,7 +82,7 @@ export const TutorialsManager: React.FC<TutorialsManagerProps> = ({ onBack, madr
           </button>
           <h1 className={`text-xl font-black font-noto ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'}`}>Tutorials Management</h1>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="p-2 bg-blue-50 rounded-xl text-[#2563EB] active:scale-95 transition-all border border-blue-100 shadow-sm flex items-center gap-2 px-4">
+        <button onClick={() => setShowAddModal(true)} className="p-2 bg-[#42f5e9]/10 rounded-xl text-[#0fb5ab] active:scale-95 transition-all border border-[#42f5e9]/20 shadow-sm flex items-center gap-2 px-4">
            <Plus size={18} /> <span className="text-xs font-black">Add New</span>
         </button>
       </div>
@@ -101,7 +101,7 @@ export const TutorialsManager: React.FC<TutorialsManagerProps> = ({ onBack, madr
                   <Play size={20} fill="currentColor" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className={`font-black truncate ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{t.title}</h4>
+                  <h4 className={`font-black truncate ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{t.title}</h4>
                   <p className="text-[10px] font-bold text-slate-400 truncate">{t.url}</p>
                 </div>
               </div>
@@ -168,7 +168,7 @@ export const TutorialsManager: React.FC<TutorialsManagerProps> = ({ onBack, madr
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="e.g. How to add students"
-                  className={`w-full px-6 py-4 rounded-2xl border transition-all focus:ring-4 focus:ring-blue-500/10 outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-100 text-[#1E293B] placeholder:text-slate-300'}`}
+                  className={`w-full px-6 py-4 rounded-2xl border transition-all focus:ring-4 focus:ring-[#42f5e9]/10 outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-100 text-[#1E293B] placeholder:text-slate-300'}`}
                 />
               </div>
               <div>
@@ -178,13 +178,13 @@ export const TutorialsManager: React.FC<TutorialsManagerProps> = ({ onBack, madr
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
                   placeholder="https://youtube.com/watch?v=..."
-                  className={`w-full px-6 py-4 rounded-2xl border transition-all focus:ring-4 focus:ring-blue-500/10 outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-100 text-[#1E293B] placeholder:text-slate-300'}`}
+                  className={`w-full px-6 py-4 rounded-2xl border transition-all focus:ring-4 focus:ring-[#42f5e9]/10 outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-100 text-[#1E293B] placeholder:text-slate-300'}`}
                 />
               </div>
               <button
                 onClick={handleAddTutorial}
                 disabled={saving || !newTitle.trim() || !newUrl.trim()}
-                className="w-full h-12 bg-[#2563EB] text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+                className="w-full h-12 bg-[#42f5e9] text-[#0fb5ab] rounded-xl font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4 shadow-bubble"
               >
                 {saving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
                 {saving ? 'Saving...' : 'Add Tutorial'}

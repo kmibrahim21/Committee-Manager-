@@ -83,7 +83,9 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
       setLoading(true);
       try {
         const { data } = await supabase.from('ledger').select('*').eq('institution_id', madrasah.id).order('transaction_date', { ascending: false });
-        if (data) setLedger(data);
+        if (data) {
+          setLedger(data);
+        }
         setRefreshKey(prev => prev + 1);
       } catch (e: any) { 
         console.error("Accounting Fetch Error:", e);
@@ -124,8 +126,8 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
             <Calculator size={18}/>
           </button>
           <div>
-            <h1 className={`text-lg font-black font-noto leading-none ${isDark ? 'text-slate-100' : 'text-[#1E293B]'}`}>ফি ও হিসাব</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">অ্যাকাউন্টিং এবং ফি</p>
+            <h1 className={`text-lg font-black font-noto leading-none ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>চাঁদা ও হিসাব</h1>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">ফান্ড এবং হিসাব ব্যবস্থাপনা</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -137,7 +139,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
             </button>
             <button 
               onClick={() => setActiveTab('summary')} 
-              className={`px-4 h-10 rounded-2xl shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-all text-xs font-black uppercase tracking-widest border ${activeTab === 'summary' ? (isDark ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-[#2563EB] border-blue-100') : (isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-white text-slate-600 border-slate-200')}`}
+              className={`px-4 h-10 rounded-2xl shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-all text-xs font-black uppercase tracking-widest border ${activeTab === 'summary' ? (isDark ? 'bg-[#42f5e9]/20 text-[#42f5e9] border-[#42f5e9]/30' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20') : (isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-white text-slate-600 border-slate-200')}`}
             >
               <BarChart3 size={18}/>
               <span className="hidden sm:inline">ড্যাশবোর্ড</span>
@@ -150,25 +152,25 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
         <div className={`flex p-1.5 rounded-[2rem] border overflow-x-auto no-scrollbar gap-1 ${isDark ? 'bg-slate-800/80 border-slate-700/50' : 'bg-slate-100/80 border-slate-200/50'}`}>
           <button 
             onClick={() => setActiveTab('fees')} 
-            className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'fees' ? (isDark ? 'bg-slate-900 text-blue-400 shadow-sm border border-slate-700/50' : 'bg-white text-[#2563EB] shadow-sm border border-slate-200/50') : 'text-slate-400 hover:text-slate-600'}`}
+            className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'fees' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-sm border border-[#42f5e9]/20') : 'text-slate-400 hover:text-slate-600'}`}
           >
-            শিক্ষার্থী ফি
+            সদস্য চাঁদা
           </button>
           <button 
             onClick={() => setActiveTab('structures')} 
-            className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'structures' ? (isDark ? 'bg-slate-900 text-blue-400 shadow-sm border border-slate-700/50' : 'bg-white text-[#2563EB] shadow-sm border border-slate-200/50') : 'text-slate-400 hover:text-slate-600'}`}
+            className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'structures' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-sm border border-[#42f5e9]/20') : 'text-slate-400 hover:text-slate-600'}`}
           >
-            ফি সেটিংস
+            চাঁদা সেটিংস
           </button>
           <button 
             onClick={() => setActiveTab('add-ledger')} 
-            className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'add-ledger' ? (isDark ? 'bg-slate-900 text-blue-400 shadow-sm border border-slate-700/50' : 'bg-white text-[#2563EB] shadow-sm border border-slate-200/50') : 'text-slate-400 hover:text-slate-600'}`}
+            className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'add-ledger' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-sm border border-[#42f5e9]/20') : 'text-slate-400 hover:text-slate-600'}`}
           >
             লেনদেন
           </button>
           <button 
             onClick={() => setActiveTab('ledger')} 
-            className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'ledger' ? (isDark ? 'bg-slate-900 text-blue-400 shadow-sm border border-slate-700/50' : 'bg-white text-[#2563EB] shadow-sm border border-slate-200/50') : 'text-slate-400 hover:text-slate-600'}`}
+            className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'ledger' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-sm border border-[#42f5e9]/20') : 'text-slate-400 hover:text-slate-600'}`}
           >
             ইতিহাস
           </button>
@@ -223,14 +225,14 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
         <div className="space-y-4 animate-in slide-in-from-bottom-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
             <div>
-              <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>লেনদেনের ইতিহাস</h3>
+              <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>লেনদেনের ইতিহাস</h3>
               <span className="text-[10px] font-bold text-slate-400 uppercase">{ledger.length} লেনদেন</span>
             </div>
             
             <div className={`flex p-1 rounded-xl border shadow-inner w-fit ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200/50'}`}>
               <button 
                 onClick={() => setLedgerFilter('all')}
-                className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'all' ? (isDark ? 'bg-slate-900 text-blue-400 shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}
+                className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'all' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
               >
                 ইতিহাস
               </button>
@@ -250,7 +252,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
           </div>
           
           {loading ? (
-            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#2563EB]" size={32} /></div>
+            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[#0fb5ab]" size={32} /></div>
           ) : ledger.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
               {ledger.filter(e => ledgerFilter === 'all' || e.type === ledgerFilter).map(entry => {
@@ -281,13 +283,13 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                           {entry.type === 'income' ? <ArrowUpCircle size={24} /> : <ArrowDownCircle size={24} />}
                         </div>
                         <div>
-                          <h5 className={`font-black font-noto text-sm mb-0.5 ${isDark ? 'text-slate-200' : 'text-[#1E3A8A]'}`}>{displayName}</h5>
+                          <h5 className={`font-black font-noto text-sm mb-0.5 ${isDark ? 'text-slate-200' : 'text-[#0fb5ab]'}`}>{displayName}</h5>
                           <div className="flex items-center gap-2">
                             {entry.category === 'Member Fee' ? (
                               <>
                                 <span className="text-[10px] text-slate-400 font-bold">{details}</span>
                                 <span className={`w-1 h-1 rounded-full ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`} />
-                                <span className="text-[9px] text-blue-500 font-black uppercase tracking-tighter">{feeType}</span>
+                                <span className="text-[9px] text-[#0fb5ab] font-black uppercase tracking-tighter">{feeType}</span>
                               </>
                             ) : (
                               <span className="text-[10px] text-slate-400 font-bold">{new Date(entry.transaction_date).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long' })}</span>
@@ -321,7 +323,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
         <div className="space-y-8 animate-in slide-in-from-bottom-5 max-w-2xl mx-auto px-2">
           <div className={`rounded-[3rem] p-8 space-y-8 border shadow-xl ${isDark ? 'bg-slate-900 border-slate-800 shadow-slate-950/50' : 'bg-white border-white/20 shadow-blue-900/5'} backdrop-blur-sm`}>
              <div>
-              <h3 className={`text-xl font-black font-noto ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>লেনদেন করুন</h3>
+              <h3 className={`text-xl font-black font-noto ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>লেনদেন করুন</h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">নতুন লেনদেন যোগ করুন</p>
              </div>
 
@@ -368,12 +370,12 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                     />
                   </div>
                   <div className="flex flex-wrap gap-2 px-1">
-                     {(type === 'income' ? ['সদকা সংগ্রহ', 'লিল্লাহ ফান্ড', 'যাকাত ফান্ড'] : ['রান্না খরচ', 'খাদ্য খরচ', 'শিক্ষক বেতন', 'মাদরাসা maintenance']).map(suggestion => (
+                     {(type === 'income' ? ['মাসিক চাঁদা', 'অনুদান', 'অন্যান্য আয়'] : ['অফিস খরচ', 'কমিটি মিটিং খরচ', 'বেতন', 'ভবন রক্ষণাবেক্ষণ']).map(suggestion => (
                         <button 
                            key={suggestion}
                            type="button"
                            onClick={() => setCategory(suggestion)}
-                           className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${category === suggestion ? (isDark ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-sm' : 'bg-blue-50 text-[#2563EB] border-blue-200 shadow-sm') : (isDark ? 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200')}`}
+                           className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${category === suggestion ? (isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9] border-[#42f5e9]/20 shadow-sm' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20 shadow-sm') : (isDark ? 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200')}`}
                         >
                            {suggestion}
                         </button>
@@ -382,11 +384,11 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                 </div>
 
                 <div className="relative group">
-                  <div className="absolute left-5 top-6 text-slate-300 group-focus-within:text-[#2563EB] transition-colors">
+                  <div className="absolute left-5 top-6 text-slate-300 group-focus-within:text-[#0fb5ab] transition-colors">
                     <FileText size={20} />
                   </div>
                   <textarea 
-                    className={`w-full h-28 rounded-[1.8rem] pl-14 pr-6 py-5 font-bold text-sm outline-none border-2 border-transparent focus:border-[#2563EB]/20 transition-all resize-none placeholder:text-slate-300 ${isDark ? 'bg-slate-800 text-slate-100 focus:bg-slate-900' : 'bg-slate-50 text-[#1E293B] focus:bg-white'}`} 
+                    className={`w-full h-28 rounded-[1.8rem] pl-14 pr-6 py-5 font-bold text-sm outline-none border-2 border-transparent focus:border-[#42f5e9]/20 transition-all resize-none placeholder:text-slate-300 ${isDark ? 'bg-slate-800 text-slate-100 focus:bg-slate-900' : 'bg-slate-50 text-[#1E293B] focus:bg-white'}`} 
                     placeholder="বিবরণ" 
                     value={desc} 
                     onChange={(e) => setDesc(e.target.value)} 
@@ -396,7 +398,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                 <button 
                   onClick={handleAddLedger} 
                   disabled={isSaving} 
-                  className="w-full h-16 bg-[#2563EB] text-white font-black rounded-[1.8rem] shadow-premium flex items-center justify-center gap-3 active:scale-95 transition-all text-sm uppercase tracking-widest disabled:opacity-50 disabled:active:scale-100"
+                  className="w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-[1.8rem] shadow-premium flex items-center justify-center gap-3 active:scale-95 transition-all text-sm uppercase tracking-widest disabled:opacity-50 disabled:active:scale-100"
                 >
                   {isSaving ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20}/> সংরক্ষণ করুন</>}
                 </button>

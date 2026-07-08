@@ -297,8 +297,8 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
         ) : (
             <div className="space-y-4 animate-in fade-in">
                 <div className={`flex p-1 rounded-xl border transition-all ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                    <button onClick={() => setReportType('monthly')} className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${reportType === 'monthly' ? (isDark ? 'bg-slate-800 text-[#2563EB] shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}>মাসিক</button>
-                    <button onClick={() => setReportType('yearly')} className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${reportType === 'yearly' ? (isDark ? 'bg-slate-800 text-[#2563EB] shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}>বাৎসরিক</button>
+                    <button onClick={() => setReportType('monthly')} className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${reportType === 'monthly' ? (isDark ? 'bg-slate-800 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}>মাসিক</button>
+                    <button onClick={() => setReportType('yearly')} className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${reportType === 'yearly' ? (isDark ? 'bg-slate-800 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}>বাৎসরিক</button>
                 </div>
                 
                 <div className="relative">
@@ -306,15 +306,15 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                         {reportType === 'monthly' ? 'মাস নির্বাচন করুন' : 'বছর নির্বাচন করুন'}
                     </label>
                     {reportType === 'monthly' ? (
-                        <div className="relative"><input type="month" className={`w-full h-14 pl-14 pr-6 border-2 rounded-2xl font-black outline-none focus:border-[#2563EB]/20 transition-all ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`} value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /><BarChart3 className="absolute left-5 top-4 text-[#2563EB]" size={22}/></div>
+                        <div className="relative"><input type="month" className={`w-full h-14 pl-14 pr-6 border-2 rounded-2xl font-black outline-none focus:border-[#42f5e9]/20 transition-all ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'}`} value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /><BarChart3 className="absolute left-5 top-4 text-[#0fb5ab]" size={22}/></div>
                     ) : (
                         <div className="relative">
-                            <select className={`w-full h-14 pl-14 pr-6 border-2 rounded-2xl font-black outline-none focus:border-[#2563EB]/20 transition-all appearance-none ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`} value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
+                            <select className={`w-full h-14 pl-14 pr-6 border-2 rounded-2xl font-black outline-none focus:border-[#42f5e9]/20 transition-all appearance-none ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'}`} value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
                                 {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
                                     <option key={y} value={y}>{y}</option>
                                 ))}
                             </select>
-                            <Calendar className="absolute left-5 top-4 text-[#2563EB]" size={22}/>
+                            <Calendar className="absolute left-5 top-4 text-[#0fb5ab]" size={22}/>
                             <ChevronDown className="absolute right-5 top-4 text-slate-400 pointer-events-none" size={20}/>
                         </div>
                     )}
@@ -367,11 +367,11 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                    {students.map(s => (
                      <div key={s.id} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between group active:scale-[0.98] transition-all ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
                         <div className="flex items-center gap-4 min-w-0">
-                          <div className={`w-11 h-11 rounded-[1.1rem] flex flex-col items-center justify-center border shrink-0 shadow-inner ${isDark ? 'bg-slate-900 text-blue-400 border-slate-700' : 'bg-blue-50 text-[#2563EB] border-blue-100'}`}>
+                          <div className={`w-11 h-11 rounded-[1.1rem] flex flex-col items-center justify-center border shrink-0 shadow-inner ${isDark ? 'bg-slate-900 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}>
                             <span className="text-[8px] font-black opacity-40 leading-none">ROLL</span>
                             <span className="text-base font-black leading-none mt-1">{s.roll || '-'}</span>
                           </div>
-                          <h5 className={`font-black font-noto truncate text-base ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{s.name}</h5>
+                          <h5 className={`font-black font-noto truncate text-base ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>{s.name}</h5>
                         </div>
                         <div className="flex gap-2 shrink-0">
                            <button onClick={() => setStatus(s.id, 'present')} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${attendance[s.id] === 'present' ? 'bg-emerald-500 text-white shadow-lg' : (isDark ? 'bg-slate-900 text-slate-600 border border-slate-700' : 'bg-slate-50 text-slate-300')}`} title="Present"><CheckCircle size={18}/></button>
@@ -383,13 +383,13 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                    ))}
                    </div>
                    <div className="flex flex-col gap-4 mt-8">
-                        <button onClick={handleSave} disabled={saving} className="w-full h-16 bg-[#2563EB] text-white font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg active:scale-95 transition-all">
+                        <button onClick={handleSave} disabled={saving} className="w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg active:scale-95 transition-all">
                             {saving ? <Loader2 className="animate-spin" size={24} /> : <><Save size={24} strokeWidth={3} /> {t('save', lang)}</>}
                         </button>
                         
                         <div className="flex items-center gap-3">
-                           <button onClick={sendAbsentAlerts} disabled={sendingAlerts} className={`flex-1 h-14 font-black rounded-full flex items-center justify-center gap-3 text-[13px] active:scale-95 transition-all border uppercase tracking-widest shadow-sm ${isDark ? 'bg-slate-800 text-blue-400 border-slate-700' : 'bg-blue-50 text-[#2563EB] border-blue-100'}`}>
-                               {sendingAlerts ? <Loader2 className="animate-spin" size={20} /> : <><Send size={20} className={isDark ? 'text-blue-400/60' : 'text-[#2563EB]/60'} /> {t('absent_alert', lang)}</>}
+                           <button onClick={sendAbsentAlerts} disabled={sendingAlerts} className={`flex-1 h-14 font-black rounded-full flex items-center justify-center gap-3 text-[13px] active:scale-95 transition-all border uppercase tracking-widest shadow-sm ${isDark ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}>
+                               {sendingAlerts ? <Loader2 className="animate-spin" size={20} /> : <><Send size={20} className={isDark ? 'text-[#42f5e9]/60' : 'text-[#0fb5ab]/60'} /> {t('absent_alert', lang)}</>}
                            </button>
                            <button 
                              onClick={() => setShowShortcodes(!showShortcodes)}
@@ -401,10 +401,10 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
 
                         {showShortcodes && (
                            <div className={`p-4 rounded-2xl border animate-in slide-in-from-top-2 ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-blue-50/50 border-blue-100/50'}`}>
-                             <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-blue-400' : 'text-[#2563EB]'}`}>Available Shortcodes:</p>
+                             <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>Available Shortcodes:</p>
                              <div className="flex flex-wrap gap-2">
                                {availableShortcodes.map(sc => (
-                                 <div key={sc.code} className={`px-3 py-1.5 border rounded-xl text-[11px] font-bold ${isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-blue-100 text-[#1E3A8A]'}`}>
+                                 <div key={sc.code} className={`px-3 py-1.5 border rounded-xl text-[11px] font-bold ${isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-[#42f5e9]/20 text-[#0fb5ab]'}`}>
                                    {sc.code} <span className="text-slate-400 font-normal">({sc.label})</span>
                                  </div>
                                ))}
@@ -420,8 +420,8 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
             ) : (
               <div>
                 <div className="flex gap-2 mb-6">
-                  <button onClick={() => setReportView('list')} className={`flex-1 h-12 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${reportView === 'list' ? 'bg-[#2563EB] text-white shadow-md' : 'bg-slate-50 text-slate-400'}`}>List View</button>
-                  <button onClick={() => setReportView('analytics')} className={`flex-1 h-12 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${reportView === 'analytics' ? 'bg-[#2563EB] text-white shadow-md' : 'bg-slate-50 text-slate-400'}`}>Analytics</button>
+                  <button onClick={() => setReportView('list')} className={`flex-1 h-12 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${reportView === 'list' ? 'bg-[#42f5e9] text-[#0fb5ab] shadow-md' : 'bg-slate-50 text-slate-400'}`}>List View</button>
+                  <button onClick={() => setReportView('analytics')} className={`flex-1 h-12 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${reportView === 'analytics' ? 'bg-[#42f5e9] text-[#0fb5ab] shadow-md' : 'bg-slate-50 text-slate-400'}`}>Analytics</button>
                 </div>
 
                 {reportView === 'analytics' ? (
@@ -430,7 +430,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                     <>
                       <div className={`p-6 rounded-[2rem] border shadow-sm ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
                         <h3 className={`text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                          <BarChart3 className="text-[#2563EB]" size={18} />
+                          <BarChart3 className="text-[#0fb5ab]" size={18} />
                           Attendance Overview
                         </h3>
                         <div className="h-64 w-full">
@@ -537,7 +537,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
           <div className={`rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden border animate-in zoom-in-95 duration-300 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
             <div className={`p-6 border-b flex justify-between items-center ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50/50 border-slate-50'}`}>
               <h2 className={`text-xl font-black flex items-center gap-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
-                <Settings className="text-[#2563EB]" size={24} />
+                <Settings className="text-[#0fb5ab]" size={24} />
                 Attendance Settings
               </h2>
               <button onClick={() => setShowSettingsModal(false)} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm ${isDark ? 'bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-900/20' : 'bg-white text-slate-400 hover:text-red-500 hover:bg-red-50'}`}>
@@ -551,7 +551,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                   type="time" 
                   value={halfDayTime}
                   onChange={(e) => setHalfDayTime(e.target.value)}
-                  className={`w-full h-14 px-5 border-2 rounded-2xl font-bold outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 focus:border-[#2563EB]/30' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#2563EB]/30 focus:bg-white'}`}
+                  className={`w-full h-14 px-5 border-2 rounded-2xl font-bold outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#42f5e9]/30 focus:bg-white'}`}
                 />
                 <p className="text-[10px] text-slate-400 font-bold">Students arriving after this time will be marked as Half Day.</p>
               </div>
@@ -561,7 +561,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                   type="time" 
                   value={fullDayTime}
                   onChange={(e) => setFullDayTime(e.target.value)}
-                  className={`w-full h-14 px-5 border-2 rounded-2xl font-bold outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 focus:border-[#2563EB]/30' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#2563EB]/30 focus:bg-white'}`}
+                  className={`w-full h-14 px-5 border-2 rounded-2xl font-bold outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#42f5e9]/30 focus:bg-white'}`}
                 />
                 <p className="text-[10px] text-slate-400 font-bold">Standard full day attendance time.</p>
               </div>
@@ -576,7 +576,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
               <button 
                 onClick={saveSettings}
                 disabled={savingSettings}
-                className="flex-1 h-14 bg-[#2563EB] text-white font-black rounded-xl shadow-premium active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="flex-1 h-14 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-xl shadow-premium active:scale-95 transition-all flex items-center justify-center gap-2"
               >
                 {savingSettings ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> Save</>}
               </button>

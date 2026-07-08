@@ -65,7 +65,7 @@ const MemberActivityAnalysis: React.FC<MemberActivityAnalysisProps> = ({ institu
 
   if (loading) return (
     <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-6 rounded-[2.2rem] border shadow-bubble flex items-center justify-center gap-3`}>
-      <Loader2 className="animate-spin text-[#2563EB]" size={20} />
+      <Loader2 className="animate-spin text-[#0fb5ab]" size={20} />
       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{localT.analyzingRisks[lang]}</span>
     </div>
   );
@@ -79,7 +79,7 @@ const MemberActivityAnalysis: React.FC<MemberActivityAnalysisProps> = ({ institu
         { (highRisks.length > 3 || warningRisks.length > 0) && (
           <button 
             onClick={() => setExpanded(!expanded)} 
-            className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${madrasah?.theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}
+            className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}
           >
             {expanded ? localT.showLess[lang] : localT.showAll[lang]}
           </button>
@@ -102,7 +102,7 @@ const MemberActivityAnalysis: React.FC<MemberActivityAnalysisProps> = ({ institu
                 <AlertTriangle size={22} />
               </div>
               <div className="min-w-0">
-                <h3 className={`font-black text-[15px] font-noto truncate leading-tight ${madrasah?.theme === 'dark' ? 'text-slate-200' : 'text-[#1E3A8A]'}`}>{risk.name}</h3>
+                <h3 className={`font-black text-[15px] font-noto truncate leading-tight ${madrasah?.theme === 'dark' ? 'text-slate-200' : 'text-[#0fb5ab]'}`}>{risk.name}</h3>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {risk.dropout_risk !== 'safe' && (
                     <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter flex items-center gap-1 ${

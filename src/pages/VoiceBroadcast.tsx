@@ -887,7 +887,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   return (
     <>
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="bg-emerald-600 p-6 rounded-[2.2rem] shadow-premium border border-emerald-100 flex items-center justify-between text-white relative overflow-hidden">
+      <div className="bg-[#42f5e9] p-6 rounded-[2.2rem] shadow-premium border border-[#42f5e9]/20 flex items-center justify-between text-[#0e8a84] relative overflow-hidden">
         <div className="absolute top-0 right-0 p-2 opacity-10">
           <Mic size={120} />
         </div>
@@ -898,13 +898,13 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
           </h3>
         </div>
         <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-          <Mic size={28} className="text-white" />
+          <Mic size={28} className="text-[#0e8a84]" />
         </div>
       </div>
 
       <div className="relative h-[60px] bg-white rounded-[2.5rem] p-1.5 shadow-bubble border border-slate-100 flex items-center mb-8">
         <div 
-          className="absolute h-[48px] bg-[#2563EB] rounded-[2.5rem] transition-all duration-500 shadow-premium"
+          className="absolute h-[48px] bg-[#42f5e9] rounded-[2.5rem] transition-all duration-500 shadow-premium"
           style={{ 
             width: availableTabs.length > 0 ? `${100 / availableTabs.length}%` : '0',
             left: availableTabs.length > 0 ? `${(Math.max(0, availableTabs.indexOf(activeTab)) * 100) / availableTabs.length}%` : '0',
@@ -912,7 +912,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
           }}
         />
         {availableTabs.map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`relative flex-1 h-full rounded-[2.5rem] font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all z-10 ${activeTab === tab ? 'text-white' : 'text-slate-400'}`}>
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`relative flex-1 h-full rounded-[2.5rem] font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all z-10 ${activeTab === tab ? 'text-[#0e8a84]' : 'text-slate-400'}`}>
             {tab === 'broadcast' ? <Send size={16} /> : 
              tab === 'templates' ? <Mic size={16} /> : 
              tab === 'history' ? <History size={16} /> :
@@ -934,16 +934,16 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
                 <div className="space-y-7">
                   <div className="space-y-4">
-                    <h4 className="text-[11px] font-black text-[#1E3A8A] uppercase tracking-widest px-1">{t('step_1_class', lang)}</h4>
+                    <h4 className="text-[11px] font-black text-[#0fb5ab] uppercase tracking-widest px-1">{t('step_1_class', lang)}</h4>
                     <div className="relative">
                       <button onClick={() => setShowClassDropdown(!showClassDropdown)} className="w-full h-[60px] px-6 rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 flex items-center justify-between">
-                        <span className="text-base font-black font-noto text-[#1E3A8A]">{getSelectedClassName()}</span>
+                        <span className="text-base font-black font-noto text-[#0fb5ab]">{getSelectedClassName()}</span>
                         <ChevronDown className={`text-slate-300 transition-all ${showClassDropdown ? 'rotate-180' : ''}`} size={20} />
                       </button>
                       {showClassDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[2rem] shadow-bubble border border-slate-100 z-[100] p-2 max-h-60 overflow-y-auto">
                           {departments.map(cls => (
-                            <button key={cls.id} onClick={() => { setSelectedClassId(cls.id); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${selectedClassId === cls.id ? 'bg-[#2563EB] text-white' : 'hover:bg-slate-50 text-[#1E3A8A]'}`}>
+                            <button key={cls.id} onClick={() => { setSelectedClassId(cls.id); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${selectedClassId === cls.id ? 'bg-[#42f5e9] text-[#0e8a84]' : 'hover:bg-slate-50 text-[#0fb5ab]'}`}>
                               <span className="font-black font-noto">{cls.name}</span>
                             </button>
                           ))}
@@ -953,10 +953,10 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="text-[11px] font-black text-[#1E3A8A] uppercase tracking-widest px-1">{t('select_voice', lang)}</h4>
+                    <h4 className="text-[11px] font-black text-[#0fb5ab] uppercase tracking-widest px-1">{t('select_voice', lang)}</h4>
                     <div className="relative">
                       <button onClick={() => setShowVoiceDropdown(!showVoiceDropdown)} className="w-full h-[60px] px-6 rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 flex items-center justify-between">
-                        <span className="text-base font-black font-noto text-[#1E3A8A]">
+                        <span className="text-base font-black font-noto text-[#0fb5ab]">
                           {selectedVoiceId ? voices.find(v => v.id === selectedVoiceId)?.title : t('select_voice', lang)}
                         </span>
                         <ChevronDown className={`text-slate-300 transition-all ${showVoiceDropdown ? 'rotate-180' : ''}`} size={20} />
@@ -964,7 +964,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                       {showVoiceDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[2rem] shadow-bubble border border-slate-100 z-[100] p-2 max-h-60 overflow-y-auto">
                           {voices.filter(v => v.admin_status === 'approved' && v.provider_status === 'approved').map(v => (
-                            <button key={v.id} onClick={() => { setSelectedVoiceId(v.id); setShowVoiceDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${selectedVoiceId === v.id ? 'bg-[#2563EB] text-white' : 'hover:bg-slate-50 text-[#1E3A8A]'}`}>
+                            <button key={v.id} onClick={() => { setSelectedVoiceId(v.id); setShowVoiceDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${selectedVoiceId === v.id ? 'bg-[#42f5e9] text-[#0e8a84]' : 'hover:bg-slate-50 text-[#0fb5ab]'}`}>
                               <span className="font-black font-noto">{v.title}</span>
                             </button>
                           ))}
@@ -976,10 +976,10 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
 
                 <div className="space-y-7 flex flex-col justify-between">
                   <div className="space-y-4">
-                    <h4 className="text-[11px] font-black text-[#1E3A8A] uppercase tracking-widest px-1">{t('select_sender_id', lang)}</h4>
+                    <h4 className="text-[11px] font-black text-[#0fb5ab] uppercase tracking-widest px-1">{t('select_sender_id', lang)}</h4>
                     <div className="relative">
                       <button onClick={() => setShowSenderDropdown(!showSenderDropdown)} className="w-full h-[60px] px-6 rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 flex items-center justify-between">
-                        <span className="text-base font-black font-noto text-[#1E3A8A]">
+                        <span className="text-base font-black font-noto text-[#0fb5ab]">
                           {selectedSenderId ? (senders.find(s => (s.id || s.callingNumber || s.caller_id) === selectedSenderId)?.callingNumber || selectedSenderId) : t('select_sender_id', lang)}
                         </span>
                         <ChevronDown className={`text-slate-300 transition-all ${showSenderDropdown ? 'rotate-180' : ''}`} size={20} />
@@ -987,7 +987,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                       {showSenderDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[2rem] shadow-bubble border border-slate-100 z-[100] p-2 max-h-60 overflow-y-auto">
                           {senders.map(s => (
-                            <button key={s.id || s.callingNumber || s.caller_id} onClick={() => { setSelectedSenderId(s.id || s.callingNumber || s.caller_id); setShowSenderDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${(s.id || s.callingNumber || s.caller_id) === selectedSenderId ? 'bg-[#2563EB] text-white' : 'hover:bg-slate-50 text-[#1E3A8A]'}`}>
+                            <button key={s.id || s.callingNumber || s.caller_id} onClick={() => { setSelectedSenderId(s.id || s.callingNumber || s.caller_id); setShowSenderDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${(s.id || s.callingNumber || s.caller_id) === selectedSenderId ? 'bg-[#42f5e9] text-[#0e8a84]' : 'hover:bg-slate-50 text-[#0fb5ab]'}`}>
                               <span className="font-black font-noto">{s.callingNumber || s.caller_id || s.id || s.name}</span>
                             </button>
                           ))}
@@ -999,7 +999,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                   <button 
                     onClick={handleBroadcast}
                     disabled={!selectedVoiceId || !selectedClassId || !selectedSenderId || isBroadcasting}
-                    className="w-full h-[64px] bg-[#2563EB] text-white font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg disabled:opacity-40 active:scale-95 transition-all mt-auto"
+                    className="w-full h-[64px] bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg disabled:opacity-40 active:scale-95 transition-all mt-auto"
                   >
                     {isBroadcasting ? <Loader2 className="animate-spin" size={24} /> : <><Send size={20} /> {t('start_broadcast', lang)}</>}
                   </button>
@@ -1013,14 +1013,14 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
           <div className="space-y-5 animate-in slide-in-from-bottom-5">
             <div className="flex items-center justify-between px-2">
               <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('your_voices', lang)}</h2>
-              <button onClick={fetchVoices} disabled={loading} className="bg-blue-50 text-[#2563EB] px-4 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 active:scale-95 transition-all border border-blue-100">
+              <button onClick={fetchVoices} disabled={loading} className="bg-[#42f5e9]/10 text-[#0fb5ab] px-4 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 active:scale-95 transition-all border border-[#42f5e9]/20">
                  {loading ? <Loader2 className="animate-spin" size={14} /> : <History size={14} />} {t('sync_voices', lang)}
               </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                {loading ? (
-                  <div className="col-span-full flex justify-center py-10"><Loader2 className="animate-spin text-[#2563EB]" size={30} /></div>
+                  <div className="col-span-full flex justify-center py-10"><Loader2 className="animate-spin text-[#0fb5ab]" size={30} /></div>
                ) : voices.length > 0 ? (
                   voices.map(v => (
                     <div key={v.id} className="bg-white p-5 rounded-[2.2rem] border border-slate-100 shadow-bubble">
@@ -1030,7 +1030,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                                 <Mic size={18} />
                              </div>
                              <div>
-                               <h4 className="font-black text-[#1E3A8A] text-[15px] font-noto">{v.title}</h4>
+                               <h4 className="font-black text-[#0fb5ab] text-[15px] font-noto">{v.title}</h4>
                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${v.admin_status === 'approved' && v.provider_status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                  {v.provider_status === 'approved' ? t('approved', lang) : t('pending', lang)}
                                </span>
@@ -1066,23 +1066,23 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
             </h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
               {loading ? (
-                <div className="col-span-full flex justify-center py-10"><Loader2 className="animate-spin text-[#2563EB]" size={32} /></div>
+                <div className="col-span-full flex justify-center py-10"><Loader2 className="animate-spin text-[#0fb5ab]" size={32} /></div>
               ) : broadcastHistory.length > 0 ? (
                 broadcastHistory.map(h => (
                   <div key={h.id} className="bg-white rounded-[2.2rem] border border-slate-100 shadow-bubble overflow-hidden transition-all">
                     <div className="p-5 cursor-pointer" onClick={() => handleExpandHistory(h)}>
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-[#2563EB]">
+                          <div className="w-10 h-10 bg-[#42f5e9]/10 rounded-xl flex items-center justify-center text-[#0fb5ab]">
                             <Send size={18} />
                           </div>
                           <div>
-                            <h3 className="font-black text-[#1E3A8A] text-[15px] font-noto">{h.voice_templates?.title || 'Unknown Voice'}</h3>
+                            <h3 className="font-black text-[#0fb5ab] text-[15px] font-noto">{h.voice_templates?.title || 'Unknown Voice'}</h3>
                             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{new Date(h.created_at).toLocaleString()}</p>
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full ${h.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                          <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full ${h.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-[#42f5e9]/20 text-[#0fb5ab]'}`}>
                             {h.status}
                           </span>
                           <ChevronDown size={16} className={`text-slate-300 transition-transform ${expandedHistoryId === h.id ? 'rotate-180' : ''}`} />
@@ -1091,11 +1091,11 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                       <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-50">
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('target', lang)}</p>
-                          <p className="text-xs font-black text-[#1E3A8A] capitalize">{h.target_type}</p>
+                          <p className="text-xs font-black text-[#0fb5ab] capitalize">{h.target_type}</p>
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('numbers', lang)}</p>
-                          <p className="text-xs font-black text-[#1E3A8A]">{h.total_numbers}</p>
+                          <p className="text-xs font-black text-[#0fb5ab]">{h.total_numbers}</p>
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('cost', lang)}</p>
@@ -1111,7 +1111,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                         </h4>
                         
                         {loadingDetails ? (
-                          <div className="flex justify-center py-6"><Loader2 className="animate-spin text-[#2563EB]" size={24} /></div>
+                          <div className="flex justify-center py-6"><Loader2 className="animate-spin text-[#0fb5ab]" size={24} /></div>
                         ) : historyDetails?.error ? (
                           <div className="text-red-500 text-[11px] font-black bg-red-50 p-4 rounded-2xl border border-red-100">
                             {historyDetails.error}
@@ -1132,9 +1132,9 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                               return (
                                 <>
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                                      <div className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Calls</div>
-                                      <div className="text-lg font-black text-blue-900">{logs.length || h.total_numbers}</div>
+                                    <div className="bg-[#42f5e9]/10 p-3 rounded-xl border border-[#42f5e9]/20">
+                                      <div className="text-[9px] font-black text-[#42f5e9] uppercase tracking-widest mb-1">Total Calls</div>
+                                      <div className="text-lg font-black text-[#0e8a84]">{logs.length || h.total_numbers}</div>
                                     </div>
                                     <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
                                       <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Answered</div>
@@ -1159,7 +1159,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                                           e.stopPropagation();
                                           handleRetryFailed(h, failedLogs);
                                         }}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-xs font-black flex items-center gap-2 shadow-sm transition-all active:scale-95"
+                                        className="px-4 py-2 bg-[#42f5e9] text-[#0fb5ab] rounded-xl hover:bg-[#3ce0d5] text-xs font-black flex items-center gap-2 shadow-sm transition-all active:scale-95"
                                       >
                                         <RefreshCw size={14} />
                                         Retry {failedLogs.length} Failed Calls
@@ -1215,7 +1215,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                                                 {['answered', 'success', 'completed'].includes(status) ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                                               </div>
                                               <div>
-                                                <p className="font-black text-[#1E3A8A] text-xs">
+                                                <p className="font-black text-[#0fb5ab] text-xs">
                                                   {studentName ? (
                                                     <>
                                                       {studentName}
@@ -1266,18 +1266,18 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
           <div className="max-w-2xl mx-auto animate-in slide-in-from-bottom-5 duration-500">
              <div className="bg-white p-8 rounded-[3rem] shadow-bubble border border-slate-100 space-y-6">
                 <div className="text-center">
-                  <div className="inline-flex p-3 bg-emerald-50 rounded-2xl text-emerald-600 mb-3"><CreditCard size={32} /></div>
-                  <h3 className="text-xl font-black text-[#1E3A8A]">{t('recharge_request', lang)}</h3>
+                  <div className="inline-flex p-3 bg-[#42f5e9]/10 rounded-2xl text-[#0fb5ab] mb-3"><CreditCard size={32} /></div>
+                  <h3 className="text-xl font-black text-[#0e8a84]">{t('recharge_request', lang)}</h3>
                   <p className="text-xs font-bold text-slate-400 font-noto">{t('recharge_desc', lang)}</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-blue-50 p-6 rounded-[2.2rem] text-center border border-blue-100 relative overflow-hidden">
+                  <div className="bg-[#42f5e9]/10 p-6 rounded-[2.2rem] text-center border border-[#42f5e9]/20 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-2 opacity-10">
                       <Mic size={60} />
                     </div>
-                    <p className="text-[10px] font-black text-[#2563EB] uppercase tracking-[0.2em] mb-1 relative z-10">Voice Rate</p>
-                    <h3 className="text-3xl font-black text-[#1E3A8A] relative z-10">{voiceRate} ৳</h3>
+                    <p className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-[0.2em] mb-1 relative z-10">Voice Rate</p>
+                    <h3 className="text-3xl font-black text-[#0e8a84] relative z-10">{voiceRate} ৳</h3>
                   </div>
 
                   <div className="bg-emerald-50 p-6 rounded-[2.2rem] text-center border border-emerald-100 relative overflow-hidden">
@@ -1285,7 +1285,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                       <Smartphone size={60} />
                     </div>
                     <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-1 relative z-10">{t('bkash_personal', lang)}</p>
-                    <h3 className="text-3xl font-black text-[#1E3A8A] relative z-10">{adminBkash}</h3>
+                    <h3 className="text-3xl font-black text-[#0fb5ab] relative z-10">{adminBkash}</h3>
                   </div>
                 </div>
 
@@ -1307,7 +1307,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TrxID</label>
                     <input type="text" className="w-full h-14 px-6 bg-slate-50 border-2 border-slate-100 rounded-full font-black text-lg uppercase" value={rechargeTrx} onChange={(e) => setRechargeTrx(e.target.value.toUpperCase())} placeholder="8X23M1..." />
                   </div>
-                  <button onClick={handleRecharge} disabled={isRecharging || !rechargeAmount || !rechargeTrx || !rechargePhone} className="w-full h-16 bg-emerald-600 text-white font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg mt-4 disabled:opacity-40 active:scale-95 transition-all">
+                  <button onClick={handleRecharge} disabled={isRecharging || !rechargeAmount || !rechargeTrx || !rechargePhone} className="w-full h-16 bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg mt-4 disabled:opacity-40 active:scale-95 transition-all">
                     {isRecharging ? <Loader2 className="animate-spin" size={24} /> : t('send_request', lang)}
                   </button>
                 </div>
@@ -1347,7 +1347,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                   <>
                     <button 
                       onClick={() => { setStatusModal({ ...statusModal, show: false }); setActiveTab('recharge'); }} 
-                      className="w-full py-5 bg-[#2563EB] text-white font-black rounded-full shadow-xl shadow-blue-100 active:scale-95 transition-all text-sm uppercase tracking-[0.1em] flex items-center justify-center gap-3"
+                      className="w-full py-5 bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-xl shadow-[#42f5e9]/20 active:scale-95 transition-all text-sm uppercase tracking-[0.1em] flex items-center justify-center gap-3"
                     >
                       <Zap size={18} fill="currentColor" /> রিচার্জ করুন
                     </button>
@@ -1361,7 +1361,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                 ) : (
                   <button 
                     onClick={() => setStatusModal({ ...statusModal, show: false })} 
-                    className="w-full py-5 bg-[#2563EB] text-white font-black rounded-full shadow-xl shadow-blue-100 active:scale-95 transition-all text-sm uppercase tracking-[0.1em]"
+                    className="w-full py-5 bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-xl shadow-[#42f5e9]/20 active:scale-95 transition-all text-sm uppercase tracking-[0.1em]"
                   >
                     {lang === 'bn' ? 'ঠিক আছে' : 'Got it'}
                   </button>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { LogOut, Loader2, User as UserIcon, ShieldCheck, ChevronRight, Smartphone, Save, Sliders, CreditCard, LayoutDashboard, X, Play, Mic, Moon, Sun, Languages, Globe, CheckCircle2, Users } from 'lucide-react';
+import { LogOut, Loader2, User as UserIcon, ShieldCheck, ChevronRight, Smartphone, Save, Sliders, CreditCard, LayoutDashboard, X, Play, Mic, Moon, Sun, Languages, Globe, CheckCircle2, Users, Bell } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, View } from 'types';
 import { t } from 'translations';
@@ -91,19 +91,19 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
       <div className="relative pt-20 px-1">
         <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-[4rem] p-6 sm:p-10 pt-28 md:pt-36 shadow-bubble border relative text-center`}>
           <div className="absolute inset-0 overflow-hidden rounded-[4rem]">
-            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-blue-600 to-indigo-700 opacity-[0.03]" />
+            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-[#42f5e9] to-[#0fb5ab] opacity-[0.05]" />
           </div>
           <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-20">
             <div className="relative group">
               <div className={`w-40 h-40 p-4 rounded-full shadow-bubble border-[12px] flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-900' : 'bg-white border-slate-50'}`}>
-                <div className={`w-full h-full rounded-full flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-700 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}><UserIcon size={70} strokeWidth={1.5} /></div>
+                <div className={`w-full h-full rounded-full flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}><UserIcon size={70} strokeWidth={1.5} /></div>
               </div>
             </div>
           </div>
           <div className="space-y-6 mt-4">
              <div className="space-y-1">
                <div className="px-4 pb-3">
-                 <h2 className={`text-[22px] sm:text-[32px] font-black font-noto tracking-tight leading-tight break-words whitespace-normal ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{displayName}</h2>
+                 <h2 className={`text-[22px] sm:text-[32px] font-black font-noto tracking-tight leading-tight break-words whitespace-normal ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{displayName}</h2>
                </div>
                <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">System Controller</p>
              </div>
@@ -120,7 +120,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
             <Play size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'টিউটোরিয়াল ম্যানেজ' : 'Manage Tutorials'}</h5>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{lang === 'bn' ? 'টিউটোরিয়াল ম্যানেজ' : 'Manage Tutorials'}</h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Video Guides</p>
           </div>
         </button>
@@ -133,7 +133,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
             <Mic size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'ভয়েস ড্যাশবোর্ড' : 'Voice Dashboard'}</h5>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{lang === 'bn' ? 'ভয়েস ড্যাশবোর্ড' : 'Voice Dashboard'}</h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Service Control</p>
           </div>
         </button>
@@ -142,12 +142,12 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
           onClick={() => setIsEditingBulkSMS(true)} 
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
         >
-          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
             <Sliders size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'রেট ম্যানেজমেন্ট' : 'Rates Management'}</h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">SMS & Voice Rates</p>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>{lang === 'bn' ? 'রেট ম্যানেজমেন্ট' : 'Rates Management'}</h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Communication Rates</p>
           </div>
         </button>
 
@@ -155,12 +155,65 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
           onClick={() => setView('admin-panel')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
         >
-          <div className="w-14 h-14 bg-blue-50 text-[#2563EB] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
             <Users size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'কমিটি ম্যানেজমেন্ট' : 'Committee Management'}</h5>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>{lang === 'bn' ? 'কমিটি ম্যানেজমেন্ট' : 'Committee Management'}</h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manage All Committees</p>
+          </div>
+        </button>
+
+        <button 
+          onClick={() => setView('executives')}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <UserIcon size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>
+              {lang === 'bn' ? 'কার্যনির্বাহী কমিটি' : 'Executive Committee'}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'কমিটি মেম্বারস' : 'Committee Members'}
+            </p>
+          </div>
+        </button>
+
+        {/* Voting & Polls Card */}
+        <button 
+          onClick={() => setView('polls')}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <CheckCircle2 size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>
+              {t('voting_polls', lang)}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'সদস্যদের মতামত' : 'Member Opinions'}
+            </p>
+          </div>
+        </button>
+
+        {/* Notice Board Card */}
+        <button 
+          onClick={() => setView('notice-board')}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Bell size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>
+              {t('notice_board', lang)}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'জরুরী নোটিশ' : 'Announcement'}
+            </p>
           </div>
         </button>
 
@@ -168,11 +221,11 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
           onClick={() => setIsEditingBulkSMS(true)}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
         >
-          <div className="w-14 h-14 bg-blue-50 text-[#2563EB] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
             <LayoutDashboard size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>Bulk SMS</h5>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>Bulk SMS</h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Master Gateway</p>
           </div>
         </button>
@@ -185,7 +238,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
             <CreditCard size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>Master Payment</h5>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>Master Payment</h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{globalSettings.bkash_number || 'N/A'}</p>
           </div>
         </button>
@@ -196,27 +249,27 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
               <Languages size={24} />
             </div>
             <div className="text-left">
-              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{t('language', lang)}</h5>
+              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>{t('language', lang)}</h5>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{t('change_lang', lang)}</p>
             </div>
           </div>
           <div className={`flex p-1 rounded-2xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-            <button onClick={() => setLang('bn')} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'bn' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-blue-400 shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}>বাংলা</button>
-            <button onClick={() => setLang('en')} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'en' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-blue-400 shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}>ENG</button>
+            <button onClick={() => setLang('bn')} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'bn' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}>বাংলা</button>
+            <button onClick={() => setLang('en')} className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'en' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}>ENG</button>
           </div>
         </div>
 
         <div className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between gap-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-indigo-900 text-indigo-300' : 'bg-blue-50 text-[#2563EB]'}`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
               {madrasah?.theme === 'dark' ? <Moon size={24} /> : <Sun size={24} />}
             </div>
             <div className="text-left">
-              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'ডার্ক মোড' : 'Dark Mode'}</h5>
+              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>{lang === 'bn' ? 'ডার্ক মোড' : 'Dark Mode'}</h5>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{lang === 'bn' ? 'চোখের আরামের জন্য' : 'For eye comfort'}</p>
             </div>
           </div>
-          <button onClick={toggleTheme} className={`w-14 h-8 rounded-full relative transition-all duration-300 ${madrasah?.theme === 'dark' ? 'bg-indigo-600' : 'bg-slate-200'}`}>
+            <button onClick={toggleTheme} className={`w-14 h-8 rounded-full relative transition-all duration-300 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]' : 'bg-slate-200'}`}>
             <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${madrasah?.theme === 'dark' ? 'left-7' : 'left-1'}`} />
           </button>
         </div>
@@ -246,8 +299,8 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
               <div className="p-5 shrink-0 relative overflow-hidden">
                  <div className="flex items-center justify-between relative z-10">
                     <div className="flex items-center gap-3">
-                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-blue-400 border-blue-900/50' : 'bg-blue-50 text-[#2563EB] border-blue-100'}`}><LayoutDashboard size={20} strokeWidth={2.5} /></div>
-                       <div><h3 className={`text-lg font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>Bulk SMS</h3><p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Master Gateway</p></div>
+                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9] border-[#42f5e9]/20' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}><LayoutDashboard size={20} strokeWidth={2.5} /></div>
+                       <div><h3 className={`text-lg font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>Bulk SMS</h3><p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Master Gateway</p></div>
                     </div>
                     <button onClick={() => setIsEditingBulkSMS(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-all border ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-slate-50 text-slate-300 border-slate-100'}`}><X size={18} /></button>
                  </div>
@@ -256,19 +309,19 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
                  <div className="space-y-2.5">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Gateway Protocols</h4>
                     <div className={`p-4 rounded-[2rem] border space-y-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Master API Key</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-blue-400 focus:border-blue-500/50' : 'bg-white border-slate-100 text-[#2563EB] focus:border-[#2563EB]/50'}`} value={globalSettings.reve_api_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_api_key: e.target.value})} /></div>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Encryption Token</label><input type="password" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-blue-400 focus:border-blue-500/50' : 'bg-white border-slate-100 text-[#2563EB] focus:border-[#2563EB]/50'}`} value={globalSettings.reve_secret_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_secret_key: e.target.value})} /></div>
+                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Master API Key</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.reve_api_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_api_key: e.target.value})} /></div>
+                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Encryption Token</label><input type="password" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.reve_secret_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_secret_key: e.target.value})} /></div>
                     </div>
                  </div>
                  <div className="space-y-2.5">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Service Rates (Per Unit)</h4>
                     <div className={`p-4 rounded-[2rem] border space-y-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Bulk SMS Rate (TK)</label><input type="number" step="0.01" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-blue-400 focus:border-blue-500/50' : 'bg-white border-slate-100 text-[#2563EB] focus:border-[#2563EB]/50'}`} value={globalSettings.sms_rate} onChange={(e) => setGlobalSettings({...globalSettings, sms_rate: parseFloat(e.target.value)})} /></div>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Voice Call Rate (TK)</label><input type="number" step="0.01" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-blue-400 focus:border-blue-500/50' : 'bg-white border-slate-100 text-[#2563EB] focus:border-[#2563EB]/50'}`} value={globalSettings.voice_rate} onChange={(e) => setGlobalSettings({...globalSettings, voice_rate: parseFloat(e.target.value)})} /></div>
+                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Bulk SMS Rate (TK)</label><input type="number" step="0.01" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.sms_rate} onChange={(e) => setGlobalSettings({...globalSettings, sms_rate: parseFloat(e.target.value)})} /></div>
+                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Voice Call Rate (TK)</label><input type="number" step="0.01" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.voice_rate} onChange={(e) => setGlobalSettings({...globalSettings, voice_rate: parseFloat(e.target.value)})} /></div>
                     </div>
                  </div>
                  <div className="pt-2">
-                    <button onClick={handleSaveBulkSMS} disabled={saving} className="relative w-full h-16 bg-[#2563EB] text-white font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/20 text-[13px] uppercase tracking-[0.25em]">
+                    <button onClick={handleSaveBulkSMS} disabled={saving} className="relative w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/20 text-[13px] uppercase tracking-[0.25em]">
                        {saving ? <Loader2 className="animate-spin" size={22} /> : <>Save Settings</>}
                     </button>
                  </div>
@@ -285,7 +338,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
                  <div className="flex items-center justify-between relative z-10">
                     <div className="flex items-center gap-3">
                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${madrasah?.theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 border-indigo-900/50' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}><CreditCard size={20} strokeWidth={2.5} /></div>
-                       <div><h3 className={`text-lg font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>Master Payment</h3><p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Global Gateway</p></div>
+                       <div><h3 className={`text-lg font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>Master Payment</h3><p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Global Gateway</p></div>
                     </div>
                     <button onClick={() => setIsEditingPayment(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-all border ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-slate-50 text-slate-300 border-slate-100'}`}><X size={18} /></button>
                  </div>
@@ -294,11 +347,11 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
                  <div className="space-y-2.5">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Global Identities</h4>
                     <div className={`p-4 rounded-[2rem] border space-y-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Master Payment Number</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white focus:border-blue-500/50' : 'bg-white border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/50'}`} value={globalSettings.bkash_number} onChange={(e) => setGlobalSettings({...globalSettings, bkash_number: e.target.value})} /></div>
+                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Master Payment Number</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.bkash_number} onChange={(e) => setGlobalSettings({...globalSettings, bkash_number: e.target.value})} /></div>
                     </div>
                  </div>
                  <div className="pt-2">
-                    <button onClick={handleSavePayment} disabled={saving} className="relative w-full h-16 bg-[#2563EB] text-white font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/20 text-[13px] uppercase tracking-[0.25em]">
+                    <button onClick={handleSavePayment} disabled={saving} className="relative w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/20 text-[13px] uppercase tracking-[0.25em]">
                        {saving ? <Loader2 className="animate-spin" size={22} /> : <>Save Settings</>}
                     </button>
                  </div>
@@ -311,9 +364,9 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
       {showSuccessModal.show && createPortal(
         <div className="modal-overlay bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className={`w-full max-w-xs rounded-[2.5rem] p-8 shadow-2xl text-center space-y-4 animate-in zoom-in-95 duration-500 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border border-slate-700' : 'bg-white'}`}>
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto"><CheckCircle2 size={32} /></div>
-            <div className="space-y-1"><h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{showSuccessModal.title}</h3><p className="text-slate-400 font-bold text-sm">{showSuccessModal.message}</p></div>
-            <button onClick={() => setShowSuccessModal({ ...showSuccessModal, show: false })} className="w-full py-4 bg-[#2563EB] text-white font-black rounded-2xl shadow-premium active:scale-95 transition-all">ঠিক আছে</button>
+            <div className="w-16 h-16 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-full flex items-center justify-center mx-auto"><CheckCircle2 size={32} /></div>
+            <div className="space-y-1"><h3 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>{showSuccessModal.title}</h3><p className="text-slate-400 font-bold text-sm">{showSuccessModal.message}</p></div>
+            <button onClick={() => setShowSuccessModal({ ...showSuccessModal, show: false })} className="w-full py-4 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-2xl shadow-premium active:scale-95 transition-all">ঠিক আছে</button>
           </div>
         </div>,
         document.body

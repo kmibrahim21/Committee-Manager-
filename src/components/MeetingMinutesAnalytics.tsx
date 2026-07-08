@@ -471,14 +471,14 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
 
       {/* Overall Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-[#1E3A8A] p-5 rounded-[2rem] text-white shadow-premium relative overflow-hidden col-span-2 lg:col-span-2">
+        <div className="bg-[#0fb5ab] p-5 rounded-[2rem] text-black shadow-premium relative overflow-hidden col-span-2 lg:col-span-2">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
             <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-2 opacity-80">
                 <Award size={18} />
                 <span className="text-[10px] font-black uppercase tracking-widest">{localT.overallAverage[lang]}</span>
                 </div>
-                <h2 className="text-4xl font-black font-noto">{analytics.overallAvg.toFixed(1)}%</h2>
+                <h2 className="text-[10px] font-black font-noto uppercase tracking-widest">{analytics.overallAvg.toFixed(1)}%</h2>
             </div>
         </div>
 
@@ -508,7 +508,7 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
             isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
         }`}>
             <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.highestMarks[lang]}</span>
-            <span className={`text-xl font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{analytics.highestMarks.toFixed(1)}%</span>
+            <span className={`text-xl font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{analytics.highestMarks.toFixed(1)}%</span>
         </div>
 
         <div className={`p-4 rounded-[1.8rem] border shadow-bubble flex flex-col justify-center ${
@@ -522,7 +522,7 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
             isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
         }`}>
             <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.totalClasses[lang]}</span>
-            <span className={`text-xl font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{analytics.classPerformance.length}</span>
+            <span className={`text-xl font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{analytics.classPerformance.length}</span>
         </div>
 
         <div className={`p-4 rounded-[1.8rem] border shadow-bubble flex flex-col justify-center ${
@@ -547,11 +547,11 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
                }`}>
                   <div>
-                     <h4 className={`font-black text-sm ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{cls.name}</h4>
+                     <h4 className={`font-black text-sm ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{cls.name}</h4>
                      <p className={`text-[9px] font-bold flex items-center gap-1 mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}><Users size={10}/> {cls.student_count} {localT.students[lang]}</p>
                   </div>
                   <div className="text-right">
-                     <span className={`text-lg font-black ${parseFloat(cls.average) >= 80 ? 'text-emerald-500' : parseFloat(cls.average) >= 60 ? 'text-blue-500' : 'text-orange-500'}`}>
+                     <span className={`text-lg font-black ${parseFloat(cls.average) >= 80 ? 'text-emerald-500' : parseFloat(cls.average) >= 60 ? 'text-[#0fb5ab]' : 'text-orange-500'}`}>
                         {cls.average}%
                      </span>
                   </div>
@@ -580,7 +580,7 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
                      </div>
                      <div className="flex-1">
                         <div className="flex justify-between mb-1">
-                           <span className={`text-xs font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{sub.name}</span>
+                           <span className={`text-xs font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{sub.name}</span>
                            <span className="text-xs font-black text-red-500">{sub.average.toFixed(1)}%</span>
                         </div>
                         <div className={`h-1.5 w-full rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
@@ -614,7 +614,7 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
                         {item.status === 'improving' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
                      </div>
                      <div>
-                        <h4 className={`font-black text-sm font-noto ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{item.name}</h4>
+                        <h4 className={`font-black text-sm font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{item.name}</h4>
                         <p className={`text-[9px] font-bold uppercase ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{item.name}</p>
                      </div>
                   </div>
@@ -655,9 +655,9 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
                                 backgroundColor: isDark ? '#1e293b' : '#ffffff',
                                 color: isDark ? '#f1f5f9' : '#1e293b'
                             }}
-                            itemStyle={{ color: isDark ? '#60a5fa' : '#1E3A8A' }}
+                            itemStyle={{ color: isDark ? '#42f5e9' : '#0fb5ab' }}
                         />
-                        <Line type="monotone" dataKey="average" stroke="#2563EB" strokeWidth={4} dot={{ r: 6, fill: '#2563EB', strokeWidth: 2, stroke: isDark ? '#1e293b' : '#fff' }} activeDot={{ r: 8 }} />
+                        <Line type="monotone" dataKey="average" stroke="#0fb5ab" strokeWidth={4} dot={{ r: 6, fill: '#0fb5ab', strokeWidth: 2, stroke: isDark ? '#1e293b' : '#fff' }} activeDot={{ r: 8 }} />
                     </LineChart>
                 </ResponsiveContainer>
              </div>
@@ -691,7 +691,7 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
                                 color: isDark ? '#f1f5f9' : '#1e293b'
                             }}
                         />
-                        <Bar dataKey="average" fill="#818cf8" radius={[6, 6, 0, 0]} barSize={30} />
+                        <Bar dataKey="average" fill="#42f5e9" radius={[6, 6, 0, 0]} barSize={30} />
                     </BarChart>
                 </ResponsiveContainer>
              </div>
@@ -716,7 +716,7 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
                         {idx + 1}
                      </div>
                      <div>
-                        <h4 className={`font-black text-sm ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{std.name}</h4>
+                        <h4 className={`font-black text-sm ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{std.name}</h4>
                         <p className={`text-[9px] font-bold flex items-center gap-1 mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{std.className} • {localT.roll[lang]}: {std.roll}</p>
                      </div>
                   </div>
@@ -749,7 +749,7 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
                         {idx + 1}
                      </div>
                      <div>
-                        <h4 className={`font-black text-sm ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{std.name}</h4>
+                        <h4 className={`font-black text-sm ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{std.name}</h4>
                         <p className={`text-[9px] font-bold flex items-center gap-1 mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{std.className} • {localT.roll[lang]}: {std.roll}</p>
                      </div>
                   </div>

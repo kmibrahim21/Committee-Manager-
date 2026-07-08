@@ -5,7 +5,7 @@
 
 export type Language = 'bn' | 'en';
 
-export type UserRole = 'super_admin' | 'org_admin' | 'accountant' | 'executive';
+export type UserRole = 'super_admin' | 'org_admin' | 'accountant' | 'executive' | 'member';
 
 export interface Institution {
   id: string;
@@ -26,6 +26,8 @@ export interface Institution {
       voice_broadcast?: boolean;
       sms?: boolean;
       results?: boolean;
+      polls?: boolean;
+      notices?: boolean;
       admit_card?: boolean;
       seat_plan?: boolean;
       academic_year_promotion?: boolean;
@@ -59,6 +61,17 @@ export interface Institution {
   reve_caller_id?: string;
   voice_sender_id?: string;
   reve_client_id?: string;
+  member_portal_config?: {
+    enabled: boolean;
+    permissions: {
+      view_meetings: boolean;
+      view_minutes: boolean;
+      view_polls: boolean;
+      view_notices: boolean;
+      view_finances: boolean;
+      view_attendance: boolean;
+    };
+  };
 }
 
 export interface Voice {
@@ -177,7 +190,7 @@ export interface Member {
   emergency_contact_phone?: string;
   join_date?: string;
   photo_url?: string;
-  member_type?: 'general' | 'executive' | 'volunteer' | 'donor';
+  member_type?: string;
   guardian_phone_2?: string;
   created_at?: string;
   departments?: Department;
@@ -384,7 +397,37 @@ export type View =
   | 'tutorials'
   | 'admin-voice-service'
   | 'admin-tutorials'
+  | 'polls'
+  | 'notice-board'
   | 'super-account';
+
+export interface Poll {
+  id: string;
+  institution_id: string;
+  question: string;
+  options: string[];
+  is_active: boolean;
+  created_at: string;
+  end_date?: string;
+}
+
+export interface PollVote {
+  id: string;
+  poll_id: string;
+  member_id: string;
+  option_index: number;
+  created_at: string;
+}
+
+export interface Notice {
+  id: string;
+  institution_id: string;
+  title: string;
+  content: string;
+  is_pinned: boolean;
+  is_urgent?: boolean;
+  created_at: string;
+}
 
 export interface Tutorial {
   id: string;
@@ -400,6 +443,7 @@ export interface AppState {
   selectedDepartmentId?: string;
   selectedMember?: Member;
   isEditing?: boolean;
+  isMemberPortal?: boolean;
 }
 
 export interface Transaction {

@@ -79,14 +79,14 @@ const AttendanceAnalyticsDashboard: React.FC<Props> = ({ institutionId, lang, ma
     <div className="space-y-4 px-1">
       <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 rounded-[1.8rem] border shadow-bubble space-y-4`}>
         <div className="relative">
-          <button onClick={() => setShowClassDropdown(!showClassDropdown)} className={`w-full h-12 px-4 rounded-xl border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} flex items-center justify-between group active:scale-[0.99] transition-all`}>
+          <button onClick={() => setShowClassDropdown(!showClassDropdown)} className={`w-full h-12 px-4 rounded-xl border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} flex items-center justify-between group active:scale-[0.99] transition-all`}>
             <span className="font-black font-noto truncate text-sm">{selectedClass?.name || (lang === 'bn' ? 'ক্লাস নির্বাচন করুন' : 'Select Department')}</span>
             <ChevronDown size={18} className="text-slate-400 transition-transform duration-300 group-focus:rotate-180" />
           </button>
           {showClassDropdown && (
             <div className={`absolute top-full left-0 right-0 mt-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl shadow-bubble border z-[100] p-2 max-h-56 overflow-y-auto animate-in slide-in-from-top-2`}>
               {departments.map(cls => (
-                <button key={cls.id} onClick={() => { setSelectedClass(cls); setShowClassDropdown(false); }} className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-all ${selectedClass?.id === cls.id ? 'bg-[#2563EB] text-white shadow-md' : madrasah?.theme === 'dark' ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}>
+                <button key={cls.id} onClick={() => { setSelectedClass(cls); setShowClassDropdown(false); }} className={`w-full text-left px-4 py-3 rounded-xl mb-1 transition-all ${selectedClass?.id === cls.id ? 'bg-[#42f5e9] text-[#0fb5ab] shadow-md' : madrasah?.theme === 'dark' ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}`}>
                   <span className="font-black font-noto text-sm">{cls.name}</span>
                 </button>
               ))}
@@ -95,21 +95,21 @@ const AttendanceAnalyticsDashboard: React.FC<Props> = ({ institutionId, lang, ma
         </div>
 
         <div className="flex gap-2">
-            <button onClick={() => setReportType('monthly')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportType === 'monthly' ? 'bg-[#2563EB] text-white shadow-sm' : madrasah?.theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-400'}`}>{lang === 'bn' ? 'মাসিক' : 'Monthly'}</button>
-            <button onClick={() => setReportType('yearly')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportType === 'yearly' ? 'bg-[#2563EB] text-white shadow-sm' : madrasah?.theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-400'}`}>{lang === 'bn' ? 'বাৎসরিক' : 'Yearly'}</button>
+            <button onClick={() => setReportType('monthly')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportType === 'monthly' ? 'bg-[#42f5e9] text-[#0fb5ab] shadow-sm' : madrasah?.theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-400'}`}>{lang === 'bn' ? 'মাসিক' : 'Monthly'}</button>
+            <button onClick={() => setReportType('yearly')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportType === 'yearly' ? 'bg-[#42f5e9] text-[#0fb5ab] shadow-sm' : madrasah?.theme === 'dark' ? 'bg-slate-900 text-slate-400' : 'bg-slate-50 text-slate-400'}`}>{lang === 'bn' ? 'বাৎসরিক' : 'Yearly'}</button>
         </div>
         
         <div className="relative">
             {reportType === 'monthly' ? (
-                <div className="relative"><input type="month" className={`w-full h-12 pl-12 pr-4 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} border-2 rounded-xl font-black outline-none focus:border-[#2563EB]/50 transition-all text-sm`} value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /><BarChart3 className="absolute left-4 top-3.5 text-[#2563EB]" size={18}/></div>
+                <div className="relative"><input type="month" className={`w-full h-12 pl-12 pr-4 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border-2 rounded-xl font-black outline-none focus:border-[#42f5e9]/50 transition-all text-sm`} value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /><BarChart3 className="absolute left-4 top-3.5 text-[#0fb5ab]" size={18}/></div>
             ) : (
                 <div className="relative">
-                    <select className={`w-full h-12 pl-12 pr-4 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} border-2 rounded-xl font-black outline-none focus:border-[#2563EB]/50 transition-all appearance-none text-sm`} value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
+                    <select className={`w-full h-12 pl-12 pr-4 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border-2 rounded-xl font-black outline-none focus:border-[#42f5e9]/50 transition-all appearance-none text-sm`} value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
                         {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
                             <option key={y} value={y}>{y}</option>
                         ))}
                     </select>
-                    <Calendar className="absolute left-4 top-3.5 text-[#2563EB]" size={18}/>
+                    <Calendar className="absolute left-4 top-3.5 text-[#0fb5ab]" size={18}/>
                     <ChevronDown className="absolute right-4 top-3.5 text-slate-400 pointer-events-none" size={18}/>
                 </div>
             )}
@@ -125,14 +125,14 @@ const AttendanceAnalyticsDashboard: React.FC<Props> = ({ institutionId, lang, ma
 
       {loading ? (
         <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-8 rounded-[2rem] border shadow-bubble flex flex-col items-center justify-center gap-3`}>
-          <Loader2 className="animate-spin text-[#2563EB]" size={24} />
+          <Loader2 className="animate-spin text-[#0fb5ab]" size={24} />
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
         </div>
       ) : reportData.length > 0 ? (
         <div className="space-y-4">
           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-5 rounded-[2rem] border shadow-bubble`}>
             <h3 className={`text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2 ${madrasah?.theme === 'dark' ? 'text-slate-300' : 'text-slate-800'}`}>
-              <BarChart3 className="text-[#2563EB]" size={16} />
+              <BarChart3 className="text-[#0fb5ab]" size={16} />
               {lang === 'bn' ? 'হাজিরা ওভারভিউ' : 'Attendance Overview'}
             </h3>
             <div className="h-56 w-full">

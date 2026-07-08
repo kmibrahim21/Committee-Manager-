@@ -18,12 +18,12 @@ const MultiCalendarHeader: React.FC<MultiCalendarHeaderProps> = ({ madrasah }) =
       <div className="grid grid-cols-3 gap-2 md:gap-4">
         {/* English Date */}
         <div className={`flex items-center gap-2 backdrop-blur-xl border p-2.5 lg:p-4 rounded-2xl lg:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all flex-1 min-w-0 group ${madrasah?.theme === 'dark' ? 'bg-slate-800/40 border-slate-700/60' : 'bg-white/40 border-white/60'}`}>
-          <div className={`w-8 h-8 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform ${madrasah?.theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-500/10 text-blue-600'}`}>
+          <div className={`w-8 h-8 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
             <Calendar size={16} className="lg:hidden" />
             <Calendar size={22} className="hidden lg:block" />
           </div>
           <div className="flex flex-col min-w-0">
-            <span className={`text-[9px] lg:text-[11px] font-black uppercase tracking-widest leading-none mb-1 lg:mb-1.5 ${madrasah?.theme === 'dark' ? 'text-blue-400/60' : 'text-blue-500/60'}`}>ইংরেজি</span>
+            <span className={`text-[9px] lg:text-[11px] font-black uppercase tracking-widest leading-none mb-1 lg:mb-1.5 ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]/60' : 'text-[#0fb5ab]/60'}`}>ইংরেজি</span>
             <span className={`text-[13px] lg:text-[17px] font-black truncate leading-none ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{format(today, 'd MMM, yy')}</span>
           </div>
         </div>

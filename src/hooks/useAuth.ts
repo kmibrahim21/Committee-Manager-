@@ -31,8 +31,8 @@ export const useAuth = () => {
         .maybeSingle();
       
       if (profileError) {
-        console.error("Profile fetch error:", profileError);
-        throw profileError;
+        console.error("Profile fetch error detailed:", JSON.stringify(profileError, null, 2));
+        throw new Error(profileError.message || "Failed to fetch user profile from database");
       }
 
       console.log("Profile data response:", profileData);
@@ -63,8 +63,8 @@ export const useAuth = () => {
             .maybeSingle();
 
           if (mError) {
-            console.error("Institution fetch error:", mError);
-            throw mError;
+            console.error("Institution fetch error detailed:", JSON.stringify(mError, null, 2));
+            throw new Error(mError.message || "Failed to fetch institution data");
           }
           
           if (institutionData) {
@@ -254,8 +254,59 @@ export const useAuth = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('executive_session');
+    localStorage.removeItem('member_session');
     OfflineService.removeCache('profile');
     window.location.reload();
+  };
+
+  const signInAsMember = async (phone: string, memberId: string) => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const { data: memberData, error: mError } = await supabase
+        .from('members')
+        .select('*, institutions(*)')
+        .eq('phone', phone)
+        .eq('member_id_number', memberId)
+        .maybeSingle();
+
+      if (mError) throw mError;
+      if (!memberData) {
+        throw new Error('Member not found with these credentials');
+      }
+
+      const institutionData = memberData.institutions;
+
+      // Check if member portal is enabled
+      if (institutionData && institutionData.member_portal_config && !institutionData.member_portal_config.enabled) {
+        throw new Error('Member portal is not enabled for this institution');
+      }
+
+      const memberProfile: Profile = {
+        id: memberData.id,
+        institution_id: memberData.institution_id,
+        full_name: memberData.name,
+        role: 'member',
+        is_active: true,
+        created_at: memberData.created_at || new Date().toISOString()
+      };
+
+      setSession({ user: { id: memberData.id, role: 'member' } });
+      setProfile(memberProfile);
+      setMadrasah(institutionData);
+      
+      localStorage.setItem('member_session', JSON.stringify({
+        member: memberData,
+        institution: institutionData
+      }));
+
+      return true;
+    } catch (err: any) {
+      setAuthError(err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -287,6 +338,29 @@ export const useAuth = () => {
           
           // Check if it's an executive session
           const executiveSessionStr = localStorage.getItem('executive_session');
+          const memberSessionStr = localStorage.getItem('member_session');
+
+          if (memberSessionStr) {
+            try {
+              const memberDataObj = JSON.parse(memberSessionStr);
+              if (memberDataObj && memberDataObj.member) {
+                setProfile({
+                  id: memberDataObj.member.id,
+                  institution_id: memberDataObj.member.institution_id,
+                  full_name: memberDataObj.member.name,
+                  role: 'member',
+                  is_active: true,
+                  created_at: memberDataObj.member.created_at
+                });
+                setMadrasah(memberDataObj.institution);
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              console.error("Error parsing member session:", e);
+            }
+          }
+
           if (executiveSessionStr) {
             try {
               const executiveData = JSON.parse(executiveSessionStr);
@@ -368,6 +442,30 @@ export const useAuth = () => {
           await fetchUserProfile(currentSession.user.id, currentSession.user.email);
         } else {
           const executiveSessionStr = localStorage.getItem('executive_session');
+          const memberSessionStr = localStorage.getItem('member_session');
+
+          if (memberSessionStr) {
+            try {
+              const memberDataObj = JSON.parse(memberSessionStr);
+              if (memberDataObj && memberDataObj.member) {
+                setSession({ user: { id: memberDataObj.member.id, role: 'member' } });
+                setProfile({
+                  id: memberDataObj.member.id,
+                  institution_id: memberDataObj.member.institution_id,
+                  full_name: memberDataObj.member.name,
+                  role: 'member',
+                  is_active: true,
+                  created_at: memberDataObj.member.created_at
+                });
+                setMadrasah(memberDataObj.institution);
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              console.error("Error parsing member session:", e);
+            }
+          }
+
           if (executiveSessionStr) {
             try {
               const executiveData = JSON.parse(executiveSessionStr);
@@ -454,11 +552,14 @@ export const useAuth = () => {
         if (errorMessage.includes('refresh token') || errorMessage.includes('refresh_token_not_found')) {
           localStorage.removeItem('madrasah_auth_token');
           localStorage.removeItem('executive_session');
+          localStorage.removeItem('member_session');
           OfflineService.removeCache('profile');
           setSession(null);
           setProfile(null);
           setMadrasah(null);
           window.location.reload();
+        } else {
+          setAuthError(err.message || "An error occurred during authentication initialization");
         }
       } finally {
         setLoading(false);
@@ -473,6 +574,7 @@ export const useAuth = () => {
         setMadrasah(null); 
         setProfile(null);
         localStorage.removeItem('executive_session');
+        localStorage.removeItem('member_session');
       } else if (session) {
         setSession(session);
         if (session.user) {
@@ -517,5 +619,5 @@ export const useAuth = () => {
     };
   }, [profile?.institution_id]);
 
-  return { session, profile, madrasah, loading, authError, handleLogout, refreshMadrasah };
+  return { session, profile, madrasah, loading, authError, handleLogout, refreshMadrasah, signInAsMember };
 };

@@ -24,7 +24,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
   const [roll, setRoll] = useState(student?.roll?.toString() || '');
   const [memberIdNumber, setMemberIdNumber] = useState(student?.member_id_number || '');
   const [classId, setClassId] = useState(student?.department_id || defaultClassId || '');
-  const [memberType, setMemberType] = useState<Member['member_type']>(student?.member_type || 'general');
+  const [memberType, setMemberType] = useState<string>(student?.member_type || 'general');
+  const [customMemberTypes, setCustomMemberTypes] = useState<any[]>([]);
   
   // Personal Info
   const [fatherName, setFatherName] = useState(student?.father_name || '');
@@ -61,7 +62,15 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
 
   useEffect(() => {
     fetchClasses();
+    fetchCustomMemberTypes();
   }, []);
+
+  const fetchCustomMemberTypes = async () => {
+    if (madrasah) {
+      const { data } = await supabase.from('member_types').select('*').eq('institution_id', madrasah.id);
+      if (data) setCustomMemberTypes(data);
+    }
+  };
 
   const fetchClasses = async () => {
     const cached = offlineApi.getCache('departments');
@@ -79,17 +88,20 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
 
   const getSelectedClassName = () => {
     const cls = departments.find(c => c.id === classId);
-    return cls ? cls.name : (lang === 'bn' ? 'বিভাগ নির্বাচন করুন' : 'Choose Department');
+    return cls ? cls.name : (lang === 'bn' ? 'কমিটি নির্বাচন করুন' : 'Choose Committee');
   };
 
-  const getMemberTypeLabel = (type: Member['member_type']) => {
+  const getMemberTypeLabel = (type: string) => {
+    const custom = customMemberTypes.find(t => t.name === type);
+    if (custom) return custom.name;
+
     if (lang === 'bn') {
       switch (type) {
         case 'general': return 'সাধারণ সদস্য';
         case 'executive': return 'কার্যনির্বাহী সদস্য';
         case 'volunteer': return 'স্বেচ্ছাসেবক';
         case 'donor': return 'দাতা সদস্য';
-        default: return 'সাধারণ সদস্য';
+        default: return type;
       }
     }
     return type?.charAt(0).toUpperCase() + type?.slice(1) || 'General';
@@ -223,7 +235,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
             <div className="space-y-2">
               <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
                 <Hash size={11} className="text-[#2563EB]" /> 
-                {lang === 'bn' ? 'সদস্য আইডি (যদি থাকে)' : 'Member ID (Optional)'}
+                {lang === 'bn' ? 'সদস্য আইডি নং' : 'Member ID Number'}
               </label>
               <input 
                 type="text" placeholder="ID Number"
@@ -250,7 +262,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
             <div className="space-y-2">
               <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
                 <List size={11} className="text-[#2563EB]" /> 
-                {lang === 'bn' ? 'বিভাগ / শাখা' : 'Department/Branch'}
+                {lang === 'bn' ? 'কমিটি / শাখা' : 'Committee/Branch'}
               </label>
               <div 
                 onClick={() => setShowClassModal(true)} 
@@ -475,7 +487,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
         <div className="modal-overlay bg-[#080A12]/60 backdrop-blur-2xl animate-in fade-in duration-300">
           <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-2xl' : 'bg-white border-[#2563EB]/5 shadow-[0_40px_100px_rgba(37,99,235,0.15)]'} w-full max-w-sm rounded-[2.5rem] p-8 relative animate-in zoom-in-95 duration-300 border`}>
             <button onClick={() => setShowClassModal(false)} className="absolute top-8 right-8 text-slate-400 hover:text-[#2563EB] transition-all"><X size={22} strokeWidth={3} /></button>
-            <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto mb-6`}>{lang === 'bn' ? 'বিভাগ নির্বাচন' : 'Select Department'}</h2>
+            <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto mb-6`}>{lang === 'bn' ? 'কমিটি নির্বাচন' : 'Select Committee'}</h2>
             <div className="space-y-2.5 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
                {departments.map(cls => (
                  <button key={cls.id} onClick={() => { setClassId(cls.id); setShowClassModal(false); }} className={`w-full p-4 rounded-[1.5rem] font-black transition-all flex items-center justify-between border-2 ${classId === cls.id ? 'bg-[#2563EB] border-[#2563EB] text-white shadow-xl' : isDark ? 'bg-slate-900 border-slate-700 text-blue-400' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
@@ -491,14 +503,22 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
 
       {showMemberTypeModal && createPortal(
         <div className="modal-overlay bg-[#080A12]/60 backdrop-blur-2xl animate-in fade-in duration-300">
-          <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-2xl' : 'bg-white border-[#2563EB]/5 shadow-[0_40px_100px_rgba(37,99,235,0.15)]'} w-full max-w-sm rounded-[2.5rem] p-8 relative animate-in zoom-in-95 duration-300 border`}>
-            <button onClick={() => setShowMemberTypeModal(false)} className="absolute top-8 right-8 text-slate-400 hover:text-[#2563EB] transition-all"><X size={22} strokeWidth={3} /></button>
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-2xl' : 'bg-white border-[#2563EB]/5 shadow-[0_40px_100px_rgba(37,99,235,0.15)]'} w-full max-w-sm rounded-[2.5rem] p-8 relative animate-in zoom-in-95 duration-300 border max-h-[80vh] overflow-y-auto`}>
+            <button onClick={() => setShowMemberTypeModal(false)} className="absolute top-4 right-6 text-slate-400 hover:text-[#2563EB] transition-all"><X size={22} strokeWidth={3} /></button>
             <h2 className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto mb-6`}>{lang === 'bn' ? 'সদস্যপদ ধরণ' : 'Member Type'}</h2>
-            <div className="space-y-2.5">
-               {(['general', 'executive', 'volunteer', 'donor'] as Member['member_type'][]).map(type => (
-                 <button key={type} onClick={() => { setMemberType(type); setShowMemberTypeModal(false); }} className={`w-full p-4 rounded-[1.5rem] font-black transition-all flex items-center justify-between border-2 ${memberType === type ? 'bg-[#2563EB] border-[#2563EB] text-white shadow-xl' : isDark ? 'bg-slate-900 border-slate-700 text-blue-400' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
-                    <span className="font-noto text-base">{getMemberTypeLabel(type)}</span>
-                    {memberType === type && <Check size={18} strokeWidth={4} />}
+            <div className="flex flex-col gap-2.5">
+               {/* Custom Types Only */}
+               {customMemberTypes.length === 0 && (
+                 <div className="py-8 text-center space-y-3">
+                   <p className="text-sm font-bold text-slate-400">
+                     {lang === 'bn' ? 'কোন কাস্টম ধরন পাওয়া যায়নি। একাউন্ট পেইজ থেকে এড করুন।' : 'No custom types found. Please add them from Account settings.'}
+                   </p>
+                 </div>
+               )}
+               {customMemberTypes.map(type => (
+                 <button key={type.id} onClick={() => { setMemberType(type.name); setShowMemberTypeModal(false); }} className={`w-full p-4 rounded-[1.5rem] font-black transition-all flex items-center justify-between border-2 ${memberType === type.name ? 'bg-[#2563EB] border-[#2563EB] text-white shadow-xl' : isDark ? 'bg-slate-900 border-slate-700 text-blue-400' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
+                    <span className="font-noto text-base">{type.name}</span>
+                    {memberType === type.name && <Check size={18} strokeWidth={4} />}
                  </button>
                ))}
             </div>

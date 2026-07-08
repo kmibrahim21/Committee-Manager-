@@ -116,12 +116,12 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
             <div className="grid grid-cols-3 gap-4">
               <div className={`p-4 rounded-3xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
                     <TrendingUp size={16} />
                   </div>
                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">মোট প্রদেয়</span>
                 </div>
-                <p className={`text-lg font-black ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>৳{totalPayablePerMonth}</p>
+                <p className={`text-lg font-black ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>৳{totalPayablePerMonth}</p>
               </div>
 
               <div className={`p-4 rounded-3xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
@@ -148,7 +148,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
             {/* Monthly Grid */}
             <div className={`p-8 rounded-[3rem] border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center justify-between mb-8">
-                <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>মাসিক ফি স্ট্যাটাস ({selectedYear})</h3>
+                <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>মাসিক ফি স্ট্যাটাস ({selectedYear})</h3>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
@@ -194,7 +194,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
           <div className="space-y-6">
             <div className={`p-8 rounded-[3rem] border shadow-sm h-full ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
               <div className="flex items-center justify-between mb-8">
-                <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>লেনদেন ইতিহাস</h3>
+                <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>লেনদেন ইতিহাস</h3>
                 <Clock size={18} className="text-slate-300" />
               </div>
 

@@ -10,6 +10,11 @@ CREATE TABLE IF NOT EXISTS public.meetings (
     venue TEXT,
     description TEXT,
     agenda TEXT,
+    type TEXT DEFAULT 'General',
+    notify_members BOOLEAN DEFAULT true,
+    send_sms BOOLEAN DEFAULT false,
+    send_voice BOOLEAN DEFAULT false,
+    require_attendance BOOLEAN DEFAULT true,
     status TEXT DEFAULT 'planned', -- planned, ongoing, completed, cancelled
     minutes_content TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -43,6 +48,16 @@ FOR ALL USING (institution_id = auth.uid() OR institution_id = (SELECT instituti
 
 DROP POLICY IF EXISTS "Enable all access for super admins on meetings" ON public.meetings;
 CREATE POLICY "Enable all access for super admins on meetings" ON public.meetings FOR ALL USING (public.is_super_admin());
+
+-- Fix for existing tables missing new columns
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'General';
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS notify_members BOOLEAN DEFAULT true;
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS send_sms BOOLEAN DEFAULT false;
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS send_voice BOOLEAN DEFAULT false;
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS require_attendance BOOLEAN DEFAULT true;
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS agenda TEXT;
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS time TIME;
+ALTER TABLE public.meetings ADD COLUMN IF NOT EXISTS venue TEXT;
 
 NOTIFY pgrst, 'reload schema';
 

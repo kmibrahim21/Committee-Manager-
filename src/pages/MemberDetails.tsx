@@ -1,7 +1,12 @@
 
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Edit3, User as UserIcon, Smartphone, PhoneCall, UserCheck, MessageCircle, Hash, BookOpen, Phone, Trash2, AlertTriangle, Loader2, X } from 'lucide-react';
+import { 
+  ArrowLeft, Edit3, User as UserIcon, Smartphone, PhoneCall, 
+  UserCheck, MessageCircle, Hash, BookOpen, Phone, Trash2, 
+  AlertTriangle, Loader2, X, MapPin, Calendar, Briefcase, 
+  Dna, CreditCard, Share2, MoreHorizontal, GraduationCap
+} from 'lucide-react';
 import { Member, Language, Institution } from 'types';
 import { supabase } from 'supabase';
 import { t } from 'translations';
@@ -20,6 +25,7 @@ interface StudentDetailsProps {
 const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEdit, onBack, lang, readOnly, institutionId, triggerRefresh }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'personal' | 'address'>('overview');
   const isDark = madrasah?.theme === 'dark';
 
   const initiateWhatsAppCall = async (phone: string) => {
@@ -33,6 +39,15 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
+      if (student.id) {
+        await supabase.from('ledger')
+          .delete()
+          .eq('category', 'Member Fee')
+          .like('description', `%${student.name}%Roll: ${student.roll}%`);
+        await supabase.from('fees').delete().eq('student_id', student.id);
+        await supabase.from('attendance').delete().eq('member_id', student.id);
+      }
+
       const { error } = await supabase
         .from('members')
         .delete()
@@ -49,169 +64,280 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
     }
   };
 
+  const statusColors: any = {
+    general: isDark ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-100',
+    executive: isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9] border-[#42f5e9]/20' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/30',
+    volunteer: isDark ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-100',
+    donor: isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100',
+  };
+
+  const getStatusColor = (type: string) => {
+    return statusColors[type] || (isDark ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-slate-50 text-slate-500 border-slate-100');
+  };
+
+  const getMemberTypeLabel = (type: any) => {
+    if (lang === 'bn') {
+      switch (type) {
+        case 'general': return 'সাধারণ সদস্য';
+        case 'executive': return 'কার্যনির্বাহী সদস্য';
+        case 'volunteer': return 'স্বেচ্ছাসেবক';
+        case 'donor': return 'দাতা সদস্য';
+        default: return type || 'সাধারণ সদস্য';
+      }
+    }
+    return type?.charAt(0).toUpperCase() + type?.slice(1) || 'General';
+  };
+
+  const tabs = [
+    { id: 'overview', label: lang === 'bn' ? 'সংক্ষিপ্ত' : 'Overview', icon: <UserIcon size={16} /> },
+    { id: 'personal', label: lang === 'bn' ? 'ব্যক্তিগত' : 'Personal', icon: <Dna size={16} /> },
+    { id: 'address', label: lang === 'bn' ? 'ঠিকানা ও অন্যান্য' : 'Address', icon: <MapPin size={16} /> },
+  ];
+
   return (
-    <div className="animate-in slide-in-from-right-4 duration-700 pb-24 space-y-8">
-      {/* Enhanced Header */}
-      <div className="relative overflow-hidden rounded-[2.5rem] p-6 bg-gradient-to-br from-[#2563EB] via-[#1D4ED8] to-[#1E3A8A] shadow-[0_15px_40px_-10px_rgba(37,99,235,0.3)] border border-white/20">
-        <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12 animate-pulse">
-          <UserIcon size={120} strokeWidth={1} />
-        </div>
-        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
+    <div className="animate-in slide-in-from-right-4 duration-700 pb-32 space-y-6">
+      {/* Dynamic Header Stage - COMPACTED */}
+      <div className="relative h-[220px] w-full overflow-hidden rounded-[2.5rem] shadow-xl shadow-[#0fb5ab]/5 border border-white/10">
+        <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-1000 ${isDark ? 'from-slate-900 via-slate-800 to-[#0a8078]' : 'from-[#0fb5ab] via-[#42f5e9] to-[#0a8078]'}`} />
         
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        {/* Abstract Background Orbs */}
+        <div className="absolute top-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-[80px] animate-pulse" />
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#42f5e9]/20 rounded-full blur-[100px]" />
+        
+        <div className="relative z-10 w-full h-full flex flex-col p-6">
+          <div className="flex items-center justify-between">
             <button 
               onClick={onBack} 
-              className="w-11 h-11 bg-white/20 backdrop-blur-2xl rounded-[1.2rem] flex items-center justify-center text-white active:scale-90 transition-all border border-white/30 shadow-lg shrink-0 hover:bg-white/30"
+              className="w-10 h-10 bg-white/10 backdrop-blur-2xl rounded-xl flex items-center justify-center text-white active:scale-90 transition-all border border-white/20"
             >
-              <ArrowLeft size={22} strokeWidth={3} />
+              <ArrowLeft size={20} strokeWidth={3} />
             </button>
-            <div>
-              <h1 className="text-xl font-black text-white font-noto tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.2)]">
-                {t('student_details', lang, madrasah?.institution_type)}
-              </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em]">
-                  {student.departments?.name || 'N/A'}
-                </p>
+            {!readOnly && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowDeleteConfirm(true)} 
+                  className="w-10 h-10 bg-red-500/10 backdrop-blur-2xl rounded-xl flex items-center justify-center text-red-100 active:scale-90 transition-all border border-red-500/20 shadow-xl"
+                >
+                  <Trash2 size={20} />
+                </button>
+                <button 
+                  onClick={onEdit} 
+                  className="w-10 h-10 bg-white backdrop-blur-2xl rounded-xl flex items-center justify-center text-[#0fb5ab] active:scale-90 transition-all shadow-xl"
+                >
+                  <Edit3 size={20} strokeWidth={2.5} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-auto flex items-center gap-5 pb-2">
+            <div className="relative flex-shrink-0">
+              <div className="absolute inset-0 bg-[#42f5e9] blur-[30px] opacity-20 scale-150 animate-pulse" />
+              <div className={`relative w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-[#0fb5ab] border-2 border-white shadow-xl overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                <UserIcon size={40} strokeWidth={2.5} />
+              </div>
+              <div className={`absolute -bottom-1 -right-1 h-7 px-2 bg-white text-[#0fb5ab] rounded-lg flex items-center justify-center shadow-lg border-2 border-white font-black text-[10px]`}>
+                {student.member_id_number ? `#${student.member_id_number}` : <Hash size={14} strokeWidth={3} />}
+              </div>
+            </div>
+            
+            <div className="flex flex-col text-left">
+              <h1 className="text-xl font-black text-white font-noto tracking-tighter drop-shadow-md leading-tight">{student.name}</h1>
+              <div className="flex items-center gap-2 mt-1 px-3 py-0.5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full w-fit">
+                <span className="text-[9px] font-black text-white uppercase tracking-widest">{student.departments?.name || 'N/A'}</span>
               </div>
             </div>
           </div>
-          
-          {!readOnly && (
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setShowDeleteConfirm(true)} 
-                className="w-11 h-11 bg-red-500/20 backdrop-blur-2xl rounded-[1.2rem] flex items-center justify-center text-red-100 active:scale-90 transition-all border border-red-500/30 shadow-lg hover:bg-red-500/30"
-              >
-                <Trash2 size={20} />
-              </button>
-              <button 
-                onClick={onEdit} 
-                className="w-11 h-11 bg-white rounded-[1.2rem] flex items-center justify-center text-[#2563EB] active:scale-90 transition-all border border-white shadow-lg hover:shadow-[#2563EB]/20"
-              >
-                <Edit3 size={22} />
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Profile Card */}
-      <div className={`p-8 rounded-[3.5rem] shadow-[0_30px_80px_-15px_rgba(0,0,0,0.08)] border relative overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-        <div className={`absolute top-0 left-0 w-full h-24 bg-gradient-to-b to-transparent ${isDark ? 'from-slate-800/50' : 'from-slate-50/50'}`} />
-        
-        <div className="relative flex flex-col items-center text-center">
-          <div className="relative mb-6 group">
-            <div className="absolute inset-0 bg-[#2563EB] blur-3xl opacity-20 group-hover:opacity-30 transition-opacity" />
-            <div className={`relative w-32 h-32 rounded-[2.5rem] flex items-center justify-center text-[#2563EB] border-4 shadow-xl overflow-hidden transform group-hover:scale-105 transition-transform duration-500 ${isDark ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-800' : 'bg-gradient-to-br from-blue-50 to-white border-white'}`}>
-              <UserIcon size={64} strokeWidth={2.5} />
-            </div>
-            <div className={`absolute -bottom-2 -right-2 w-11 h-11 bg-[#2563EB] text-white rounded-[1rem] flex items-center justify-center border-2 shadow-xl ${isDark ? 'border-slate-800' : 'border-white'}`}>
-              <Hash size={22} strokeWidth={3} />
-            </div>
-          </div>
-          
-          <h2 className={`text-xl font-black font-noto tracking-tight leading-tight mb-2 drop-shadow-sm ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{student.name}</h2>
-          
-          <div className={`inline-flex items-center gap-3 px-6 py-2 rounded-[1.2rem] border-2 shadow-inner ${isDark ? 'bg-blue-900/20 border-[#2563EB]/20' : 'bg-blue-50 border-[#2563EB]/10'}`}>
-            <span className="text-[11px] font-black text-[#2563EB] uppercase tracking-[0.2em]">{t('roll', lang)}: {student.roll || '-'}</span>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mt-10 grid grid-cols-2 gap-4">
-          <button 
-            onClick={() => initiateWhatsAppCall(student.phone)} 
-            className={`flex flex-col items-center justify-center p-6 border-2 rounded-[2rem] text-emerald-600 active:scale-95 transition-all group shadow-sm ${isDark ? 'bg-emerald-900/20 border-emerald-800/50 hover:bg-emerald-900/30 hover:shadow-emerald-900/20' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100/50 hover:shadow-emerald-100'}`}
+      {/* Tabs Menu - STICKY-LIKE */}
+      <div className={`flex p-1 rounded-2xl border-2 sticky top-0 z-[50] backdrop-blur-xl ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-100'}`}>
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex-1 py-3 px-2 rounded-xl flex items-center justify-center gap-2 transition-all duration-500 font-black text-[11px] uppercase tracking-wider ${activeTab === tab.id ? (isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#e0fdfb] text-[#0fb5ab]') : 'text-slate-400 hover:text-slate-500'}`}
           >
-            <div className="w-12 h-12 bg-emerald-500 text-white rounded-[1rem] flex items-center justify-center mb-3 shadow-lg group-hover:rotate-12 transition-transform">
-              <PhoneCall size={24} fill="currentColor" />
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-[0.15em]">WA Call</span>
+            {tab.icon}
+            <span className="hidden sm:inline">{tab.label}</span>
           </button>
-          
-          <button 
-            onClick={() => initiateWhatsAppMessage(student.phone)} 
-            className={`flex flex-col items-center justify-center p-6 border-2 rounded-[2rem] text-blue-600 active:scale-95 transition-all group shadow-sm ${isDark ? 'bg-blue-900/20 border-blue-800/50 hover:bg-blue-900/30 hover:shadow-blue-900/20' : 'bg-blue-50 border-blue-100 hover:bg-blue-100/50 hover:shadow-blue-100'}`}
-          >
-            <div className="w-12 h-12 bg-blue-500 text-white rounded-[1rem] flex items-center justify-center mb-3 shadow-lg group-hover:-rotate-12 transition-transform">
-              <MessageCircle size={24} fill="currentColor" />
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-[0.15em]">WA Chat</span>
-          </button>
-        </div>
+        ))}
+      </div>
 
-        {/* Detailed Info Sections */}
-        <div className="mt-10 space-y-8">
-          {/* Section: Personal Info */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 px-2 mb-1">
-              <div className="w-1.5 h-6 bg-[#2563EB] rounded-full shadow-lg shadow-[#2563EB]/20" />
-              <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'ব্যক্তিগত ও পরিচিতি তথ্য' : 'Personal & Identity'}</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <InfoRow label={lang === 'bn' ? 'সদস্য আইডি' : 'Member ID'} value={student.member_id_number} icon={<Hash size={18} />} isDark={isDark} />
-              <InfoRow label={lang === 'bn' ? 'সদস্য ধরণ' : 'Member Type'} value={student.member_type ? (lang === 'bn' ? (student.member_type === 'general' ? 'সাধারণ' : student.member_type === 'executive' ? 'কার্যনির্বাহী' : student.member_type === 'volunteer' ? 'স্বেচ্ছাসেবক' : 'দাতা') : student.member_type) : null} icon={<UserCheck size={18} />} isDark={isDark} />
-              <InfoRow label={lang === 'bn' ? 'পিতার নাম' : 'Father Name'} value={student.father_name} icon={<UserIcon size={18} />} isDark={isDark} />
-              <InfoRow label={lang === 'bn' ? 'জন্ম তারিখ' : 'Date of Birth'} value={student.dob} icon={<BookOpen size={18} />} isDark={isDark} />
-              <InfoRow label={lang === 'bn' ? 'রক্তের গ্রুপ' : 'Blood Group'} value={student.blood_group} icon={<AlertTriangle size={18} />} isDark={isDark} />
-              <InfoRow label={lang === 'bn' ? 'পেশা' : 'Occupation'} value={student.occupation} icon={<BookOpen size={18} />} isDark={isDark} />
-              <InfoRow label={lang === 'bn' ? 'জাতীয় পরিচয়পত্র' : 'NID Number'} value={student.nid} icon={<Hash size={18} />} isDark={isDark} />
-            </div>
-          </div>
-
-          {/* Section: Contact & Address */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 px-2 mb-1">
-              <div className="w-1.5 h-6 bg-[#2563EB] rounded-full shadow-lg shadow-[#2563EB]/20" />
-              <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'যোগাযোগ ও ঠিকানা' : 'Contact & Address'}</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className={`flex items-center justify-between p-5 rounded-[2rem] border-2 transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50/80 border-slate-100'}`}>
-                <div className="flex items-center gap-4">
-                   <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center text-[#2563EB] bg-white border border-slate-100 shadow-sm`}>
-                     <Smartphone size={22} />
-                   </div>
-                   <div>
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{lang === 'bn' ? 'মোবাইল নম্বর' : 'Phone Number'}</p>
-                     <p className={`text-lg font-black tracking-tight leading-none ${isDark ? 'text-slate-200' : 'text-[#1E293B]'}`}>{student.phone}</p>
-                   </div>
+      {/* Main Content Area */}
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Organizational Identity Card */}
+            <div className={`md:col-span-2 p-6 rounded-[2rem] border-2 transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#42f5e9] to-[#0fb5ab] rounded-xl flex items-center justify-center text-[#053d3a]">
+                  <UserCheck size={22} strokeWidth={2.5} />
                 </div>
-                <button onClick={() => window.location.href = `tel:${student.phone}`} className="w-11 h-11 bg-gradient-to-br from-[#2563EB] to-[#1E3A8A] text-white rounded-[1rem] flex items-center justify-center shadow-lg"><Phone size={20} fill="currentColor" /></button>
+                <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{lang === 'bn' ? 'সাংগঠনিক পরিচিতি' : 'Identity'}</h3>
               </div>
               
-              <InfoRow label={lang === 'bn' ? 'ইমেইল' : 'Email'} value={student.email} icon={<MessageCircle size={18} />} isDark={isDark} />
-              
-              <div className="md:col-span-2">
-                <InfoRow label={lang === 'bn' ? 'বর্তমান ঠিকানা' : 'Present Address'} value={student.present_address || student.address} icon={<Hash size={18} />} isDark={isDark} isTextArea />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <BentoItem 
+                  label={lang === 'bn' ? 'সদস্য ধরণ' : 'Member Type'} 
+                  value={getMemberTypeLabel(student.member_type)} 
+                  icon={<UserCheck size={14} />} 
+                  isDark={isDark} 
+                  badge={getStatusColor(student.member_type || 'general')}
+                />
+                <BentoItem 
+                  label={lang === 'bn' ? 'সদস্য পরিচিত নম্বর' : 'ID Number'} 
+                  value={student.member_id_number || 'N/A'} 
+                  icon={<Hash size={14} />} 
+                  isDark={isDark} 
+                />
+                <BentoItem 
+                  label={lang === 'bn' ? 'কমিটি / শাখা' : 'Committee'} 
+                  value={student.departments?.name} 
+                  icon={<MapPin size={14} />} 
+                  isDark={isDark} 
+                />
+                <BentoItem 
+                  label={lang === 'bn' ? 'যোগদানের তারিখ' : 'Member Since'} 
+                  value={student.join_date} 
+                  icon={<Calendar size={14} />} 
+                  isDark={isDark} 
+                />
               </div>
-              {student.permanent_address && (
-                <div className="md:col-span-2">
-                  <InfoRow label={lang === 'bn' ? 'স্থায়ী ঠিকানা' : 'Permanent Address'} value={student.permanent_address} icon={<Hash size={18} />} isDark={isDark} isTextArea />
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Section: Organizational Info */}
-          {(student.join_date || student.reference) && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 px-2 mb-1">
-              <div className="w-1.5 h-6 bg-[#2563EB] rounded-full shadow-lg shadow-[#2563EB]/20" />
-              <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'সাংগঠনিক তথ্য' : 'Organizational Info'}</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <InfoRow label={lang === 'bn' ? 'যোগদানের তারিখ' : 'Join Date'} value={student.join_date} icon={<BookOpen size={18} />} isDark={isDark} />
-              <InfoRow label={lang === 'bn' ? 'রেফারেন্স' : 'Reference'} value={student.reference} icon={<UserIcon size={18} />} isDark={isDark} />
+            {/* Action Center - Integrated into grid */}
+            <div className={`p-6 rounded-[2rem] border-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center text-white">
+                  <Smartphone size={22} strokeWidth={2.5} />
+                </div>
+                <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{lang === 'bn' ? 'যোগাযোগ কেন্দ্র' : 'Actions'}</h3>
+              </div>
+              
+              <div className="space-y-2">
+                 <button 
+                   onClick={() => window.location.href = `tel:${student.phone}`}
+                   className="w-full h-12 px-5 rounded-xl bg-[#0fb5ab] text-white font-black text-[12px] flex items-center justify-between shadow-lg shadow-[#0fb5ab]/10 active:scale-95 transition-all"
+                 >
+                    <div className="flex items-center gap-2">
+                      <Phone size={16} fill="currentColor" />
+                      <span>{student.phone}</span>
+                    </div>
+                 </button>
+                 
+                 <button 
+                   onClick={() => initiateWhatsAppMessage(student.phone)}
+                   className="w-full h-12 px-5 rounded-xl bg-emerald-500 text-white font-black text-[12px] flex items-center justify-between shadow-lg shadow-emerald-500/10 active:scale-95 transition-all"
+                 >
+                    <div className="flex items-center gap-2">
+                      <MessageCircle size={16} fill="currentColor" />
+                      <span>WhatsApp</span>
+                    </div>
+                 </button>
+
+                 <button 
+                   onClick={() => { student.email && (window.location.href = `mailto:${student.email}`) }}
+                   disabled={!student.email}
+                   className={`w-full h-12 px-5 rounded-xl font-black text-[12px] flex items-center justify-between transition-all ${student.email ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/10' : 'bg-slate-100 text-slate-400 opacity-50'}`}
+                 >
+                    <div className="flex items-center gap-2 truncate">
+                      <Hash size={16} />
+                      <span className="truncate">{student.email || 'No Email'}</span>
+                    </div>
+                 </button>
+              </div>
             </div>
           </div>
-          )}
-        </div>
+        )}
+
+        {activeTab === 'personal' && (
+          <div className="space-y-4">
+             {/* Personal Specs */}
+            <div className={`p-6 rounded-[2rem] border-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-xl flex items-center justify-center text-white">
+                  <Dna size={22} strokeWidth={2.5} />
+                </div>
+                <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>{lang === 'bn' ? 'ব্যক্তিগত বিবরণ' : 'Personal Specs'}</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                 <BentoItem label={lang === 'bn' ? 'পিতার নাম' : 'Father'} value={student.father_name} icon={<UserIcon size={14} />} isDark={isDark} />
+                 <BentoItem label={lang === 'bn' ? 'মাতার নাম' : 'Mother'} value={student.mother_name} icon={<UserIcon size={14} />} isDark={isDark} />
+                 <BentoItem label={lang === 'bn' ? 'জন্ম তারিখ' : 'DOB'} value={student.dob} icon={<Calendar size={14} />} isDark={isDark} />
+                 <BentoItem label={lang === 'bn' ? 'রক্তের গ্রুপ' : 'Blood'} value={student.blood_group} icon={<AlertTriangle size={14} />} isDark={isDark} badge={isDark ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-red-50 text-red-600 border-red-100'} />
+                 <BentoItem label={lang === 'bn' ? 'লিঙ্গ' : 'Gender'} value={t(student.gender as any || 'male', lang)} icon={<Dna size={14} />} isDark={isDark} />
+                 <BentoItem label={lang === 'bn' ? 'শিক্ষাগত যোগ্যতা' : 'Education'} value={student.education} icon={<GraduationCap size={14} />} isDark={isDark} />
+              </div>
+            </div>
+
+            {/* Credentials Card */}
+            <div className={`p-6 rounded-[2rem] border-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-slate-400 to-slate-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                  <CreditCard size={22} strokeWidth={2.5} />
+                </div>
+                <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-slate-200' : 'text-slate-600'}`}>{lang === 'bn' ? 'ডকুমেন্টস' : 'ID & Docs'}</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <BentoItem label={lang === 'bn' ? 'জাতীয় পরিচয়পত্র' : 'NID/NID'} value={student.nid} icon={<CreditCard size={14} />} isDark={isDark} />
+                <BentoItem label={lang === 'bn' ? 'পেশা' : 'Profession'} value={student.occupation} icon={<Briefcase size={14} />} isDark={isDark} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'address' && (
+          <div className="space-y-4">
+             {/* Location & Addresses */}
+            <div className={`p-6 rounded-[2rem] border-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#0fb5ab] to-[#0a8078] rounded-xl flex items-center justify-center text-white shadow-lg">
+                  <MapPin size={22} strokeWidth={2.5} />
+                </div>
+                <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{lang === 'bn' ? 'ঠিকানা' : 'Address'}</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={`p-5 rounded-[1.5rem] border-2 ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{lang === 'bn' ? 'বর্তমান ঠিকানা' : 'Present Address'}</p>
+                   <p className={`text-[13px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{student.present_address || student.address || 'Not Added'}</p>
+                </div>
+                <div className={`p-5 rounded-[1.5rem] border-2 ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{lang === 'bn' ? 'স্থায়ী ঠিকানা' : 'Permanent Address'}</p>
+                   <p className={`text-[13px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{student.permanent_address || 'Not Added'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* History & Meta Card */}
+            <div className={`p-6 rounded-[2rem] border-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+              <div className="flex items-center gap-4">
+                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${isDark ? 'bg-slate-800 border-slate-700 text-[#42f5e9]' : 'bg-slate-50 border-white text-[#0fb5ab]'}`}>
+                    <Calendar size={24} />
+                 </div>
+                 <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{lang === 'bn' ? 'যোগদানের তারিখ' : 'Member Since'}</p>
+                    <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{student.join_date || 'No Date set'}</p>
+                 </div>
+              </div>
+
+              <div className="h-px w-full bg-slate-100 my-4 hidden md:block" />
+
+              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-50 sm:border-0 sm:mt-0 sm:pt-0">
+                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${isDark ? 'bg-slate-800 border-slate-700 text-[#42f5e9]' : 'bg-slate-50 border-white text-[#0fb5ab]'}`}>
+                    <UserIcon size={24} />
+                 </div>
+                 <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{lang === 'bn' ? 'রেফারেন্স' : 'Referred By'}</p>
+                    <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{student.reference || 'None'}</p>
+                 </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {showDeleteConfirm && createPortal(
@@ -257,17 +383,36 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
 
 export default StudentDetails;
 
-const InfoRow: React.FC<{ label: string; value: string | null | undefined; icon: React.ReactNode; isDark: boolean; isTextArea?: boolean }> = ({ label, value, icon, isDark, isTextArea }) => {
-  if (!value) return null;
+const BentoItem: React.FC<{ 
+  label: string; 
+  value: string | null | undefined; 
+  icon: React.ReactNode; 
+  isDark: boolean; 
+  highlight?: boolean;
+  badge?: string;
+  fullWidth?: boolean;
+}> = ({ label, value, icon, isDark, highlight, badge, fullWidth }) => {
   return (
-    <div className={`flex items-start gap-4 p-5 rounded-[2rem] border-2 transition-all group ${isDark ? 'bg-slate-800 border-slate-700 hover:border-[#2563EB]/30' : 'bg-slate-50/80 border-slate-100 hover:bg-white hover:border-[#2563EB]/30 hover:shadow-lg hover:shadow-slate-200/50'}`}>
-      <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center text-[#2563EB] shrink-0 shadow-md border group-hover:bg-[#2563EB] group-hover:text-white transition-all duration-300 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-        {icon}
+    <div className={`p-3 rounded-xl border flex flex-col justify-between min-h-[70px] transition-all duration-300 group ${fullWidth ? 'w-full' : ''} ${highlight ? (isDark ? 'bg-[#42f5e9]/10 border-[#42f5e9]/30' : 'bg-[#e0fdfb] border-[#42f5e9]/30') : (isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-slate-50 border-slate-100')}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+           <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors group-hover:scale-110 ${highlight ? 'text-[#0fb5ab]' : isDark ? 'text-[#42f5e9]' : 'text-slate-400 group-hover:text-[#0fb5ab]'}`}>
+             {icon}
+           </div>
+           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">{label}</p>
+        </div>
+        {badge && (
+          <div className={`px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase tracking-widest border ${badge}`}>
+            {value || '-'}
+          </div>
+        )}
       </div>
-      <div className="min-w-0">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{label}</p>
-        <p className={`${isTextArea ? 'text-xs' : 'text-base'} font-black font-noto leading-tight break-words ${isDark ? 'text-slate-200' : 'text-[#1E293B]'}`}>{value}</p>
-      </div>
+      
+      {!badge && (
+        <p className={`text-[12px] font-black font-noto truncate mt-1 leading-none ${highlight ? (isDark ? 'text-white' : 'text-[#0fb5ab]') : isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+          {value || <span className="opacity-30 tracking-widest">---</span>}
+        </p>
+      )}
     </div>
   );
 };

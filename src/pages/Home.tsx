@@ -34,12 +34,16 @@ const Home: React.FC<HomeProps> = ({ onMemberClick, lang, dataVersion, triggerRe
   
   const role = profile?.role || 'executive';
   const isAdmin = role === 'org_admin' || role === 'super_admin';
-  const canSendSMS = isAdmin || !!profile?.permissions?.can_send_sms;
-  const canUseVoice = isAdmin || !!profile?.permissions?.can_use_voice_call;
-  const canManageMembers = isAdmin || !!profile?.permissions?.can_manage_members;
-  const canManageAttendance = isAdmin || !!profile?.permissions?.can_manage_attendance;
-  const canManageAccounting = isAdmin || !!profile?.permissions?.can_manage_accounting;
-  const canManageMeetings = isAdmin || !!profile?.permissions?.can_manage_meetings;
+  const isMember = role === 'member';
+  const memberPerms = madrasah?.member_portal_config?.permissions;
+
+  const canSendSMS = !isMember && (isAdmin || !!profile?.permissions?.can_send_sms);
+  const canUseVoice = !isMember && (isAdmin || !!profile?.permissions?.can_use_voice_call);
+  const canManageMembers = !isMember && (isAdmin || !!profile?.permissions?.can_manage_members);
+  const canManageAttendance = isAdmin || (isMember ? !!memberPerms?.view_attendance : !!profile?.permissions?.can_manage_attendance);
+  const canManageAccounting = isAdmin || (isMember ? !!memberPerms?.view_finances : !!profile?.permissions?.can_manage_accounting);
+  const canManageMeetings = isAdmin || (isMember ? !!memberPerms?.view_meetings : !!profile?.permissions?.can_manage_meetings);
+  const canViewMinutes = isAdmin || (isMember ? !!memberPerms?.view_minutes : true);
   
   const [stats, setStats] = useState({
     totalMembers: 0,
@@ -144,40 +148,43 @@ const Home: React.FC<HomeProps> = ({ onMemberClick, lang, dataVersion, triggerRe
         {canManageMembers && (
           <button onClick={madrasah?.config_json?.modules?.departments === false ? onNavigateToMembers : onNavigateToClasses} className={`${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-100 hover:bg-slate-50'} p-5 lg:p-6 rounded-[2rem] shadow-bubble flex flex-col items-center text-center animate-in zoom-in duration-300 active:scale-95 transition-all border`}>
              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><Users size={20} className="lg:w-6 lg:h-6" /></div>
-             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{loadingStats ? '...' : stats.totalMembers}</h4>
+             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{loadingStats ? '...' : stats.totalMembers}</h4>
              <p className="text-[10px] lg:text-[12px] font-black text-slate-400 uppercase tracking-widest mt-1 lg:mt-2">{t('members', lang)}</p>
           </button>
         )}
         {canManageMembers && madrasah?.config_json?.modules?.departments !== false && (
           <button onClick={onNavigateToClasses} className={`${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-100 hover:bg-slate-50'} p-5 lg:p-6 rounded-[2rem] shadow-bubble flex flex-col items-center text-center animate-in zoom-in duration-300 delay-75 active:scale-95 transition-all border`}>
-             <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><BookOpen size={20} className="lg:w-6 lg:h-6" /></div>
-             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{loadingStats ? '...' : stats.totalDepartments}</h4>
+             <div className="w-10 h-10 lg:w-12 lg:h-12 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><BookOpen size={20} className="lg:w-6 lg:h-6" /></div>
+             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{loadingStats ? '...' : stats.totalDepartments}</h4>
              <p className={`text-[10px] lg:text-[12px] font-black ${isDark ? 'text-slate-300' : 'text-slate-400'} uppercase tracking-widest mt-1 lg:mt-2`}>{t('departments', lang)}</p>
           </button>
         )}
-        <button onClick={onNavigateToTeachers} className={`${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-100 hover:bg-slate-50'} p-5 lg:p-6 rounded-[2rem] shadow-bubble flex flex-col items-center text-center animate-in zoom-in duration-300 delay-100 active:scale-95 transition-all border`}>
-             <div className="w-10 h-10 lg:w-12 lg:h-12 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><UserCheck size={20} className="lg:w-6 lg:h-6" /></div>
-             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{loadingStats ? '...' : stats.totalExecutives}</h4>
-             <p className={`text-[10px] lg:text-[12px] font-black ${isDark ? 'text-slate-300' : 'text-slate-400'} uppercase tracking-widest mt-1 lg:mt-2`}>{t('executive_committee', lang)}</p>
-        </button>
+        {/* Executive Committee Card */}
+        {!isMember && (
+          <button onClick={onNavigateToTeachers} className={`${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-100 hover:bg-slate-50'} p-5 lg:p-6 rounded-[2rem] shadow-bubble flex flex-col items-center text-center animate-in zoom-in duration-300 delay-100 active:scale-95 transition-all border`}>
+               <div className="w-10 h-10 lg:w-12 lg:h-12 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><UserCheck size={20} className="lg:w-6 lg:h-6" /></div>
+               <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{loadingStats ? '...' : stats.totalExecutives}</h4>
+               <p className={`text-[10px] lg:text-[12px] font-black ${isDark ? 'text-slate-300' : 'text-slate-400'} uppercase tracking-widest mt-1 lg:mt-2`}>{t('executive_committee', lang)}</p>
+          </button>
+        )}
         {canSendSMS && (
           <button onClick={onNavigateToWallet} className={`${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-100 hover:bg-slate-50'} p-5 lg:p-6 rounded-[2rem] shadow-bubble flex flex-col items-center text-center animate-in zoom-in duration-300 delay-150 active:scale-95 transition-all border`}>
              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><Zap size={20} className="lg:w-6 lg:h-6" /></div>
-             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{loadingStats ? '...' : stats.smsBalance}</h4>
+             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{loadingStats ? '...' : stats.smsBalance}</h4>
              <p className={`text-[10px] lg:text-[12px] font-black ${isDark ? 'text-slate-300' : 'text-slate-400'} uppercase tracking-widest mt-1 lg:mt-2`}>{t('sms', lang)}</p>
           </button>
         )}
         {canUseVoice && modules.modules.voice_broadcast && (
           <button onClick={onNavigateToVoiceBroadcast} className={`${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-100 hover:bg-slate-50'} p-5 lg:p-6 rounded-[2rem] shadow-bubble flex flex-col items-center text-center animate-in zoom-in duration-300 delay-175 active:scale-95 transition-all border`}>
              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><Mic size={20} className="lg:w-6 lg:h-6" /></div>
-             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{loadingStats ? '...' : stats.voiceBalance.toFixed(2)}</h4>
+             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{loadingStats ? '...' : stats.voiceBalance.toFixed(2)}</h4>
              <p className={`text-[10px] lg:text-[12px] font-black ${isDark ? 'text-slate-300' : 'text-slate-400'} uppercase tracking-widest mt-1 lg:mt-2`}>{t('voice_call', lang)}</p>
           </button>
         )}
         {canManageAttendance && modules.modules.attendance && (
           <button onClick={onNavigateToAttendance} className={`${isDark ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-100 hover:bg-slate-50'} p-5 lg:p-6 rounded-[2rem] shadow-bubble flex flex-col items-center text-center animate-in zoom-in duration-300 delay-200 active:scale-95 transition-all border`}>
              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><CheckCircle2 size={20} className="lg:w-6 lg:h-6" /></div>
-             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{loadingStats ? '...' : stats.attendanceToday}</h4>
+             <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{loadingStats ? '...' : stats.attendanceToday}</h4>
              <p className={`text-[10px] lg:text-[12px] font-black ${isDark ? 'text-slate-300' : 'text-slate-400'} uppercase tracking-widest mt-1 lg:mt-2`}>{t('today_attendance', lang)}</p>
           </button>
         )}
@@ -212,7 +219,7 @@ const Home: React.FC<HomeProps> = ({ onMemberClick, lang, dataVersion, triggerRe
                 <div className="px-1 space-y-8">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 px-3">
-                       <div className="w-1.5 h-6 bg-emerald-600 rounded-full"></div>
+                       <div className="w-1.5 h-6 bg-[#42f5e9] rounded-full"></div>
                        <h2 className={`text-sm lg:text-base font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                          {lang === 'bn' ? 'সদস্য উপস্থিতির বিবরণ' : 'Member Attendance Review'}
                        </h2>
@@ -229,10 +236,10 @@ const Home: React.FC<HomeProps> = ({ onMemberClick, lang, dataVersion, triggerRe
             
             {/* Meetings/Results Section */}
             <div className="space-y-6 lg:space-y-8 xl:col-span-12">
-              {canManageMeetings && modules.modules.results && (
+              {canViewMinutes && modules.modules.results && (
                 <div className="px-1 space-y-4">
                    <div className="flex items-center gap-3 px-3">
-                      <div className="w-1.5 h-6 bg-purple-600 rounded-full"></div>
+                      <div className="w-1.5 h-6 bg-[#42f5e9] rounded-full"></div>
                       <h2 className={`text-sm lg:text-base font-black uppercase tracking-[0.2em] ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                         {lang === 'bn' ? 'মিটিং রেজাল্ট ও বিবরণী' : 'Meeting Minutes & Resolutions'}
                       </h2>

@@ -220,7 +220,7 @@ export const CommitteeYearManager: React.FC<CommitteeYearManagerProps> = ({ inst
         {/* Header */}
         <div className={`p-8 border-b flex items-center justify-between ${isDark ? 'bg-slate-800/50 border-slate-800' : 'bg-slate-50/50 border-slate-100'}`}>
           <div>
-            <h2 className={`text-2xl font-black font-noto ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'কমিটি মেয়াদ ব্যবস্থাপনা' : 'Committee Term Manager'}</h2>
+            <h2 className={`text-2xl font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{lang === 'bn' ? 'কমিটি মেয়াদ ব্যবস্থাপনা' : 'Committee Term Manager'}</h2>
             <p className={`text-sm font-bold mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{institution.name}</p>
           </div>
           <button onClick={onClose} className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-sm border ${
@@ -235,15 +235,15 @@ export const CommitteeYearManager: React.FC<CommitteeYearManagerProps> = ({ inst
           {step === 'status' && (
             <div className="space-y-8">
               <div className={`p-6 rounded-[2rem] border flex items-center justify-between ${
-                  isDark ? 'bg-blue-900/20 border-blue-900/30' : 'bg-blue-50 border-blue-100'
+                  isDark ? 'bg-[#42f5e9]/10 border-[#42f5e9]/20' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20'
               }`}>
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-[#2563EB] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+                  <div className="w-12 h-12 bg-[#42f5e9] text-[#0fb5ab] rounded-2xl flex items-center justify-center shadow-lg shadow-[#42f5e9]/20">
                     <Calendar size={24} />
                   </div>
                   <div>
-                    <h3 className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'বর্তমান পরিষদ/মেয়াদ' : 'Current Committee Term'}</h3>
-                    <p className={`text-sm font-bold mt-1 ${isDark ? 'text-blue-500' : 'text-blue-500'}`}>
+                    <h3 className={`text-lg font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{lang === 'bn' ? 'বর্তমান পরিষদ/মেয়াদ' : 'Current Committee Term'}</h3>
+                    <p className={`text-sm font-bold mt-1 ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
                       {currentYear ? `${currentYear.year_name} (${currentYear.start_date} - ${currentYear.end_date})` : (lang === 'bn' ? 'কোনো সক্রিয় মেয়াদ নেই' : 'No Active Term')}
                     </p>
                   </div>
@@ -257,7 +257,7 @@ export const CommitteeYearManager: React.FC<CommitteeYearManagerProps> = ({ inst
                   isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'
               }`}>
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-bubble ${
-                    isDark ? 'bg-slate-800 text-blue-400' : 'bg-white text-[#2563EB]'
+                    isDark ? 'bg-slate-800 text-[#42f5e9]' : 'bg-white text-[#0fb5ab]'
                 }`}>
                   <ArrowRight size={32} />
                 </div>
@@ -265,7 +265,7 @@ export const CommitteeYearManager: React.FC<CommitteeYearManagerProps> = ({ inst
                 <p className={`text-sm max-w-md mx-auto ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                   {lang === 'bn' ? 'নতুন মেয়াদ শুরু করলে বর্তমান মেয়াদ বা পরিষদ আর্কাইভ হয়ে যাবে এবং আপনি সভার ফলাফলের ভিত্তিতে সদস্যদের পরবর্তী বিভাগে প্রমোশন বা স্থানান্তর দিতে পারবেন।' : 'Starting a new committee term will archive the current term and allow you to rotate members to their next departments based on meeting outcomes.'}
                 </p>
-                <button onClick={() => setStep('config')} className="px-8 py-4 bg-[#2563EB] text-white font-black rounded-2xl shadow-premium hover:scale-105 transition-transform">
+                <button onClick={() => setStep('config')} className="px-8 py-4 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-2xl shadow-premium hover:scale-105 transition-transform">
                   {lang === 'bn' ? 'প্রমোশন উইজার্ড শুরু করুন' : 'Start Rotation Wizard'}
                 </button>
               </div>
@@ -367,7 +367,7 @@ export const CommitteeYearManager: React.FC<CommitteeYearManagerProps> = ({ inst
               </div>
 
               <div className="flex justify-end pt-4">
-                <button onClick={handleGeneratePreview} disabled={loading} className="px-8 py-4 bg-[#2563EB] text-white font-black rounded-2xl shadow-premium hover:scale-105 transition-transform flex items-center gap-2">
+                <button onClick={handleGeneratePreview} disabled={loading} className="px-8 py-4 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-2xl shadow-premium hover:scale-105 transition-transform flex items-center gap-2">
                   {loading ? <Loader2 className="animate-spin" /> : <>{lang === 'bn' ? 'প্রিভিউ তৈরি করুন' : 'Generate Preview'} <ArrowRight size={20} /></>}
                 </button>
               </div>
@@ -414,7 +414,7 @@ export const CommitteeYearManager: React.FC<CommitteeYearManagerProps> = ({ inst
                             {p.result_status === 'promoted' ? 'promoted' : 'retained'}
                           </span>
                         </td>
-                        <td className={`p-4 text-xs font-bold ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{p.next_class_name}</td>
+                        <td className={`p-4 text-xs font-bold ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{p.next_class_name}</td>
                       </tr>
                     ))}
                   </tbody>

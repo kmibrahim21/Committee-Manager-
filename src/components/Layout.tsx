@@ -99,14 +99,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
   };
 
   return (
-    <div className={`flex flex-col md:flex-row w-full h-full relative overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-[#EBF5FF]'}`}>
+    <div className={`flex flex-col md:flex-row w-full h-full relative overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-[#f5fffd]'}`}>
       
       {/* Desktop Sidebar */}
-      <aside className={`hidden md:flex flex-col w-72 border-r z-20 shrink-0 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-blue-100'}`}>
+      <aside className={`hidden md:flex flex-col w-72 border-r z-20 shrink-0 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#42f5e9]/30'}`}>
         <div className="p-6 flex items-center gap-4 border-b border-inherit">
           <div className="relative shrink-0">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-              {isSuperAdmin ? <ShieldCheck size={24} className="text-[#2563EB]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <LayoutDashboard size={24} className="text-[#2563EB]" />)}
+              {isSuperAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <LayoutDashboard size={24} className="text-[#0fb5ab]" />)}
             </div>
             <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 ${madrasah?.theme === 'dark' ? 'border-slate-900' : 'border-white'} ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
           </div>
@@ -124,54 +124,48 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
           {isSuperAdmin ? (
             <>
               {canAccess('dashboard') && (
-                <button onClick={() => setView('admin-dashboard')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+                <button onClick={() => setView('admin-dashboard')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <BarChart3 size={22} strokeWidth={isTabActive('dashboard') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{t('dashboard', lang)}</span>
                 </button>
               )}
               {canAccess('organizations') && (
-                <button onClick={() => setView('admin-panel')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+                <button onClick={() => setView('admin-panel')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <Users size={22} strokeWidth={isTabActive('list') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'কমিটিসমূহ' : 'Committees'}</span>
                 </button>
               )}
               {canAccess('approvals') && (
-                <button onClick={() => setView('admin-approvals')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+                <button onClick={() => setView('admin-approvals')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <CreditCard size={22} strokeWidth={isTabActive('approvals') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{t('approvals', lang)}</span>
                 </button>
               )}
-              <button onClick={() => setView('sms-voice-menu')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+              <button onClick={() => setView('sms-voice-menu')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <MessageSquare size={22} strokeWidth={isTabActive('sms-voice-menu') ? 2.5 : 2} />
-                <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'এসএমএস & ভয়েস' : 'SMS & Voice'}</span>
+                <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'যোগাযোগ' : 'Communication'}</span>
               </button>
-              <button onClick={() => setView(isSuperAdmin ? 'super-account' : 'account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+              <button onClick={() => setView(isSuperAdmin ? 'super-account' : 'account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <User size={22} strokeWidth={isTabActive('account') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{t('account', lang)}</span>
               </button>
             </>
           ) : (
             <>
-              <button onClick={() => setView('home')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('home') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+              <button onClick={() => setView('home')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('home') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <Home size={22} strokeWidth={isTabActive('home') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{t('home', lang)}</span>
               </button>
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_members')) && (
+              {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && hasPermission('can_manage_members'))) && (
                 <button 
                   onClick={() => setView(modules.modules.departments !== false ? 'departments' : 'members')} 
-                  className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}
+                  className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}
                 >
                   <Users size={22} strokeWidth={isTabActive('departments') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{t('members', lang)}</span>
                 </button>
               )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_executives')) && (
-                <button onClick={() => setView('executives')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('executives') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
-                  <UserCheck size={22} strokeWidth={isTabActive('executives') ? 2.5 : 2} />
-                  <span className="text-sm font-bold font-noto">{t('executive_committee', lang)}</span>
-                </button>
-              )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_send_sms') || hasPermission('can_use_voice_call')) && (modules.modules.sms !== false || modules.modules.voice_broadcast) && (
+              {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && (hasPermission('can_send_sms') || hasPermission('can_use_voice_call')))) && (modules.modules.sms !== false || modules.modules.voice_broadcast) && (
                 <button 
                   onClick={() => {
                     if (modules.modules.sms !== false && modules.modules.voice_broadcast) {
@@ -182,39 +176,39 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                       setView('voice-broadcast');
                     }
                   }} 
-                  className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}
+                  className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}
                 >
                   <MessageSquare size={22} strokeWidth={isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">
-                    {modules.modules.sms !== false && modules.modules.voice_broadcast ? 'এসএমএস & ভয়েস' : modules.modules.sms !== false ? 'এসএমএস' : 'ভয়েস'}
+                    {modules.modules.sms !== false && modules.modules.voice_broadcast ? (lang === 'bn' ? 'যোগাযোগ' : 'Communication') : modules.modules.sms !== false ? 'এসএমএস' : 'ভয়েস'}
                   </span>
                 </button>
               )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_attendance')) && modules.modules.attendance && (
-                <button onClick={() => setView('attendance')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('attendance') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+              {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_attendance : hasPermission('can_manage_attendance'))) && modules.modules.attendance && (
+                <button onClick={() => setView('attendance')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('attendance') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <ClipboardList size={22} strokeWidth={isTabActive('attendance') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{t('attendance', lang)}</span>
                 </button>
               )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_accounting')) && modules.modules.accounting && (
-                <button onClick={() => setView('accounting')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('accounting') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+              {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_finances : hasPermission('can_manage_accounting'))) && modules.modules.accounting && (
+                <button onClick={() => setView('accounting')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('accounting') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <Banknote size={22} strokeWidth={isTabActive('accounting') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{t('accounts', lang)}</span>
                 </button>
               )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_meetings')) && modules.modules.meetings && (
-                <button onClick={() => setView('meetings')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('meetings') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+              {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_meetings : hasPermission('can_manage_meetings'))) && modules.modules.meetings && (
+                <button onClick={() => setView('meetings')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('meetings') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <GraduationCap size={22} strokeWidth={isTabActive('meetings') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{t('meetings', lang)}</span>
                 </button>
               )}
               {(isSuperAdmin || role === 'org_admin') && (
-                <button onClick={() => setView('events')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('events') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+                <button onClick={() => setView('events')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('events') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <Calendar size={22} strokeWidth={isTabActive('events') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'ইভেন্টসমূহ' : 'Events'}</span>
                 </button>
               )}
-              <button onClick={() => setView('account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400' : 'bg-slate-50 text-blue-700') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+              <button onClick={() => setView('account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <User size={22} strokeWidth={isTabActive('account') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{t('account', lang)}</span>
               </button>
@@ -225,11 +219,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
 
       <div className="flex flex-col flex-1 w-full h-full relative overflow-hidden">
         {/* Mobile Header */}
-        <header className={`md:hidden flex-none px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 flex items-center justify-between relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-[#EBF5FF]/80 border-blue-100'} backdrop-blur-md border-b`}>
+        <header className={`md:hidden flex-none px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 flex items-center justify-between relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-[#f5fffd]/80 border-[#42f5e9]/20'} backdrop-blur-md border-b`}>
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <div className="relative shrink-0">
               <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                {isSuperAdmin ? <ShieldCheck size={24} className="text-[#2563EB]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <LayoutDashboard size={22} className="text-[#2563EB]" />)}
+                {isSuperAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <LayoutDashboard size={22} className="text-[#0fb5ab]" />)}
               </div>
               <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${madrasah?.theme === 'dark' ? 'border-slate-900' : 'border-white'} ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
             </div>
@@ -243,7 +237,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowNotifications(true)} className={`relative p-2.5 rounded-[1rem] active:scale-95 border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400 border-slate-700' : 'bg-slate-50 text-[#2563EB] border-slate-100'}`}>
+            <button onClick={() => setShowNotifications(true)} className={`relative p-2.5 rounded-[1rem] active:scale-95 border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}>
               <Bell size={18} />
               {notifications.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
             </button>
@@ -262,48 +256,47 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
         {/* Mobile Bottom Nav */}
         <div className="fixed md:hidden bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-[200]">
         <nav className={`backdrop-blur-[25px] border flex justify-around items-center py-4 px-1 rounded-[2.5rem] shadow-bubble ${madrasah?.theme === 'dark' ? 'bg-slate-800/95 border-slate-700' : 'bg-white/95 border-slate-200'}`}>
-
           {isSuperAdmin ? (
             <>
               {canAccess('dashboard') && (
-                <button onClick={() => setView('admin-dashboard')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
+                <button onClick={() => setView('admin-dashboard')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
                   <BarChart3 size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{t('dashboard', lang)}</span>
                 </button>
               )}
               {canAccess('organizations') && (
-                <button onClick={() => setView('admin-panel')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
+                <button onClick={() => setView('admin-panel')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
                   <Users size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'কমিটিসমূহ' : 'Committees'}</span>
                 </button>
               )}
               {canAccess('approvals') && (
-                <button onClick={() => setView('admin-approvals')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
+                <button onClick={() => setView('admin-approvals')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
                   <CreditCard size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{t('approvals', lang)}</span>
                 </button>
               )}
-              <button onClick={() => setView('sms-voice-menu')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
+              <button onClick={() => setView('sms-voice-menu')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
                 <MessageSquare size={20} />
-                <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'এসএমএস' : 'SMS'}</span>
+                <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'যোগাযোগ' : 'Communication'}</span>
               </button>
             </>
           ) : (
             <>
-              <button onClick={() => setView('home')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('home') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
+              <button onClick={() => setView('home')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('home') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
                 <Home size={20} strokeWidth={isTabActive('home') ? 3 : 2} />
                 <span className="text-[9px] font-black font-noto opacity-80">{t('home', lang)}</span>
               </button>
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_members')) && (
+              {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && hasPermission('can_manage_members'))) && (
                 <button 
                   onClick={() => setView(modules.modules.departments !== false ? 'departments' : 'members')} 
-                  className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}
+                  className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}
                 >
                   <Users size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{t('members', lang)}</span>
                 </button>
               )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_send_sms') || hasPermission('can_use_voice_call')) && (modules.modules.sms !== false || modules.modules.voice_broadcast) && (
+              {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && (hasPermission('can_send_sms') || hasPermission('can_use_voice_call')))) && (modules.modules.sms !== false || modules.modules.voice_broadcast) && (
                 <div className="relative flex-1 flex justify-center">
                   <button 
                     onClick={() => {
@@ -315,35 +308,35 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                         setView('voice-broadcast');
                       }
                     }} 
-                    className={`relative flex flex-col items-center gap-1 transition-all w-full ${isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}
+                    className={`relative flex flex-col items-center gap-1 transition-all w-full ${isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}
                   >
                     <MessageSquare size={20} />
                     <span className="text-[9px] font-black font-noto opacity-80 whitespace-nowrap text-center">
-                      {modules.modules.sms !== false && modules.modules.voice_broadcast ? 'এসএমএস/ভয়েস' : modules.modules.sms !== false ? 'এসএমএস' : 'ভয়েস'}
+                      {modules.modules.sms !== false && modules.modules.voice_broadcast ? (lang === 'bn' ? 'যোগাযোগ' : 'Communication') : modules.modules.sms !== false ? 'এসএমএস' : 'ভয়েস'}
                     </span>
                   </button>
                 </div>
               )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_attendance')) && modules.modules.attendance && (
-                <button onClick={() => setView('attendance')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('attendance') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
+              {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_attendance : hasPermission('can_manage_attendance'))) && modules.modules.attendance && (
+                <button onClick={() => setView('attendance')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('attendance') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
                   <ClipboardList size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{t('attendance', lang)}</span>
                 </button>
               )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_accounting')) && modules.modules.accounting && (
-                <button onClick={() => setView('accounting')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('accounting') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
+              {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_finances : hasPermission('can_manage_accounting'))) && modules.modules.accounting && (
+                <button onClick={() => setView('accounting')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('accounting') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
                   <Banknote size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{t('accounts', lang)}</span>
                 </button>
               )}
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_meetings')) && modules.modules.meetings && (
-                <button onClick={() => setView('meetings')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('meetings') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
+              {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_meetings : hasPermission('can_manage_meetings'))) && modules.modules.meetings && (
+                <button onClick={() => setView('meetings')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('meetings') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
                   <GraduationCap size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{t('meetings', lang)}</span>
                 </button>
               )}
               {(isSuperAdmin || role === 'org_admin') && (
-                <button onClick={() => setView('events')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('events') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
+                <button onClick={() => setView('events')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('events') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
                   <Calendar size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'ইভেন্ট' : 'Events'}</span>
                 </button>
@@ -351,7 +344,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
             </>
           )}
           
-          <button onClick={() => setView(isSuperAdmin ? 'super-account' : 'account')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
+          <button onClick={() => setView(isSuperAdmin ? 'super-account' : 'account')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
             <User size={20} />
             <span className="text-[9px] font-black font-noto opacity-80">{t('account', lang)}</span>
           </button>

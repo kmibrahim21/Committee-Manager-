@@ -19,11 +19,59 @@ interface MeetingEngineProps {
     profile?: Profile | null;
 }
 
+const parseMeetingWithMeta = (meeting: any) => {
+    if (!meeting) return meeting;
+    let type = 'General';
+    let notify_members = true;
+    let send_sms = false;
+    let send_voice = false;
+    let require_attendance = true;
+    let agenda = '';
+    let cleanDescription = meeting.description || '';
+
+    if (meeting.description && meeting.description.includes('---METADATA---')) {
+        try {
+            const parts = meeting.description.split('---METADATA---');
+            if (parts.length >= 3) {
+                const jsonStr = parts[1].trim();
+                const meta = JSON.parse(jsonStr);
+                type = meta.type || 'General';
+                notify_members = meta.notify_members !== undefined ? meta.notify_members : true;
+                send_sms = meta.send_sms !== undefined ? meta.send_sms : false;
+                send_voice = meta.send_voice !== undefined ? meta.send_voice : false;
+                require_attendance = meta.require_attendance !== undefined ? meta.require_attendance : true;
+                agenda = meta.agenda || '';
+                cleanDescription = parts.slice(2).join('---METADATA---').trim();
+            }
+        } catch (e) {
+            console.error("Error parsing meeting metadata:", e);
+        }
+    } else {
+        if (meeting.type) type = meeting.type;
+        if (meeting.notify_members !== undefined) notify_members = meeting.notify_members;
+        if (meeting.send_sms !== undefined) send_sms = meeting.send_sms;
+        if (meeting.send_voice !== undefined) send_voice = meeting.send_voice;
+        if (meeting.require_attendance !== undefined) require_attendance = meeting.require_attendance;
+        if (meeting.agenda) agenda = meeting.agenda;
+    }
+
+    return {
+        ...meeting,
+        type,
+        notify_members,
+        send_sms,
+        send_voice,
+        require_attendance,
+        agenda,
+        description: cleanDescription
+    };
+};
+
 const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, onBack, role, profile }) => {
     const [meetings, setMeetings] = useState<any[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'meetings' | 'minutes'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'meetings'>('dashboard');
     const [stats, setStats] = useState({
         total: 0,
         upcoming: 0,
@@ -33,7 +81,6 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
     const [agendas, setAgendas] = useState<any[]>([]);
     const [decisions, setDecisions] = useState<any[]>([]);
     const [nextMeeting, setNextMeeting] = useState<any | null>(null);
-    const [generatingMinutes, setGeneratingMinutes] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [newMeeting, setNewMeeting] = useState({
         title: '',
@@ -54,12 +101,10 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
     const [selectedDept, setSelectedDept] = useState('');
     const [selectedMeeting, setSelectedMeeting] = useState<any | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [editingMeeting, setEditingMeeting] = useState<any | null>(null);
-    const [detailsTab, setDetailsTab] = useState<'info' | 'attendance'>('info');
     const [attendanceMembers, setAttendanceMembers] = useState<any[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<Record<string, string>>({});
-
-    const [editingMinutes, setEditingMinutes] = useState<{id: string, content: string} | null>(null);
 
     useEffect(() => {
         if (madrasah) {
@@ -74,10 +119,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
             const completed = meetings.filter(m => m.status === 'completed').length;
             const upcoming = meetings.filter(m => m.status === 'planned' || m.status === 'ongoing').length;
             
-            // Just for UI, if I had attendance counts I'd compute
-            const rate = 85; 
-
-            setStats({ total, upcoming, completed, attendanceRate: rate });
+            setStats({ total, upcoming, completed, attendanceRate: 85 });
 
             const sorted = [...meetings].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             const next = sorted.find(m => new Date(m.date) >= now && m.status !== 'cancelled' && m.status !== 'completed');
@@ -102,14 +144,12 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
     const fetchAttendanceData = async (meetingId: string) => {
         setLoading(true);
         try {
-            // First fetch all related members (e.g. teachers or members in dept)
             let query = supabase.from('members').select('*').eq('institution_id', madrasah?.id);
             if (selectedMeeting?.department_id) {
                 query = query.eq('department_id', selectedMeeting.department_id);
             }
             const { data: members } = await query;
             
-            // Then fetch attendance records
             const { data: records } = await supabase
                 .from('meeting_attendance')
                 .select('*')
@@ -154,14 +194,18 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                 .select('*')
                 .eq('institution_id', madrasah?.id);
             
-            const { data: mtData } = await supabase
+            const { data: mtData, error: mtError } = await supabase
                 .from('meetings')
                 .select('*, departments(name)')
                 .eq('institution_id', madrasah?.id)
                 .order('date', { ascending: false });
 
+            if (mtError) {
+                console.error("Fetch meetings error:", mtError);
+            }
+
             if (deptData) setDepartments(deptData);
-            if (mtData) setMeetings(mtData);
+            if (mtData) setMeetings(mtData.map(parseMeetingWithMeta));
         } catch (e) {
             console.error(e);
         } finally {
@@ -173,6 +217,8 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
         if (!newMeeting.title || !madrasah) return;
         setLoading(true);
         try {
+            const targetInstitutionId = madrasah.id === 'super_admin' ? profile.institution_id : madrasah.id;
+
             const payload: any = {
                 title: newMeeting.title,
                 type: newMeeting.type,
@@ -185,37 +231,56 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                 send_sms: newMeeting.send_sms,
                 send_voice: newMeeting.send_voice,
                 require_attendance: newMeeting.require_attendance,
-                institution_id: madrasah.id,
+                institution_id: targetInstitutionId,
                 status: 'planned'
             };
 
             if (newMeeting.department_id && newMeeting.department_id !== '') {
                 payload.department_id = newMeeting.department_id;
+            } else {
+                payload.department_id = null;
             }
 
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('meetings')
                 .insert([payload]);
             
             if (error) throw error;
             setShowAddModal(false);
             fetchInitialData();
-        } catch (e) {
-            alert(e instanceof Error ? e.message : 'Error creating meeting');
+            setNewMeeting({
+                title: '',
+                type: 'General',
+                date: new Date().toISOString().split('T')[0],
+                time: '10:00',
+                venue: '',
+                department_id: '',
+                description: '',
+                agenda: '',
+                notify_members: true,
+                send_sms: false,
+                send_voice: false,
+                require_attendance: true
+            });
+        } catch (e: any) {
+            console.error("Meeting creation error:", e);
+            alert(e.message || (lang === 'bn' ? 'মিটিং তৈরি করতে সমস্যা হয়েছে' : 'Error creating meeting'));
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeleteMeeting = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this meeting?')) return;
         setLoading(true);
         try {
             const { error } = await supabase.from('meetings').delete().eq('id', id);
             if (error) throw error;
+            setDeletingId(null);
+            setSelectedMeeting(null);
             fetchInitialData();
-        } catch (e) {
-            alert('Error deleting meeting');
+        } catch (e: any) {
+            console.error("Meeting deletion error:", e);
+            alert(e.message || (lang === 'bn' ? 'মিটিং ডিলিট করতে সমস্যা হয়েছে' : 'Error deleting meeting'));
         } finally {
             setLoading(false);
         }
@@ -226,6 +291,13 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
         try {
             const { error } = await supabase.from('meetings').update({ status: newStatus }).eq('id', id);
             if (error) throw error;
+            
+            setMeetings(prev => prev.map(m => m.id === id ? { ...m, status: newStatus } : m));
+            
+            if (selectedMeeting && selectedMeeting.id === id) {
+                setSelectedMeeting({ ...selectedMeeting, status: newStatus });
+            }
+
             fetchInitialData();
         } catch (e) {
             alert('Error updating status');
@@ -256,53 +328,9 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
             if (error) throw error;
             setShowEditModal(false);
             fetchInitialData();
-        } catch (e) {
-            alert('Error updating meeting');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGenerateMinutes = async () => {
-        if (!selectedMeeting || !agendas.length) return;
-        setGeneratingMinutes(true);
-        try {
-            const response = await fetch('/api/gemini/generate-minutes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: selectedMeeting.title,
-                    agendas: agendas.map(a => a.topic),
-                    description: selectedMeeting.description
-                })
-            });
-            const data = await response.json();
-            if (data.minutes) {
-                setEditingMinutes({ id: selectedMeeting.id, content: data.minutes });
-                setActiveTab('minutes');
-                setSelectedMeeting(null);
-            }
-        } catch (e) {
-            alert('Error generating minutes');
-        } finally {
-            setGeneratingMinutes(false);
-        }
-    };
-
-    const handleUpdateMinutes = async () => {
-        if (!editingMinutes) return;
-        setLoading(true);
-        try {
-            const { error } = await supabase
-                .from('meetings')
-                .update({ minutes_content: editingMinutes.content })
-                .eq('id', editingMinutes.id);
-            
-            if (error) throw error;
-            setEditingMinutes(null);
-            fetchInitialData();
-        } catch (e) {
-            alert('Error updating minutes');
+        } catch (e: any) {
+            console.error("Meeting update error:", e);
+            alert(e.message || (lang === 'bn' ? 'মিটিং আপডেট করতে সমস্যা হয়েছে' : 'Error updating meeting'));
         } finally {
             setLoading(false);
         }
@@ -336,16 +364,6 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                         <div class="section-title">Description</div>
                         <div class="content">${meeting.description || 'N/A'}</div>
                     </div>
-                    
-                    <div class="section">
-                        <div class="section-title">Agenda</div>
-                        <div class="content">${meeting.agenda || 'N/A'}</div>
-                    </div>
-                    
-                    <div class="section">
-                        <div class="section-title">Minutes & Decisions</div>
-                        <div class="content">${meeting.minutes_content || 'Not recorded yet.'}</div>
-                    </div>
                 </body>
             </html>
         `);
@@ -353,7 +371,6 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
         printWindow.print();
     };
 
-    // Agenda/Decision Handlers
     const onAddAgenda = async (topic: string) => {
         if (!selectedMeeting) return;
         const { data, error } = await supabase.from('meeting_agendas').insert([{ meeting_id: selectedMeeting.id, topic }]).select();
@@ -401,32 +418,36 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
     return (
         <div className={`space-y-6 ${isDark ? 'text-slate-200' : ''}`}>
             {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <header className="flex flex-col sm:flex-row items-baseline sm:items-center justify-between gap-4">
                 <div>
-                   <h2 className="text-2xl sm:text-3xl font-black text-[#1E3A8A] font-noto leading-tight sm:leading-none">Meeting Management Center</h2>
-                   <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-[0.2em] mt-1 sm:mt-2">Durable Governance & Protocol Engine</p>
+                   <h2 className={`text-2xl sm:text-4xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto tracking-tight`}>
+                        {lang === 'bn' ? 'মিটিং ব্যবস্থাপনা' : 'Meeting Management'}
+                   </h2>
+                   <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">Durable Governance Protocol Engine</p>
                 </div>
                 <button 
                    onClick={() => setShowAddModal(true)}
-                   className="w-full sm:w-auto p-4 bg-[#2563EB] text-white rounded-[1.2rem] sm:rounded-[1.5rem] shadow-premium active:scale-95 transition-all hover:bg-blue-600 flex items-center justify-center gap-2 group"
+                   className="w-full sm:w-auto px-8 py-5 bg-[#2563EB] text-white rounded-[2rem] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3 group"
                 >
-                   <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                   <span className="font-black text-xs uppercase tracking-widest px-2">Create New Meeting</span>
+                   <Plus size={22} className="group-hover:rotate-90 transition-transform duration-300" />
+                   <span className="font-black text-xs uppercase tracking-widest">{lang === 'bn' ? 'নতুন মিটিং' : 'New Assembly'}</span>
                 </button>
-            </div>
+            </header>
 
             {/* Tabs */}
-            <div className="flex p-1 bg-slate-100 rounded-2xl w-full sm:w-fit overflow-x-auto no-scrollbar">
+            <div className={`flex p-1.5 ${isDark ? 'bg-slate-900/50' : 'bg-slate-100'} rounded-[1.5rem] w-full sm:w-fit overflow-x-auto no-scrollbar`}>
                 {[
-                    { id: 'dashboard', label: 'Dashboard' },
-                    { id: 'meetings', label: 'All Meetings' },
-                    { id: 'minutes', label: 'Resolution Center' }
+                    { id: 'dashboard', label: lang === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard' },
+                    { id: 'meetings', label: lang === 'bn' ? 'সকল সভা' : 'Assemblies' }
                 ].map(tab => (
                     <button 
                         key={tab.id}
                         //@ts-ignore
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex-1 sm:flex-none whitespace-nowrap px-4 sm:px-8 py-3 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all ${activeTab === tab.id ? 'bg-[#1E3A8A] text-white shadow-xl shadow-blue-900/20' : 'text-slate-400 hover:text-blue-600'}`}
+                        className={`flex-1 sm:flex-none px-10 py-3.5 rounded-[1.2rem] text-[10px] font-black uppercase tracking-[0.1em] transition-all
+                            ${activeTab === tab.id 
+                                ? 'bg-white text-[#2563EB] shadow-xl' 
+                                : isDark ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'}`}
                     >
                        {tab.label}
                     </button>
@@ -440,30 +461,31 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                     nextMeeting={nextMeeting}
                     onViewMeeting={setSelectedMeeting}
                     onViewList={() => setActiveTab('meetings')}
+                    lang={lang}
                 />
             )}
 
             {activeTab === 'meetings' && (
-                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5">
+                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5">
                     {/* Filters */}
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1 relative group">
-                            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+                            <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-blue-500" size={22} />
                             <input 
                                 type="text" 
-                                placeholder="Search meetings by title or info..."
-                                className="w-full h-16 bg-white rounded-[1.5rem] pl-16 pr-6 font-black text-sm shadow-sm border border-slate-100 outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all"
+                                placeholder={lang === 'bn' ? 'মিটিং খুঁজুন...' : 'Search assembly records...'}
+                                className={`w-full h-18 sm:h-22 ${isDark ? 'bg-slate-900/50 text-white' : 'bg-white text-[#1E3A8A]'} rounded-[2rem] pl-20 pr-8 font-black text-sm sm:text-base shadow-sm border border-transparent focus:border-blue-500/20 outline-none transition-all`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div className="md:w-72">
+                        <div className="md:w-64">
                             <select 
-                                className="w-full h-16 bg-white rounded-[1.5rem] px-8 font-black text-xs uppercase tracking-widest shadow-sm border border-slate-100 outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all cursor-pointer"
+                                className={`w-full h-14 ${isDark ? 'bg-slate-900/50 text-white' : 'bg-white text-slate-600'} rounded-2xl px-6 font-black text-[10px] uppercase tracking-widest shadow-sm border border-transparent outline-none focus:border-blue-500/20 transition-all cursor-pointer appearance-none`}
                                 value={selectedDept}
                                 onChange={(e) => setSelectedDept(e.target.value)}
                             >
-                                <option value="">সকল বিভাগ (All)</option>
+                                <option value="">{lang === 'bn' ? 'সকল বিভাগ' : 'All Departments'}</option>
                                 {departments.map(d => (
                                     <option key={d.id} value={d.id}>{d.name}</option>
                                 ))}
@@ -472,67 +494,61 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                     </div>
 
                     {/* Content Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredMeetings.map((meeting) => (
-                            <div key={meeting.id} className="bg-white p-8 rounded-[3.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all group relative overflow-hidden flex flex-col justify-between min-h-[380px]">
-                                <div className={`absolute top-0 right-0 w-24 h-24 blur-3xl opacity-5 transition-opacity group-hover:opacity-10 ${meeting.status === 'completed' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-                                
+                            <div key={meeting.id} className={`p-5 sm:p-6 rounded-[1.5rem] border ${isDark ? 'bg-[#0F111A] border-slate-800' : 'bg-white border-slate-100'} shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group relative overflow-hidden flex flex-col justify-between min-h-[320px]`}>
                                 <div>
-                                    <div className="flex items-start justify-between mb-8">
-                                        <div className={`p-5 rounded-3xl ${meeting.status === 'completed' ? 'bg-emerald-50 text-emerald-500' : meeting.status === 'cancelled' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'} shadow-inner`}>
-                                            <Calendar size={32} />
+                                    <div className="flex items-start justify-between mb-6">
+                                        <div className={`p-3 rounded-xl ${meeting.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : meeting.status === 'cancelled' ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'} shadow-inner`}>
+                                            <Calendar size={22} />
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1">
                                             <button 
-                                                onClick={() => {
-                                                    setEditingMeeting(meeting);
-                                                    setShowEditModal(true);
-                                                }}
-                                                className="p-3 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-2xl transition-all"
+                                                onClick={() => { setEditingMeeting(meeting); setShowEditModal(true); }}
+                                                className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-blue-500/10 text-slate-700 hover:text-blue-400' : 'hover:bg-blue-50 text-slate-300 hover:text-blue-600'}`}
                                             >
-                                                <Edit3 size={18} />
+                                                <Edit3 size={16} />
                                             </button>
                                             <button 
-                                                onClick={() => handleDeleteMeeting(meeting.id)}
-                                                className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
+                                                onClick={(e) => { e.stopPropagation(); setDeletingId(meeting.id); }}
+                                                className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-rose-500/10 text-slate-700 hover:text-rose-500' : 'hover:bg-rose-50 text-slate-300 hover:text-rose-500'}`}
                                             >
-                                                <Trash2 size={18} />
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
                                         <div className="flex flex-wrap gap-2">
-                                            <div className="inline-block px-4 py-1.5 bg-slate-50 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-100">
+                                            <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-50 text-slate-400'}`}>
                                                 {new Date(meeting.date).toLocaleDateString()} • {meeting.time || '10:00 AM'}
                                             </div>
                                             {meeting.type && (
-                                                <div className="inline-block px-4 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-100">
+                                                <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600 border border-blue-50'}`}>
                                                     {meeting.type}
                                                 </div>
                                             )}
                                         </div>
-                                        <h3 className="text-xl font-black text-[#1E3A8A] font-noto leading-[1.3] line-clamp-2 h-[3.2rem]">{meeting.title}</h3>
+                                        <h3 className={`text-lg font-black font-noto leading-tight ${isDark ? 'text-white' : 'text-[#1E3A8A]'} group-hover:text-[#2563EB] transition-colors line-clamp-2`}>{meeting.title}</h3>
                                         
-                                        <div className="flex flex-wrap gap-2 pt-2">
-                                            <div className="flex items-center gap-2 bg-blue-50/50 py-2 px-4 rounded-full">
-                                                <MapPin size={14} className="text-blue-500" />
-                                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{meeting.venue || 'No Venue'}</span>
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            <div className={`flex items-center gap-2 ${isDark ? 'bg-slate-800' : 'bg-slate-50'} py-1.5 px-3 rounded-full`}>
+                                                <MapPin size={12} className="text-blue-500" />
+                                                <span className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{meeting.venue || (lang === 'bn' ? 'সভার কক্ষ' : 'HQ')}</span>
                                             </div>
-                                            <div className="flex items-center gap-2 bg-slate-50 py-2 px-4 rounded-full">
-                                                <Users size={14} className="text-slate-400" />
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{meeting.departments?.name || 'All'}</span>
+                                            <div className={`flex items-center gap-2 ${isDark ? 'bg-slate-800' : 'bg-slate-50'} py-1.5 px-3 rounded-full`}>
+                                                <Users size={12} className="text-slate-400" />
+                                                <span className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{meeting.departments?.name || (lang === 'bn' ? 'সাধারণ সভা' : 'General')}</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="pt-8 mt-auto flex items-center justify-between border-t border-slate-50">
-                                    <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${
-                                        meeting.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
-                                        meeting.status === 'cancelled' ? 'bg-rose-100 text-rose-700' : 
-                                        meeting.status === 'ongoing' ? 'bg-amber-100 text-amber-700' :
-                                        'bg-blue-100 text-blue-700'
+                                <div className={`pt-6 mt-auto flex items-center justify-between border-t ${isDark ? 'border-slate-800' : 'border-slate-50'}`}>
+                                    <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest flex items-center gap-2 ${
+                                        meeting.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : 
+                                        meeting.status === 'cancelled' ? 'bg-rose-500/10 text-rose-500' : 
+                                        'bg-blue-500/10 text-blue-500'
                                     }`}>
                                         <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
                                         {meeting.status}
@@ -540,115 +556,26 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                                     
                                     <button 
                                         onClick={() => setSelectedMeeting(meeting)}
-                                        className="flex items-center gap-2 text-[10px] font-black text-[#1E3A8A] uppercase tracking-widest hover:translate-x-2 transition-transform h-10 px-4 rounded-xl hover:bg-slate-50"
+                                        className="group/btn flex items-center gap-2 text-[9px] font-black text-[#2563EB] uppercase tracking-widest hover:translate-x-1 transition-transform py-2 px-3 rounded-lg hover:bg-blue-50"
                                     >
-                                        Manage <ChevronRight size={16} />
+                                        {lang === 'bn' ? 'পরিচালনা' : 'Manage'} <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                                     </button>
                                 </div>
                             </div>
                         ))}
 
                         {filteredMeetings.length === 0 && (
-                            <div className="col-span-full py-24 text-center bg-white rounded-[4rem] border-2 border-dashed border-slate-100 shadow-sm">
-                                <ClipboardList size={64} className="mx-auto text-slate-100 mb-6" />
-                                <h4 className="text-xl font-black text-slate-300 uppercase tracking-widest">No meetings recorded</h4>
-                                <p className="text-slate-400 text-xs font-bold mt-2">Start by creating a new meeting to manage agendas and participation.</p>
+                            <div className={`col-span-full py-32 text-center rounded-[4rem] border-4 border-dashed ${isDark ? 'border-slate-800 bg-slate-900/20' : 'border-slate-50 bg-white'} space-y-6`}>
+                                <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-300">
+                                    <ClipboardList size={48} />
+                                </div>
+                                <div>
+                                    <h4 className="text-2xl font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কোন মিটিং পাওয়া যায়নি' : 'Vault is Empty'}</h4>
+                                    <p className="text-slate-500 font-medium mt-3">{lang === 'bn' ? 'নতুন মিটিং তৈরি করে কার্যক্রম শুরু করুন।' : 'Initiate a new assembly to commence protocol management.'}</p>
+                                </div>
                             </div>
                         )}
                     </div>
-                </div>
-            )}
-
-            {activeTab === 'minutes' && (
-                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-5">
-                    <div className="flex flex-col md:flex-row gap-4 mb-6">
-                        <div className="flex-1 relative group">
-                            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 transition-colors" size={20} />
-                            <input 
-                                type="text" 
-                                placeholder="মিটিং খুঁজুন..."
-                                className="w-full h-16 bg-white rounded-[2rem] pl-16 pr-6 font-black text-sm shadow-sm border border-slate-100 outline-none focus:border-blue-500 transition-all font-noto"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredMeetings.map((meeting) => (
-                            <div key={meeting.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 flex items-center justify-between group hover:border-emerald-200 hover:shadow-2xl transition-all h-32">
-                                <div className="flex items-center gap-6">
-                                    <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center transition-all ${meeting.minutes_content ? 'bg-emerald-50 text-emerald-500 shadow-emerald-100 shadow-lg' : 'bg-slate-50 text-slate-300'}`}>
-                                        <ClipboardList size={32} />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-black text-[#1E3A8A] font-noto text-lg leading-tight line-clamp-1">{meeting.title}</h4>
-                                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] mt-2">
-                                            {new Date(meeting.date).toLocaleDateString()} • {meeting.departments?.name || 'সকল বিভাগ'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => setEditingMinutes({ id: meeting.id, content: meeting.minutes_content || '' })}
-                                    className="p-4 bg-slate-50 group-hover:bg-emerald-600 group-hover:text-white rounded-2xl transition-all shadow-sm hover:scale-110"
-                                >
-                                    <Edit3 size={24} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-
-                    {editingMinutes && (
-                        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[2000] flex items-center justify-center p-8">
-                            <motion.div 
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="bg-white w-full max-w-6xl rounded-[4rem] p-16 shadow-2xl flex flex-col h-[90vh] border border-white/20"
-                            >
-                                <div className="flex items-center justify-between mb-12">
-                                    <div className="flex items-center gap-8">
-                                        <div className="p-6 rounded-[2rem] bg-emerald-50 text-emerald-500 shadow-xl shadow-emerald-500/10">
-                                            <ClipboardList size={48} />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-4xl font-black text-[#1E3A8A] font-noto leading-tight">মিটিং রেজুলেশন লিকার করুন</h3>
-                                            <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">Professional Governance Protocol (PGP)</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => setEditingMinutes(null)} className="text-slate-300 hover:text-rose-500 transition-colors bg-slate-50 p-5 rounded-3xl hover:bg-rose-50"><X size={32} /></button>
-                                </div>
-
-                                <div className="flex-1 min-h-0 mb-12 relative group">
-                                    <textarea 
-                                        className="w-full h-full bg-slate-50/50 rounded-[3rem] p-16 font-black text-[#1E3A8A] text-xl outline-none border-2 border-transparent focus:border-emerald-200 focus:bg-white transition-all resize-none shadow-inner font-noto leading-[1.6]"
-                                        placeholder="মিটিং এর আলোচ্য বিষয় এবং সিদ্ধান্তসমূহ এখানে বিস্তারিত লিখুন..."
-                                        value={editingMinutes.content}
-                                        onChange={(e) => setEditingMinutes({...editingMinutes, content: e.target.value})}
-                                    />
-                                    <div className="absolute bottom-12 right-12 flex items-center gap-3 bg-white/80 backdrop-blur-md px-6 py-3 rounded-full border border-slate-100 shadow-sm">
-                                        <Sparkles size={20} className="text-amber-500" />
-                                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Enhanced with Organization Intelligence</span>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-8">
-                                    <button 
-                                        onClick={() => setEditingMinutes(null)}
-                                        className="px-14 py-7 bg-slate-100 text-slate-600 font-black rounded-[2rem] hover:bg-slate-200 transition-all uppercase tracking-widest text-xs"
-                                    >
-                                        বাতিল (Cancel)
-                                    </button>
-                                    <button 
-                                        onClick={handleUpdateMinutes}
-                                        disabled={loading}
-                                        className="flex-1 py-7 bg-emerald-600 text-white font-black rounded-[2rem] shadow-2xl shadow-emerald-900/20 flex items-center justify-center gap-4 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest text-sm"
-                                    >
-                                        {loading ? <Loader2 className="animate-spin" /> : <><Save size={28}/> রেজুলেশন সংরক্ষণ করুন (Save Protocol)</>}
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </div>
-                    )}
                 </div>
             )}
 
@@ -663,359 +590,260 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                     attendanceRecords={attendanceRecords}
                     onBack={() => setSelectedMeeting(null)}
                     onUpdateAttendance={handleUpdateAttendance}
-                    onGenerateMinutes={handleGenerateMinutes}
-                    generatingMinutes={generatingMinutes}
                     onPrint={() => handlePrintMinutes(selectedMeeting)}
                     onAddAgenda={onAddAgenda}
                     onAddDecision={onAddDecision}
                     onDeleteAgenda={onDeleteAgenda}
                     onDeleteDecision={onDeleteDecision}
                     onToggleAgenda={onToggleAgenda}
+                    onDeleteMeeting={() => setDeletingId(selectedMeeting.id)}
+                    onUpdateStatus={(status) => handleUpdateStatus(selectedMeeting.id, status)}
+                    lang={lang}
                 />
+            )}
+
+
+            {/* Delete Confirmation Modal */}
+            {deletingId && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-3xl z-[3000] flex items-center justify-center p-6">
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-white w-full max-w-sm rounded-[3rem] p-10 shadow-2xl text-center"
+                    >
+                        <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
+                            <Trash2 size={48} />
+                        </div>
+                        <h3 className="text-2xl font-black text-[#1E3A8A] font-noto mb-3">
+                            {lang === 'bn' ? 'মিটিংটি ডিলিট করতে চান?' : 'Purge Assembly?'}
+                        </h3>
+                        <p className="text-base text-slate-400 font-medium mb-10 leading-relaxed px-4">
+                            {lang === 'bn' ? 'আপনি কি নিশ্চিত যে আপনি এই মিটিংটি ডিলিট করতে চান? এটি আর ফিরে পাওয়া যাবে না।' : 'This action is irreversible. Are you prepared to permanently remove this record?'}
+                        </p>
+                        <div className="flex flex-col gap-4">
+                            <button 
+                                onClick={() => setDeletingId(null)}
+                                className="w-full py-5 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[11px]"
+                            >
+                                {lang === 'bn' ? 'বাতিল' : 'Abort'}
+                            </button>
+                            <button 
+                                onClick={() => handleDeleteMeeting(deletingId)}
+                                disabled={loading}
+                                className="w-full py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-900/20 hover:bg-rose-700 transition-all uppercase tracking-widest text-[11px] flex items-center justify-center gap-3"
+                            >
+                                {loading ? <Loader2 className="animate-spin" size={18} /> : (lang === 'bn' ? 'ডিলিট করুন' : 'Confirm Purge')}
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
             )}
 
             {/* Add Modal */}
             {showAddModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-xl z-[2000] flex items-center justify-center p-4 sm:p-6">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[2000] flex items-center justify-center p-4 sm:p-10">
                     <motion.div 
-                        initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                        initial={{ opacity: 0, y: 100, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="bg-white w-full max-w-xl rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto"
+                        className="bg-white w-full max-w-2xl rounded-[4rem] p-8 sm:p-16 shadow-2xl relative overflow-hidden flex flex-col max-h-full"
                     >
-                         <div className="absolute top-0 right-0 w-48 h-48 bg-blue-50 rounded-full blur-[100px] -mr-24 -mt-24 opacity-50" />
-                         <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-6 sm:mb-10">
-                                <div>
-                                    <h3 className="text-xl sm:text-3xl font-black text-[#1E3A8A] font-noto">নতুন মিটিং তৈরি করুন</h3>
-                                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1 sm:mt-2">Initialize Organization Protocol</p>
-                                </div>
-                                <button onClick={() => setShowAddModal(false)} className="text-slate-300 hover:text-rose-500 transition-all p-2 sm:p-4 bg-slate-50 rounded-2xl sm:rounded-3xl hover:bg-rose-50"><X size={24} className="sm:w-8 sm:h-8" /></button>
-                            </div>
-                            
-                            <div className="space-y-4 sm:space-y-6">
-                                <div className="space-y-2 px-2">
-                                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Meeting Title</label>
+                        <div className="flex items-center justify-between mb-12">
+                            <h3 className="text-3xl sm:text-5xl font-black text-[#1E3A8A] font-noto tracking-tight">
+                                {lang === 'bn' ? 'নতুন মিটিং সূচী' : 'New Assembly'}
+                            </h3>
+                            <button onClick={() => setShowAddModal(false)} className="p-4 bg-slate-50 text-slate-300 hover:text-rose-500 rounded-3xl transition-all">
+                                <X size={32} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-4 no-scrollbar space-y-10 py-2">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-2">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Assemble Name</label>
                                     <input 
-                                        className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-base sm:text-lg text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white"
-                                        placeholder="Enter Meeting Title..."
+                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg font-noto"
+                                        placeholder="সূচীর শিরোনাম..."
                                         value={newMeeting.title}
                                         onChange={(e) => setNewMeeting({...newMeeting, title: e.target.value})}
                                     />
                                 </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-2">
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Meeting Type</label>
-                                        <select 
-                                            className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm cursor-pointer appearance-none"
-                                            value={newMeeting.type}
-                                            onChange={(e) => setNewMeeting({...newMeeting, type: e.target.value})}
-                                        >
-                                            <option value="General">General (সাধারণ)</option>
-                                            <option value="Executive">Executive (কার্যনির্বাহী)</option>
-                                            <option value="Emergency">Emergency (জরুরী)</option>
-                                            <option value="Annual">Annual (বার্ষিক)</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Audience/Dept</label>
-                                        <select 
-                                            className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white appearance-none cursor-pointer text-sm"
-                                            value={newMeeting.department_id || ''}
-                                            onChange={(e) => setNewMeeting({...newMeeting, department_id: e.target.value})}
-                                        >
-                                            <option value="">সকল সদস্য (General Member)</option>
-                                            {departments.map(d => (
-                                                <option key={d.id} value={d.id}>{d.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-2">
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Dispatch Date</label>
-                                        <input 
-                                            type="date"
-                                            className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm"
-                                            value={newMeeting.date}
-                                            onChange={(e) => setNewMeeting({...newMeeting, date: e.target.value})}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</label>
-                                        <input 
-                                            type="time"
-                                            className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm"
-                                            value={newMeeting.time}
-                                            onChange={(e) => setNewMeeting({...newMeeting, time: e.target.value})}
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-2 px-2">
-                                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Venue / Location</label>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Venue / Location</label>
                                     <input 
-                                        className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm"
-                                        placeholder="Meeting Hall, Zoom, Offices..."
+                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg font-noto"
+                                        placeholder="কোথায় অনুষ্ঠিত হবে?"
                                         value={newMeeting.venue}
                                         onChange={(e) => setNewMeeting({...newMeeting, venue: e.target.value})}
                                     />
                                 </div>
-
-                                <div className="space-y-2 px-2">
-                                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Description (বিবরণ)</label>
-                                    <textarea 
-                                        className="w-full h-24 bg-slate-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 font-bold text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm resize-none"
-                                        placeholder="Meeting context..."
-                                        value={newMeeting.description}
-                                        onChange={(e) => setNewMeeting({...newMeeting, description: e.target.value})}
-                                    />
-                                </div>
-
-                                <div className="space-y-2 px-2">
-                                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Agenda (আলোচ্য বিষয়)</label>
-                                    <textarea 
-                                        className="w-full h-24 bg-slate-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 font-bold text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm resize-none"
-                                        placeholder="List agenda items here..."
-                                        value={newMeeting.agenda}
-                                        onChange={(e) => setNewMeeting({...newMeeting, agenda: e.target.value})}
-                                    />
-                                </div>
-
-                                <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100/50 space-y-4">
-                                    <h4 className="text-[10px] font-black text-blue-900 uppercase tracking-widest flex items-center gap-2">
-                                        <Sparkles size={14} /> Notification & Protocol
-                                    </h4>
-                                    
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <label className="flex items-center gap-3 cursor-pointer group">
-                                            <input 
-                                                type="checkbox"
-                                                checked={newMeeting.notify_members}
-                                                onChange={(e) => setNewMeeting({...newMeeting, notify_members: e.target.checked})}
-                                                className="w-5 h-5 rounded-lg border-2 border-blue-200 text-blue-600 focus:ring-blue-500 transition-all"
-                                            />
-                                            <span className="text-[11px] font-bold text-blue-900">Notify Members (সদস্যদের জানান)</span>
-                                        </label>
-
-                                        <label className="flex items-center gap-3 cursor-pointer group">
-                                            <input 
-                                                type="checkbox"
-                                                checked={newMeeting.require_attendance}
-                                                onChange={(e) => setNewMeeting({...newMeeting, require_attendance: e.target.checked})}
-                                                className="w-5 h-5 rounded-lg border-2 border-blue-200 text-blue-600 focus:ring-blue-500 transition-all"
-                                            />
-                                            <span className="text-[11px] font-bold text-blue-900">Require Attendance (উপস্থিতি প্রয়োজন)</span>
-                                        </label>
-                                    </div>
-
-                                    {newMeeting.notify_members && (
-                                        <div className="pt-2 flex flex-wrap gap-4 border-t border-blue-100 mt-2">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={newMeeting.send_sms}
-                                                    onChange={(e) => setNewMeeting({...newMeeting, send_sms: e.target.checked})}
-                                                    className="w-4 h-4 rounded border-blue-200"
-                                                />
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Send SMS</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={newMeeting.send_voice}
-                                                    onChange={(e) => setNewMeeting({...newMeeting, send_voice: e.target.checked})}
-                                                    className="w-4 h-4 rounded border-blue-200"
-                                                />
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Send Voice Call</span>
-                                            </label>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <button 
-                                    onClick={handleCreateMeeting}
-                                    disabled={loading || !newMeeting.title}
-                                    className="w-full py-5 sm:py-7 bg-blue-600 text-white font-black rounded-2xl sm:rounded-[2rem] shadow-2xl shadow-blue-900/20 flex items-center justify-center gap-4 mt-4 sm:mt-6 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest text-[10px] sm:text-xs"
-                                >
-                                    {loading ? <Loader2 className="animate-spin" /> : <><Plus size={24}/> Initialize Meeting</>}
-                                </button>
                             </div>
-                         </div>
+
+                            <div className="space-y-3 px-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-noto">
+                                    {lang === 'bn' ? 'কমিটি নির্বাচন' : 'Select Committee'}
+                                </label>
+                                <select 
+                                    className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white appearance-none cursor-pointer text-lg font-noto"
+                                    value={newMeeting.department_id || ''}
+                                    onChange={(e) => setNewMeeting({...newMeeting, department_id: e.target.value})}
+                                >
+                                    <option value="">{lang === 'bn' ? 'সকল কমিটি / সদস্য' : 'All Committees / Members'}</option>
+                                    {departments.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-2">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date of Convention</label>
+                                    <input 
+                                        type="date"
+                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg"
+                                        value={newMeeting.date}
+                                        onChange={(e) => setNewMeeting({...newMeeting, date: e.target.value})}
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Convention Time</label>
+                                    <input 
+                                        type="time"
+                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg"
+                                        value={newMeeting.time}
+                                        onChange={(e) => setNewMeeting({...newMeeting, time: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-3 px-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Strategic description & Goals</label>
+                                <textarea 
+                                    className="w-full h-40 bg-slate-50 rounded-[2.5rem] p-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg resize-none font-noto"
+                                    placeholder="সভার উদ্দেশ্য এবং বর্ণনা..."
+                                    value={newMeeting.description}
+                                    onChange={(e) => setNewMeeting({...newMeeting, description: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="pt-12 mt-auto border-t border-slate-50 flex gap-6">
+                            <button 
+                                onClick={() => setShowAddModal(false)}
+                                className="px-12 py-6 bg-slate-100 text-slate-600 font-black rounded-3xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[11px]"
+                            >
+                                {lang === 'bn' ? 'বাতিল' : 'Abort'}
+                            </button>
+                            <button 
+                                onClick={handleCreateMeeting}
+                                disabled={loading}
+                                className="flex-1 py-6 bg-[#2563EB] text-white font-black rounded-3xl shadow-2xl shadow-blue-900/20 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all text-xs uppercase tracking-widest"
+                            >
+                                {loading ? <Loader2 className="animate-spin mx-auto" /> : (lang === 'bn' ? 'সেভ করুন' : 'Authorize Convention')}
+                            </button>
+                        </div>
                     </motion.div>
                 </div>
             )}
 
             {/* Edit Modal */}
             {showEditModal && editingMeeting && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-xl z-[2000] flex items-center justify-center p-4 sm:p-6">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[2000] flex items-center justify-center p-4 sm:p-10">
                     <motion.div 
-                        initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                        initial={{ opacity: 0, y: 100, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="bg-white w-full max-w-xl rounded-[2.5rem] sm:rounded-[4rem] p-6 sm:p-12 shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto"
+                        className="bg-white w-full max-w-2xl rounded-[4rem] p-8 sm:p-16 shadow-2xl relative overflow-hidden flex flex-col max-h-full"
                     >
-                         <div className="absolute top-0 right-0 w-48 h-48 bg-blue-50 rounded-full blur-[100px] -mr-24 -mt-24 opacity-50" />
-                         <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-6 sm:mb-10">
-                                <div>
-                                    <h3 className="text-xl sm:text-3xl font-black text-[#1E3A8A] font-noto">মিটিং সংশোধন করুন</h3>
-                                    <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1 sm:mt-2">Update Organization Protocol</p>
-                                </div>
-                                <button onClick={() => setShowEditModal(false)} className="text-slate-300 hover:text-rose-500 transition-all p-2 sm:p-4 bg-slate-50 rounded-2xl sm:rounded-3xl hover:bg-rose-50"><X size={24} className="sm:w-8 sm:h-8" /></button>
-                            </div>
-                            
-                            <div className="space-y-4 sm:space-y-6">
-                                <div className="space-y-2 px-2">
-                                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Meeting Title</label>
+                        <div className="flex items-center justify-between mb-12">
+                            <h3 className="text-3xl sm:text-5xl font-black text-[#1E3A8A] font-noto tracking-tight">
+                                {lang === 'bn' ? 'সূচী সংশোধন' : 'Refine assembly'}
+                            </h3>
+                            <button onClick={() => setShowEditModal(false)} className="p-4 bg-slate-50 text-slate-300 hover:text-rose-500 rounded-3xl transition-all">
+                                <X size={32} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-4 no-scrollbar space-y-10 py-2">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-2">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Assemble Name</label>
                                     <input 
-                                        className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-base sm:text-lg text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white"
-                                        placeholder="Enter Meeting Title..."
+                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg font-noto"
                                         value={editingMeeting.title}
                                         onChange={(e) => setEditingMeeting({...editingMeeting, title: e.target.value})}
                                     />
                                 </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-2">
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Meeting Type</label>
-                                        <select 
-                                            className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm cursor-pointer appearance-none"
-                                            value={editingMeeting.type || 'General'}
-                                            onChange={(e) => setEditingMeeting({...editingMeeting, type: e.target.value})}
-                                        >
-                                            <option value="General">General (সাধারণ)</option>
-                                            <option value="Executive">Executive (কার্যনির্বাহী)</option>
-                                            <option value="Emergency">Emergency (জরুরী)</option>
-                                            <option value="Annual">Annual (বার্ষিক)</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Audience/Dept</label>
-                                        <select 
-                                            className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white appearance-none cursor-pointer text-sm"
-                                            value={editingMeeting.department_id || ''}
-                                            onChange={(e) => setEditingMeeting({...editingMeeting, department_id: e.target.value})}
-                                        >
-                                            <option value="">সকল সদস্য (General Member)</option>
-                                            {departments.map(d => (
-                                                <option key={d.id} value={d.id}>{d.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-2">
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Dispatch Date</label>
-                                        <input 
-                                            type="date"
-                                            className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm"
-                                            value={editingMeeting.date}
-                                            onChange={(e) => setEditingMeeting({...editingMeeting, date: e.target.value})}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Time</label>
-                                        <input 
-                                            type="time"
-                                            className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm"
-                                            value={editingMeeting.time || ''}
-                                            onChange={(e) => setEditingMeeting({...editingMeeting, time: e.target.value})}
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-2 px-2">
-                                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Venue / Location</label>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Venue / Location</label>
                                     <input 
-                                        className="w-full h-12 sm:h-16 bg-slate-50 rounded-xl sm:rounded-2xl px-5 sm:px-6 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm"
-                                        placeholder="Meeting Hall, Zoom, Offices..."
-                                        value={editingMeeting.venue || ''}
+                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg font-noto"
+                                        value={editingMeeting.venue}
                                         onChange={(e) => setEditingMeeting({...editingMeeting, venue: e.target.value})}
                                     />
                                 </div>
-
-                                <div className="space-y-2 px-2">
-                                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Description (বিবরণ)</label>
-                                    <textarea 
-                                        className="w-full h-24 bg-slate-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 font-bold text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm resize-none"
-                                        placeholder="Meeting context..."
-                                        value={editingMeeting.description || ''}
-                                        onChange={(e) => setEditingMeeting({...editingMeeting, description: e.target.value})}
-                                    />
-                                </div>
-
-                                <div className="space-y-2 px-2">
-                                    <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Agenda (আলোচ্য বিষয়)</label>
-                                    <textarea 
-                                        className="w-full h-24 bg-slate-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 font-bold text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-sm resize-none"
-                                        placeholder="List agenda items here..."
-                                        value={editingMeeting.agenda || ''}
-                                        onChange={(e) => setEditingMeeting({...editingMeeting, agenda: e.target.value})}
-                                    />
-                                </div>
-
-                                <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100/50 space-y-4">
-                                    <h4 className="text-[10px] font-black text-blue-900 uppercase tracking-widest flex items-center gap-2">
-                                        <Sparkles size={14} /> Notification & Protocol
-                                    </h4>
-                                    
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <label className="flex items-center gap-3 cursor-pointer group">
-                                            <input 
-                                                type="checkbox"
-                                                checked={!!editingMeeting.notify_members}
-                                                onChange={(e) => setEditingMeeting({...editingMeeting, notify_members: e.target.checked})}
-                                                className="w-5 h-5 rounded-lg border-2 border-blue-200 text-blue-600 focus:ring-blue-500 transition-all"
-                                            />
-                                            <span className="text-[11px] font-bold text-blue-900">Notify Members (সদস্যদের জানান)</span>
-                                        </label>
-
-                                        <label className="flex items-center gap-3 cursor-pointer group">
-                                            <input 
-                                                type="checkbox"
-                                                checked={!!editingMeeting.require_attendance}
-                                                onChange={(e) => setEditingMeeting({...editingMeeting, require_attendance: e.target.checked})}
-                                                className="w-5 h-5 rounded-lg border-2 border-blue-200 text-blue-600 focus:ring-blue-500 transition-all"
-                                            />
-                                            <span className="text-[11px] font-bold text-blue-900">Require Attendance (উপস্থিতি প্রয়োজন)</span>
-                                        </label>
-                                    </div>
-
-                                    {editingMeeting.notify_members && (
-                                        <div className="pt-2 flex flex-wrap gap-4 border-t border-blue-100 mt-2">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={!!editingMeeting.send_sms}
-                                                    onChange={(e) => setEditingMeeting({...editingMeeting, send_sms: e.target.checked})}
-                                                    className="w-4 h-4 rounded border-blue-200"
-                                                />
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Send SMS</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={!!editingMeeting.send_voice}
-                                                    onChange={(e) => setEditingMeeting({...editingMeeting, send_voice: e.target.checked})}
-                                                    className="w-4 h-4 rounded border-blue-200"
-                                                />
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Send Voice Call</span>
-                                            </label>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <button 
-                                    onClick={handleUpdateMeeting}
-                                    disabled={loading || !editingMeeting.title}
-                                    className="w-full py-5 sm:py-7 bg-blue-600 text-white font-black rounded-2xl sm:rounded-[2rem] shadow-2xl shadow-blue-900/20 flex items-center justify-center gap-4 mt-4 sm:mt-6 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest text-[10px] sm:text-xs"
-                                >
-                                    {loading ? <Loader2 className="animate-spin" /> : <><Save size={24}/> Update Meeting Strategy</>}
-                                </button>
                             </div>
-                         </div>
+
+                            <div className="space-y-3 px-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-noto">
+                                    {lang === 'bn' ? 'কমিটি নির্বাচন' : 'Select Committee'}
+                                </label>
+                                <select 
+                                    className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white appearance-none cursor-pointer text-lg font-noto"
+                                    value={editingMeeting.department_id || ''}
+                                    onChange={(e) => setEditingMeeting({...editingMeeting, department_id: e.target.value})}
+                                >
+                                    <option value="">{lang === 'bn' ? 'সকল কমিটি / সদস্য' : 'All Committees / Members'}</option>
+                                    {departments.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-2">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date of Convention</label>
+                                    <input 
+                                        type="date"
+                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg"
+                                        value={editingMeeting.date}
+                                        onChange={(e) => setEditingMeeting({...editingMeeting, date: e.target.value})}
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Convention Time</label>
+                                    <input 
+                                        type="time"
+                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg"
+                                        value={editingMeeting.time}
+                                        onChange={(e) => setEditingMeeting({...editingMeeting, time: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-3 px-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Strategic Goals</label>
+                                <textarea 
+                                    className="w-full h-40 bg-slate-50 rounded-[2.5rem] p-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg resize-none font-noto"
+                                    value={editingMeeting.description}
+                                    onChange={(e) => setEditingMeeting({...editingMeeting, description: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="pt-12 mt-auto border-t border-slate-50 flex gap-6">
+                            <button 
+                                onClick={() => setShowEditModal(false)}
+                                className="px-12 py-6 bg-slate-100 text-slate-600 font-black rounded-3xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[11px]"
+                            >
+                                {lang === 'bn' ? 'বাতিল' : 'Abort'}
+                            </button>
+                            <button 
+                                onClick={handleUpdateMeeting}
+                                disabled={loading}
+                                className="flex-1 py-6 bg-emerald-600 text-white font-black rounded-3xl shadow-2xl shadow-emerald-900/20 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all text-xs uppercase tracking-widest"
+                            >
+                                {loading ? <Loader2 className="animate-spin mx-auto" /> : (lang === 'bn' ? 'আপডেট করুন' : 'Confirm refinement')}
+                            </button>
+                        </div>
                     </motion.div>
                 </div>
             )}

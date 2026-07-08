@@ -79,13 +79,13 @@ const Tutorials: React.FC<TutorialsProps> = ({ lang, onBack, madrasah }) => {
                   <Play size={24} fill="currentColor" />
                 </div>
                 <div className="flex-1">
-                  <h3 className={`text-sm font-black leading-tight mb-1 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{tutorial.title}</h3>
+                  <h3 className={`text-sm font-black leading-tight mb-1 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{tutorial.title}</h3>
                   <div className="flex items-center gap-1.5 text-slate-400">
                     <Youtube size={12} />
                     <span className="text-[10px] font-black uppercase tracking-widest">YouTube</span>
                   </div>
                 </div>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${madrasah?.theme === 'dark' ? 'bg-slate-700 text-slate-500 group-hover:bg-blue-900/30 group-hover:text-blue-400' : 'bg-slate-50 text-slate-300 group-hover:bg-blue-50 group-hover:text-[#2563EB]'}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${madrasah?.theme === 'dark' ? 'bg-slate-700 text-slate-500 group-hover:bg-[#42f5e9]/10 group-hover:text-[#42f5e9]' : 'bg-slate-50 text-slate-300 group-hover:bg-[#42f5e9]/10 group-hover:text-[#0fb5ab]'}`}>
                   <ExternalLink size={16} />
                 </div>
               </a>

@@ -125,6 +125,31 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
     setModalLoading(true);
     try {
       if (navigator.onLine) {
+        // Cascade manually: delete all members belonging to this department
+        // Also delete their ledgers, fees, and attendance to avoid orphaned data
+        const { data: members } = await supabase
+          .from('members')
+          .select('id')
+          .eq('department_id', showDeleteConfirm.id);
+          
+        if (members && members.length > 0) {
+          const memberIds = members.map(m => m.id);
+          // Clean up financial and attendance records for these members
+          // Delete ledger by matching the department name in the description string
+          await supabase.from('ledger')
+            .delete()
+            .eq('category', 'Member Fee')
+            .like('description', `%(${showDeleteConfirm.name} |%`);
+          await supabase.from('fees').delete().in('student_id', memberIds);
+          await supabase.from('attendance').delete().in('member_id', memberIds);
+          // Delete the members
+          await supabase.from('members').delete().in('id', memberIds);
+        }
+
+        // Clean up other potential restricting relationships
+        await supabase.from('voice_broadcasts').delete().eq('department_id', showDeleteConfirm.id);
+        await supabase.from('fee_structures').delete().eq('department_id', showDeleteConfirm.id);
+
         const { error } = await supabase.from('departments').delete().eq('id', showDeleteConfirm.id);
         if (error) {
           // Check for foreign key constraint violation (PostgreSQL error code 23503)
@@ -149,9 +174,9 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-500 pb-20">
 
         <div className="flex items-center justify-between px-2">
-          <h1 className={`text-xl font-noto font-black ${isDark ? 'text-white' : 'text-[#1E293B]'}`}>{t('classes_title', lang, madrasah?.institution_type)}</h1>
+          <h1 className={`text-xl font-noto font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{t('classes_title', lang, madrasah?.institution_type)}</h1>
           {!readOnly && (
-            <button onClick={() => { setNewClassName(''); setNewSortOrder(''); setEditingClass(null); setShowModal(true); }} className="bg-[#2563EB] text-white px-5 py-3 rounded-2xl text-[12px] font-black flex items-center gap-2 active:scale-95 transition-all border border-blue-100 shadow-premium">
+            <button onClick={() => { setNewClassName(''); setNewSortOrder(''); setEditingClass(null); setShowModal(true); }} className="bg-[#42f5e9] text-[#0fb5ab] px-5 py-3 rounded-2xl text-[12px] font-black flex items-center gap-2 active:scale-95 transition-all border border-[#42f5e9]/20 shadow-premium">
               <Plus size={16} strokeWidth={4} /> {t('new_class', lang, madrasah?.institution_type)}
             </button>
           )}
@@ -161,17 +186,17 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
           {departments.map(cls => (
             <div key={cls.id} onClick={() => onClassClick(cls)} className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 sm:p-5 rounded-[2.2rem] border flex items-center justify-between active:scale-[0.98] transition-all group shadow-bubble relative overflow-hidden`}>
               <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                <div className={`w-12 h-12 sm:w-14 sm:h-14 ${isDark ? 'bg-slate-700 text-blue-400 border-slate-600' : 'bg-blue-50 text-[#2563EB]'} rounded-2xl flex items-center justify-center shrink-0 border shadow-inner`}>
+                <div className={`w-12 h-12 sm:w-14 sm:h-14 ${isDark ? 'bg-slate-700 text-[#0fb5ab] border-slate-600' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-2xl flex items-center justify-center shrink-0 border shadow-inner`}>
                   <BookOpen size={20} className="sm:size-6" />
                 </div>
                 <div className="min-w-0 flex-1 pr-2">
                   <div className="flex items-center gap-2">
-                    <h3 className={`font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} text-[16px] sm:text-[18px] font-noto line-clamp-2 leading-tight tracking-tight break-words`}>
+                    <h3 className={`font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'} text-[16px] sm:text-[18px] font-noto line-clamp-2 leading-tight tracking-tight break-words`}>
                       {cls.name}
                     </h3>
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <Users size={12} className={isDark ? 'text-blue-400/60' : 'text-[#2563EB]/60'} />
+                    <Users size={12} className={isDark ? 'text-[#0fb5ab]/60' : 'text-[#0fb5ab]/60'} />
                     <p className={`text-[9px] font-black ${isDark ? 'text-slate-400' : 'text-slate-400'} uppercase tracking-[0.1em]`}>{cls.student_count || 0} {t('students_count', lang, madrasah?.institution_type)}</p>
                   </div>
                 </div>
@@ -180,7 +205,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
                 {!readOnly && (
                   <>
                     <button onClick={(e) => { e.stopPropagation(); setNewClassName(cls.name); setNewSortOrder(cls.sort_order?.toString() || ''); setEditingClass(cls); setShowModal(true); }} 
-                      className={`w-9 h-9 sm:w-10 sm:h-10 ${isDark ? 'bg-slate-700 text-blue-400 border-slate-600' : 'bg-blue-50 text-[#2563EB]'} rounded-xl flex items-center justify-center border active:scale-90 transition-all shadow-sm`}>
+                      className={`w-9 h-9 sm:w-10 sm:h-10 ${isDark ? 'bg-slate-700 text-[#0fb5ab] border-slate-600' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-xl flex items-center justify-center border active:scale-90 transition-all shadow-sm`}>
                       <Edit3 size={14} className="sm:size-4" />
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(cls); }} 
@@ -189,7 +214,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
                     </button>
                   </>
                 )}
-                <ChevronRight className={`${isDark ? 'text-slate-600 group-hover:text-blue-400' : 'text-blue-200 group-hover:text-[#2563EB]'} transition-colors ml-0.5`} size={18} strokeWidth={3} />
+                <ChevronRight className={`${isDark ? 'text-slate-600 group-hover:text-[#0fb5ab]' : 'text-[#42f5e9] group-hover:text-[#0fb5ab]'} transition-colors ml-0.5`} size={18} strokeWidth={3} />
               </div>
             </div>
           ))}
@@ -199,15 +224,15 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
       {showModal && createPortal(
         <div className="modal-overlay bg-[#080A12]/40 backdrop-blur-2xl animate-in fade-in duration-300">
           <div className={`${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'} w-full max-w-sm rounded-[3.5rem] p-10 shadow-bubble border relative animate-in zoom-in-95 duration-300`}>
-            <button onClick={() => setShowModal(false)} className="absolute top-10 right-10 text-slate-300 hover:text-[#2563EB] transition-all"><X size={26} strokeWidth={3} /></button>
+            <button onClick={() => setShowModal(false)} className="absolute top-10 right-10 text-slate-300 hover:text-[#0fb5ab] transition-all"><X size={26} strokeWidth={3} /></button>
             
 
             <div className="flex items-center gap-5 mb-8">
-               <div className={`w-16 h-16 ${isDark ? 'bg-slate-800 text-blue-400 border-slate-700' : 'bg-blue-50 text-[#2563EB]'} rounded-[1.8rem] flex items-center justify-center shrink-0 border shadow-inner`}>
+               <div className={`w-16 h-16 ${isDark ? 'bg-slate-800 text-[#0fb5ab] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-[1.8rem] flex items-center justify-center shrink-0 border shadow-inner`}>
                   <BookOpen size={32} />
                </div>
                <div>
-                  <h2 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'} font-noto tracking-tight`}>
+                  <h2 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'} font-noto tracking-tight`}>
                     {editingClass ? t('edit_class', lang, madrasah?.institution_type) : t('new_class', lang, madrasah?.institution_type)}
                   </h2>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Department Information</p>
@@ -220,7 +245,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
                 <input 
                   type="text" 
                   autoFocus
-                  className={`w-full px-6 py-5 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} border-2 rounded-[1.8rem] font-black text-lg outline-none focus:border-[#2563EB]/30 focus:bg-white transition-all shadow-inner`} 
+                  className={`w-full px-6 py-5 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border-2 rounded-[1.8rem] font-black text-lg outline-none focus:border-[#42f5e9]/30 focus:bg-white transition-all shadow-inner`} 
                   value={newClassName} 
                   onChange={(e) => setNewClassName(e.target.value)}
                   placeholder="যেমন: হিফয বিভাগ"
@@ -233,14 +258,14 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
                 </label>
                 <input 
                   type="number" 
-                  className={`w-full px-6 py-5 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'} border-2 rounded-[1.8rem] font-black text-lg outline-none focus:border-[#2563EB]/30 focus:bg-white transition-all shadow-inner`} 
+                  className={`w-full px-6 py-5 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border-2 rounded-[1.8rem] font-black text-lg outline-none focus:border-[#42f5e9]/30 focus:bg-white transition-all shadow-inner`} 
                   value={newSortOrder} 
                   onChange={(e) => setNewSortOrder(e.target.value)}
                   placeholder="যেমন: ১"
                 />
               </div>
 
-              <button onClick={handleSaveClass} disabled={modalLoading || !newClassName.trim()} className="w-full py-5 bg-[#2563EB] text-white font-black rounded-full shadow-premium active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg">
+              <button onClick={handleSaveClass} disabled={modalLoading || !newClassName.trim()} className="w-full py-5 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg">
                 {modalLoading ? <Loader2 className="animate-spin" size={24} /> : <><Check size={24} strokeWidth={4} /> {t('save', lang)}</>}
               </button>
             </div>

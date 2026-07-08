@@ -1,11 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { LogOut, Camera, Loader2, User as UserIcon, ShieldCheck, Database, ChevronRight, Check, MessageSquare, Zap, Globe, Smartphone, Save, Users, Layers, Edit3, UserPlus, Languages, Mail, Key, Settings, Fingerprint, Copy, History, Server, CreditCard, Shield, Sliders, Activity, Bell, RefreshCw, AlertTriangle, GraduationCap, ChevronLeft, ArrowRight, LayoutDashboard, Settings2, X, Sparkles, Box, ShieldAlert, Award, CheckCircle2, Lock, Terminal, Cpu, Calendar as CalendarIcon, MapPin, Play, Moon, Sun, PhoneCall, UserCheck } from 'lucide-react';
+import { LogOut, Camera, Loader2, User as UserIcon, ShieldCheck, Database, ChevronRight, Check, MessageSquare, Zap, Globe, Smartphone, Save, Users, Layers, Edit3, UserPlus, Languages, Mail, Key, Settings, Fingerprint, Copy, History, Server, CreditCard, Shield, Sliders, Activity, Bell, RefreshCw, AlertTriangle, GraduationCap, ChevronLeft, ArrowRight, LayoutDashboard, Settings2, X, Sparkles, Box, ShieldAlert, Award, CheckCircle2, Lock, Terminal, Cpu, Calendar as CalendarIcon, MapPin, Play, Moon, Sun, PhoneCall, UserCheck, BookOpen } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, View, Profile } from 'types';
 import { t } from 'translations';
 import { CommitteeYearManager } from 'components/CommitteeYearManager';
+import { MemberTypeManager } from 'components/MemberTypeManager';
 import MultiCalendar from 'components/MultiCalendar';
 
 interface AccountProps {
@@ -24,6 +25,8 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showAcademicYearManager, setShowAcademicYearManager] = useState(false);
+  const [showMemberTypeManager, setShowMemberTypeManager] = useState(false);
+  const [showMemberPortalSettings, setShowMemberPortalSettings] = useState(false);
   const [showChangePin, setShowChangePin] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -205,17 +208,17 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       <div className="relative pt-20 px-1">
         <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-[4rem] p-6 sm:p-10 pt-28 md:pt-36 shadow-bubble border relative text-center`}>
           <div className="absolute inset-0 overflow-hidden rounded-[4rem]">
-            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-blue-600 to-indigo-700 opacity-[0.03]" />
+            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-[#42f5e9] to-[#0fb5ab] opacity-[0.05]" />
           </div>
           <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-20">
             <div className="relative group">
               <div className={`w-40 h-40 p-4 rounded-full shadow-bubble border-[12px] flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-900' : 'bg-white border-slate-50'}`}>
-                {logoUrl ? <img src={logoUrl} className="w-full h-full object-contain" alt="Profile" /> : <div className={`w-full h-full rounded-full flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-700 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}><UserIcon size={70} strokeWidth={1.5} /></div>}
+                {logoUrl ? <img src={logoUrl} className="w-full h-full object-contain" alt="Profile" /> : <div className={`w-full h-full rounded-full flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}><UserIcon size={70} strokeWidth={1.5} /></div>}
               </div>
               {madrasah && madrasah.id !== 'super_admin' && (
                 <button 
                   onClick={() => fileInputRef.current?.click()} 
-                  className="absolute bottom-2 right-2 w-11 h-11 bg-[#2563EB] text-white rounded-2xl flex items-center justify-center shadow-premium border-4 border-white active:scale-90 transition-all z-30"
+                  className="absolute bottom-2 right-2 w-11 h-11 bg-[#42f5e9] text-[#0fb5ab] rounded-2xl flex items-center justify-center shadow-premium border-4 border-white active:scale-90 transition-all z-30"
                 >
                   {saving ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
                 </button>
@@ -226,59 +229,47 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           <div className="space-y-6 mt-4">
              <div className="space-y-1">
                <div className="px-4 pb-3">
-                 <h2 className={`text-[22px] sm:text-[32px] font-black font-noto tracking-tight leading-tight break-words whitespace-normal ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{displayName}</h2>
+                 <h2 className={`text-[22px] sm:text-[32px] font-black font-noto tracking-tight leading-tight break-words whitespace-normal ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{displayName}</h2>
                </div>
                
                <div className="flex flex-col items-center gap-1 mt-3">
-                 {madrasah?.address && (
-                   <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                     <MapPin size={14} />
-                     <p className="text-xs font-bold">{madrasah.address}</p>
+                {madrasah?.address && (
+                  <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                    <MapPin size={14} />
+                    <p className="text-xs font-bold">{madrasah.address}</p>
+                  </div>
+                )}
+                {madrasah?.phone && (
+                  <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                    <Smartphone size={14} />
+                    <p className="text-xs font-bold">{madrasah.phone}</p>
+                  </div>
+                )}
+                {madrasah?.email && (
+                  <div className="flex items-center justify-center gap-1.5 text-slate-400">
+                    <Mail size={14} />
+                    <p className="text-xs font-bold">{madrasah.email}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {madrasah && madrasah.id !== 'super_admin' && (
+              <>
+                <div className="pt-4 space-y-3">
+                   <div onClick={() => copyToClipboard(madrasah.id)} className={`p-5 rounded-[2.5rem] border flex items-center gap-5 active:scale-[0.98] cursor-pointer group ${madrasah?.theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50/70 border-slate-100'}`}>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border group-hover:scale-110 transition-transform ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-[#42f5e9]' : 'bg-white border-slate-100 text-[#0fb5ab]'}`}>
+                       <Fingerprint size={24} />
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                         <p className="text-[9px] font-black text-slate-400 uppercase mb-1">{t('madrasah_uuid', lang)}</p>
+                         <p className={`text-[12px] font-black truncate ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{madrasah.id}</p>
+                      </div>
+                      {copiedId ? <Check size={22} className="text-emerald-500 shrink-0" /> : <Copy size={20} className="text-slate-200 shrink-0" />}
                    </div>
-                 )}
-                 {madrasah?.phone && (
-                   <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                     <Smartphone size={14} />
-                     <p className="text-xs font-bold">{madrasah.phone}</p>
-                   </div>
-                 )}
-                 {madrasah?.email && (
-                   <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                     <Mail size={14} />
-                     <p className="text-xs font-bold">{madrasah.email}</p>
-                   </div>
-                 )}
-               </div>
-             </div>
-             
-             {madrasah && madrasah.id !== 'super_admin' && (
-               <>
-                 <div className="pt-4 space-y-3">
-                    <div onClick={() => copyToClipboard(madrasah.id)} className={`p-5 rounded-[2.5rem] border flex items-center gap-5 active:scale-[0.98] cursor-pointer group ${madrasah?.theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50/70 border-slate-100'}`}>
-                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border group-hover:scale-110 transition-transform ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-blue-400' : 'bg-white border-slate-100 text-[#2563EB]'}`}>
-                        <Fingerprint size={24} />
-                       </div>
-                       <div className="flex-1 text-left min-w-0">
-                          <p className="text-[9px] font-black text-slate-400 uppercase mb-1">{t('madrasah_uuid', lang)}</p>
-                          <p className={`text-[12px] font-black truncate ${madrasah?.theme === 'dark' ? 'text-blue-400' : 'text-[#2563EB]'}`}>{madrasah.id}</p>
-                       </div>
-                       {copiedId ? <Check size={22} className="text-emerald-500 shrink-0" /> : <Copy size={20} className="text-slate-200 shrink-0" />}
-                    </div>
-                    
-                    <div className={`p-5 rounded-[2.5rem] border flex items-center gap-5 ${madrasah?.theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50/70 border-slate-100'}`}>
-                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-purple-400' : 'bg-white border-slate-100 text-purple-600'}`}>
-                        <Shield size={24} />
-                       </div>
-                       <div className="flex-1 text-left min-w-0">
-                          <p className="text-[9px] font-black text-slate-400 uppercase mb-1">{t('madrasah_code_label', lang)}</p>
-                          <p className={`text-[14px] font-black tracking-widest ${madrasah?.theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>
-                            {madrasah.login_code || (lang === 'bn' ? 'অ্যাসাইন করা হয়নি' : 'Not assigned')}
-                          </p>
-                       </div>
-                    </div>
-                 </div>
-               </>
-             )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -307,11 +298,11 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           onClick={() => setIsEditingProfile(true)} 
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
         >
-          <div className="w-14 h-14 bg-blue-50 text-[#2563EB] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
             <Edit3 size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{t('profile_settings', lang)}</h5>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{t('profile_settings', lang)}</h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t('branding', lang)}</p>
           </div>
         </button>
@@ -344,20 +335,20 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           </div>
         </button>
 
-        {/* Teacher Management Card */}
+        {/* Executive Committee Card */}
         <button 
           onClick={() => setView('executives')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
         >
-          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
             <UserCheck size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>
-              {lang === 'bn' ? 'শিক্ষক ব্যবস্থাপনা' : 'Teacher Management'}
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+              {lang === 'bn' ? 'কার্যনির্বাহী কমিটি' : 'Executive Committee'}
             </h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'শিক্ষক ও স্টাফ' : 'Teachers & Staff'}
+              {lang === 'bn' ? 'কমিটি মেম্বারস' : 'Committee Members'}
             </p>
           </div>
         </button>
@@ -380,20 +371,77 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           </div>
         </button>
 
-        {profile?.role === 'executive' && (
-          <button 
-            onClick={() => setShowChangePin(true)} 
-            className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-          >
-            <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Key size={24} />
-            </div>
-            <div>
-              <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'পিন পরিবর্তন' : 'Change PIN'}</h5>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'নিরাপত্তা' : 'Security'}</p>
-            </div>
-          </button>
-        )}
+        {/* Voting & Polls Card */}
+        <button 
+          onClick={() => setView('polls')}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Activity size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+              {t('voting_polls', lang)}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'সদস্যদের মতামত' : 'Member Opinions'}
+            </p>
+          </div>
+        </button>
+
+        {/* Notice Board Card */}
+        <button 
+          onClick={() => setView('notice-board')}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Bell size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>
+              {t('notice_board', lang)}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'জরুরী নোটিশ' : 'Announcement'}
+            </p>
+          </div>
+        </button>
+
+        {/* Member Types Config Card */}
+        <button 
+          onClick={() => setShowMemberTypeManager(true)}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Layers size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+              {lang === 'bn' ? 'সদস্য ধরন' : 'Member Types'}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'কাস্টম ক্যাটাগরি' : 'Custom Types'}
+            </p>
+          </div>
+        </button>
+
+        {/* Member Portal Settings Card */}
+        <button 
+          onClick={() => setShowMemberPortalSettings(true)}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Smartphone size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+              {lang === 'bn' ? 'সদস্য পোর্টাল' : 'Member Portal'}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'পারমিশন ম্যানেজ' : 'Manage Permissions'}
+            </p>
+          </div>
+        </button>
 
         {/* Language Card */}
         <div className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between gap-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
@@ -409,13 +457,13 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           <div className={`flex p-1 rounded-2xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
             <button 
               onClick={() => setLang('bn')} 
-              className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'bn' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-blue-400 shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}
+              className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'bn' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
             >
               বাংলা
             </button>
             <button 
               onClick={() => setLang('en')} 
-              className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'en' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-blue-400 shadow-sm' : 'bg-white text-[#2563EB] shadow-sm') : 'text-slate-400'}`}
+              className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'en' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
             >
               ENG
             </button>
@@ -425,7 +473,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         {/* Theme Switcher Card */}
         <div className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between gap-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-indigo-900 text-indigo-300' : 'bg-blue-50 text-[#2563EB]'}`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
               {madrasah?.theme === 'dark' ? <Moon size={24} /> : <Sun size={24} />}
             </div>
             <div className="text-left">
@@ -474,6 +522,148 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         document.body
       )}
 
+      {/* Member Type Manager - PORTALED */}
+      {showMemberTypeManager && madrasah && createPortal(
+        <MemberTypeManager 
+          institution={madrasah} 
+          onClose={() => setShowMemberTypeManager(false)} 
+          lang={lang}
+        />,
+        document.body
+      )}
+
+      {/* Member Portal Settings Modal - PORTALED */}
+      {showMemberPortalSettings && madrasah && createPortal(
+        <div className="modal-overlay bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300">
+           <div className={`w-full max-w-md rounded-[3.5rem] p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-500 relative ${madrasah?.theme === 'dark' ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
+                    <Smartphone size={24} />
+                  </div>
+                  <div>
+                    <h3 className={`text-xl font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                      {lang === 'bn' ? 'সদস্য পোর্টাল সেটিংস' : 'Member Portal Settings'}
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      {lang === 'bn' ? 'অ্যাক্সেস ও পারমিশন কন্ট্রোল' : 'Access & Permission Control'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowMemberPortalSettings(false)} 
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-50 text-slate-300'}`}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className={`p-4 rounded-3xl border flex items-center justify-between ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center">
+                      <Zap size={20} />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>
+                        {lang === 'bn' ? 'পোর্টাল সক্রিয় করুন' : 'Enable Portal'}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400">
+                        {lang === 'bn' ? 'সদস্যরা লগইন করতে পারবে' : 'Members can log in'}
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      const currentConfig = madrasah.member_portal_config || { enabled: false, permissions: { view_meetings: true, view_minutes: true, view_polls: true, view_notices: true, view_finances: false, view_attendance: false } };
+                      const newConfig = { ...currentConfig, enabled: !currentConfig.enabled };
+                      try {
+                        const { error } = await supabase.from('institutions').update({ member_portal_config: newConfig }).eq('id', madrasah.id);
+                        if (error) throw error;
+                        setMadrasah({ ...madrasah, member_portal_config: newConfig });
+                      } catch (err: any) { alert(err.message); }
+                    }}
+                    className={`w-14 h-8 rounded-full p-1 transition-colors relative ${madrasah.member_portal_config?.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                  >
+                    <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${madrasah.member_portal_config?.enabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">
+                    {lang === 'bn' ? 'সদস্যদের পারমিশনসমূহ' : 'Member Permissions'}
+                  </p>
+                  
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { key: 'view_meetings', labelBn: 'মিটিং দেখুন', labelEn: 'View Meetings', icon: CalendarIcon },
+                      { key: 'view_minutes', labelBn: 'মিটিং রেজুলেশন দেখুন', labelEn: 'View Minutes', icon: BookOpen },
+                      { key: 'view_polls', labelBn: 'ভোট/মতামত প্রদান করুন', labelEn: 'Participate in Polls', icon: Activity },
+                      { key: 'view_notices', labelBn: 'নোটিশ বোর্ড দেখুন', labelEn: 'View Notice Board', icon: Bell },
+                      { key: 'view_finances', labelBn: 'আর্থিক হিসাব দেখুন', labelEn: 'View Financials', icon: CreditCard },
+                      { key: 'view_attendance', labelBn: 'উপস্থিতি রিপোর্ট দেখুন', labelEn: 'View Attendance', icon: UserCheck }
+                    ].map((perm) => (
+                      <button 
+                        key={perm.key}
+                        onClick={async () => {
+                          const currentConfig = madrasah.member_portal_config || { enabled: false, permissions: { view_meetings: true, view_minutes: true, view_polls: true, view_notices: true, view_finances: false, view_attendance: false } };
+                          const newPermissions = { ...currentConfig.permissions, [perm.key]: !((currentConfig.permissions as any)[perm.key]) };
+                          const newConfig = { ...currentConfig, permissions: newPermissions };
+                          try {
+                            const { error } = await supabase.from('institutions').update({ member_portal_config: newConfig }).eq('id', madrasah.id);
+                            if (error) throw error;
+                            setMadrasah({ ...madrasah, member_portal_config: newConfig });
+                          } catch (err: any) { alert(err.message); }
+                        }}
+                        className={`p-4 rounded-2xl border flex items-center justify-between transition-all active:scale-[0.98] ${
+                          (madrasah.member_portal_config?.permissions as any)?.[perm.key]
+                            ? (madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/5 border-[#42f5e9]/30' : 'bg-[#42f5e9]/5 border-[#42f5e9]/20')
+                            : (madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100')
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                            (madrasah.member_portal_config?.permissions as any)?.[perm.key]
+                              ? 'bg-[#42f5e9] text-[#0fb5ab]'
+                              : 'bg-slate-100 text-slate-400'
+                          }`}>
+                            <perm.icon size={20} />
+                          </div>
+                          <p className={`text-sm font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>
+                            {lang === 'bn' ? perm.labelBn : perm.labelEn}
+                          </p>
+                        </div>
+                        {(madrasah.member_portal_config?.permissions as any)?.[perm.key] && (
+                          <div className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center">
+                            <Check size={14} strokeWidth={3} />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-2xl border flex items-start gap-3 ${madrasah?.theme === 'dark' ? 'bg-amber-900/10 border-amber-900/20 text-amber-400' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                  <AlertTriangle size={20} className="shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-bold leading-relaxed">
+                    {lang === 'bn' 
+                      ? 'সদস্যরা তাদের মোবাইল নম্বর এবং সদস্য পরিচিতি নম্বর দিয়ে লগইন করতে পারবে। নিশ্চিত করুন যে সদস্যদের তথ্য সঠিকভাবে আপডেট করা আছে।' 
+                      : 'Members can log in using their mobile number and member ID number. Ensure member data is updated correctly.'}
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowMemberPortalSettings(false)}
+                className="w-full py-4 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-2xl shadow-premium active:scale-[0.98] transition-all uppercase tracking-widest text-xs"
+              >
+                {lang === 'bn' ? 'বন্ধ করুন' : 'Close Settings'}
+              </button>
+           </div>
+        </div>,
+        document.body
+      )}
+
       {/* Change PIN Modal - PORTALED */}
       {showChangePin && createPortal(
         <div className="modal-overlay bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300">
@@ -483,7 +673,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-rose-900/30 text-rose-400' : 'bg-rose-50 text-rose-600'}`}>
                     <Key size={20} />
                   </div>
-                  <h3 className={`text-xl font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>
+                  <h3 className={`text-xl font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
                     {lang === 'bn' ? 'পিন পরিবর্তন' : 'Change PIN'}
                   </h3>
                 </div>
@@ -495,7 +685,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{lang === 'bn' ? 'নতুন পিন' : 'New PIN'}</label>
                    <input 
                      type="password" 
-                     className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500/30' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/30'}`} 
+                     className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/30'}`} 
                      value={newPin} 
                      onChange={(e) => setNewPin(e.target.value)} 
                      placeholder="****"
@@ -505,7 +695,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{lang === 'bn' ? 'পিন নিশ্চিত করুন' : 'Confirm PIN'}</label>
                    <input 
                      type="password" 
-                     className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500/30' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/30'}`} 
+                     className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/30'}`} 
                      value={confirmPin} 
                      onChange={(e) => setConfirmPin(e.target.value)} 
                      placeholder="****"
@@ -517,7 +707,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                  <button 
                    onClick={handleChangePin} 
                    disabled={saving}
-                   className="w-full h-12 bg-[#2563EB] text-white font-bold rounded-2xl shadow-premium active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2"
+                   className="w-full h-12 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-2xl shadow-premium active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2"
                  >
                    {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                    {lang === 'bn' ? 'আপডেট করুন' : 'Update PIN'}
@@ -533,14 +723,14 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         <div className="modal-overlay bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300">
            <div className={`w-full max-w-sm rounded-[3.5rem] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-500 relative max-h-[85vh] overflow-y-auto ${madrasah?.theme === 'dark' ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
               <div className="flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}><Edit3 size={20} /></div><h3 className={`text-xl font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>অ্যাকাউন্ট আপডেট</h3></div>
+                <div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-blue-900/30 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}><Edit3 size={20} /></div><h3 className={`text-xl font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>অ্যাকাউন্ট আপডেট</h3></div>
                 <button onClick={() => setIsEditingProfile(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-50 text-slate-300'}`}><X size={20} /></button>
               </div>
 
               <div className="space-y-3.5">
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('madrasah_name', lang)}</label><input type="text" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500/30' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/30'}`} value={newName || ''} onChange={(e) => setNewName(e.target.value)} /></div>
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{lang === 'bn' ? 'ঠিকানা' : 'Address'}</label><input type="text" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500/30' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/30'}`} value={newAddress || ''} onChange={(e) => setNewAddress(e.target.value)} /></div>
-                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('madrasah_phone', lang)}</label><input type="tel" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500/30' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/30'}`} value={newPhone || ''} onChange={(e) => setNewPhone(e.target.value)} /></div>
+                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('madrasah_name', lang)}</label><input type="text" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/30'}`} value={newName || ''} onChange={(e) => setNewName(e.target.value)} /></div>
+                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{lang === 'bn' ? 'ঠিকানা' : 'Address'}</label><input type="text" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/30'}`} value={newAddress || ''} onChange={(e) => setNewAddress(e.target.value)} /></div>
+                 <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('madrasah_phone', lang)}</label><input type="tel" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/30'}`} value={newPhone || ''} onChange={(e) => setNewPhone(e.target.value)} /></div>
                  <div className="space-y-1 opacity-70 cursor-not-allowed">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center justify-between">
                       Gmail / Email
@@ -548,17 +738,10 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                     </label>
                     <input type="email" readOnly disabled className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none cursor-not-allowed ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'}`} value={madrasah?.email || (lang === 'bn' ? 'অ্যাসাইন করা হয়নি' : 'Not assigned')} />
                  </div>
-                 <div className="space-y-1 opacity-70 cursor-not-allowed">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center justify-between">
-                      {t('madrasah_code_label', lang)}
-                      <span className="text-[8px] text-red-400 lowercase tracking-normal bg-red-500/10 px-1.5 py-0.5 rounded-md">read-only</span>
-                    </label>
-                    <input type="text" readOnly disabled className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none cursor-not-allowed ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-500'}`} value={madrasah?.login_code || (lang === 'bn' ? 'অ্যাসাইন করা হয়নি' : 'Not assigned')} />
-                 </div>
               </div>
               <div className="flex gap-2 pt-2 shrink-0">
                  <button onClick={() => setIsEditingProfile(false)} className={`flex-1 py-4 font-black rounded-2xl text-[10px] uppercase ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>বাতিল</button>
-                 <button onClick={handleUpdate} disabled={saving} className="flex-[2] py-4 bg-[#2563EB] text-white font-black rounded-2xl text-[10px] uppercase shadow-premium flex items-center justify-center gap-2">{saving ? <Loader2 className="animate-spin" size={16} /> : 'সংরক্ষণ করুন'}</button>
+                 <button onClick={handleUpdate} disabled={saving} className="flex-[2] py-4 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-2xl text-[10px] uppercase shadow-premium flex items-center justify-center gap-2">{saving ? <Loader2 className="animate-spin" size={16} /> : 'সংরক্ষণ করুন'}</button>
               </div>
            </div>
         </div>,

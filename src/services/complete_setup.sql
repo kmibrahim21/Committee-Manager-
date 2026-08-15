@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS public.ledger (
     category TEXT NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
     description TEXT,
+    type TEXT DEFAULT 'credit',
     transaction_date DATE DEFAULT CURRENT_DATE,
     created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -140,6 +141,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     transaction_id TEXT NOT NULL,
     sender_phone TEXT NOT NULL,
     description TEXT,
+    type TEXT DEFAULT 'credit',
     status TEXT DEFAULT 'pending', -- pending, approved, rejected
     sms_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -208,36 +210,13 @@ CREATE TABLE IF NOT EXISTS public.tutorials (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Academic Years
-CREATE TABLE IF NOT EXISTS public.academic_years (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    institution_id UUID REFERENCES public.institutions(id) ON DELETE CASCADE,
-    year_name TEXT NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    status TEXT DEFAULT 'active',
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Promotion Logs
-CREATE TABLE IF NOT EXISTS public.promotion_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    institution_id UUID REFERENCES public.institutions(id) ON DELETE CASCADE,
-    student_id UUID REFERENCES public.members(id) ON DELETE CASCADE,
-    from_class_id UUID,
-    to_class_id UUID,
-    academic_year_from_id UUID,
-    academic_year_to_id UUID,
-    executed_at TIMESTAMPTZ DEFAULT now(),
-    status TEXT DEFAULT 'promoted'
-);
-
 -- Events
 CREATE TABLE IF NOT EXISTS public.events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     institution_id UUID REFERENCES public.institutions(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
+    type TEXT DEFAULT 'credit',
     venue TEXT,
     event_type TEXT DEFAULT 'General',
     start_date TIMESTAMPTZ NOT NULL,
@@ -257,6 +236,7 @@ CREATE TABLE IF NOT EXISTS public.calendar_events (
     institution_id UUID REFERENCES public.institutions(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
+    type TEXT DEFAULT 'credit',
     event_date DATE NOT NULL,
     event_type TEXT DEFAULT 'madrasah', -- islamic, madrasah, holiday, closed
     created_at TIMESTAMPTZ DEFAULT now()
@@ -463,8 +443,6 @@ ALTER TABLE voice_broadcasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_sms_stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tutorials ENABLE ROW LEVEL SECURITY;
-ALTER TABLE academic_years ENABLE ROW LEVEL SECURITY;
-ALTER TABLE promotion_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
@@ -528,3 +506,60 @@ INSERT INTO system_settings (id, bkash_number) VALUES (1, '01700000000') ON CONF
 
 -- RELOAD POSTRGREST CONFIG
 NOTIFY pgrst, 'reload config';
+CREATE OR REPLACE FUNCTION public.send_bulk_sms_rpc(
+  p_institution_id UUID,
+  p_student_ids UUID[],
+  p_message TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+  v_sms_count INTEGER;
+  v_current_balance INTEGER;
+BEGIN
+  -- 1. Check if caller has permission
+  IF NOT (
+    public.is_super_admin() OR 
+    auth.uid() = p_institution_id OR 
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND institution_id = p_institution_id)
+  ) THEN
+    RETURN json_build_object('success', false, 'error', 'Permission denied');
+  END IF;
+
+  v_sms_count := array_length(p_student_ids, 1);
+  
+  -- 2. Check balance
+  SELECT sms_balance INTO v_current_balance FROM public.institutions WHERE id = p_institution_id;
+  
+  IF v_current_balance < v_sms_count THEN
+    RETURN json_build_object('success', false, 'error', 'Insufficient SMS balance');
+  END IF;
+  
+  -- 3. Deduct balance
+  UPDATE public.institutions 
+  SET sms_balance = sms_balance - v_sms_count
+  WHERE id = p_institution_id;
+  
+  -- 4. Record transaction (optional but good)
+  INSERT INTO public.transactions (
+    institution_id, 
+    amount, 
+    transaction_id, 
+    sender_phone, 
+    description, 
+    type, 
+    status, 
+    sms_count
+  ) VALUES (
+    p_institution_id,
+    0,
+    'BULK_SMS_' || floor(extract(epoch from now())),
+    'SYSTEM',
+    'Sent ' || v_sms_count || ' SMS messages',
+    'debit',
+    'approved',
+    v_sms_count
+  );
+
+  RETURN json_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -48,7 +48,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children, currentView, setView, lang
         admit_card: configObj.modules?.admit_card ?? true,
         seat_plan: configObj.modules?.seat_plan ?? true,
         accounting: configObj.modules?.accounting ?? true,
-        academic_year_promotion: configObj.modules?.academic_year_promotion ?? false,
+        subscriptions: configObj.modules?.subscriptions ?? true,
         voice_broadcast: configObj.modules?.voice_broadcast ?? true,
         sms: configObj.modules?.sms ?? true,
       },
@@ -78,6 +78,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children, currentView, setView, lang
     if (tab === 'dashboard' && currentView === 'admin-dashboard') return true;
     if (tab === 'approvals' && currentView === 'admin-approvals') return true;
     if (tab === 'accounting' && currentView === 'accounting') return true;
+    if (tab === 'subscriptions' && currentView === 'subscriptions') return true;
     if (tab === 'attendance' && currentView === 'attendance') return true;
     if (tab === 'meetings' && currentView === 'meetings') return true;
     if (tab === 'wallet' && currentView === 'wallet-sms') return true;
@@ -134,7 +135,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children, currentView, setView, lang
               {canAccess('accounting') && (
                 <button onClick={() => setView('admin-panel')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('list') ? 'text-[#2563EB]' : 'text-[#94A3B8]'}`}>
                   <Users size={20} />
-                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'প্রতিষ্ঠান' : 'Institutions'}</span>
+                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'কমিটি' : 'Committees'}</span>
                 </button>
               )}
               {canAccess('fees') && (

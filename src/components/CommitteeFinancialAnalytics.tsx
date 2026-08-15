@@ -58,16 +58,25 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
   const [showShortcodes, setShowShortcodes] = useState(false);
 
   const availableShortcodes = [
-    { code: '{name}', label: lang === 'bn' ? 'ছাত্রের নাম' : 'Member Name' },
-    { code: '{due_amount}', label: lang === 'bn' ? 'বকেয়া টাকা' : 'Due Amount' },
-    { code: '{month}', label: lang === 'bn' ? 'মাস' : 'Month' },
-    { code: '{institution_name}', label: lang === 'bn' ? 'প্রতিষ্ঠানের নাম' : 'Institution Name' },
+    { code: '{name}', label: lang === 'bn' ? 'মেম্বারের নাম' : 'Member Name' },
+    { code: '{member_id}', label: lang === 'bn' ? 'মেম্বার আইডি' : 'Member ID' },
+    { code: '{designation}', label: lang === 'bn' ? 'পদবী' : 'Designation' },
+    { code: '{due_amount}', label: lang === 'bn' ? 'বকেয়া চাঁদা' : 'Due Amount' },
+    { code: '{paid_amount}', label: lang === 'bn' ? 'পরিশোধিত চাঁদা' : 'Paid Amount' },
+    { code: '{meeting_title}', label: lang === 'bn' ? 'সভার বিষয়' : 'Meeting Subject' },
+    { code: '{meeting_date}', label: lang === 'bn' ? 'সভার তারিখ' : 'Meeting Date' },
+    { code: '{meeting_time}', label: lang === 'bn' ? 'সভার সময়' : 'Meeting Time' },
+    { code: '{meeting_location}', label: lang === 'bn' ? 'সভার স্থান' : 'Meeting Location' },
+    { code: '{event_title}', label: lang === 'bn' ? 'অনুষ্ঠানের নাম' : 'Event Title' },
+    { code: '{event_date}', label: lang === 'bn' ? 'অনুষ্ঠানের তারিখ' : 'Event Date' },
+    { code: '{institution_name}', label: lang === 'bn' ? 'কমিটি/প্রতিষ্ঠানের নাম' : 'Committee Name' },
   ];
 
   // Filters
-  const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly');
+  const [viewMode, setViewMode] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
   const [selectedMonth, setSelectedMonth] = useState(initialMonth);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
 
   const [localClasses, setLocalClasses] = useState<Department[]>([]);
@@ -95,7 +104,7 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
   useEffect(() => {
     fetchAnalytics();
     fetchTemplates();
-  }, [institutionId, selectedMonth, selectedYear, viewMode, selectedClassId, refreshKey]);
+  }, [institutionId, selectedMonth, selectedYear, selectedDate, viewMode, selectedClassId, refreshKey]);
 
   const fetchTemplates = async () => {
     if (!isValidUUID(institutionId)) return;
@@ -112,7 +121,7 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
     console.log("Fetching analytics for:", { institutionId, viewMode, selectedMonth, selectedYear, selectedClassId });
     try {
       // Determine date filter for ledger
-      const dateFilter = viewMode === 'monthly' ? selectedMonth : selectedYear;
+      const dateFilter = viewMode === 'daily' ? selectedDate : (viewMode === 'monthly' ? selectedMonth : selectedYear);
 
       // 1. Fetch Fee Structures
       let structureQuery = supabase.from('fee_structures').select('*').eq('institution_id', institutionId);
@@ -140,9 +149,19 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
       });
 
       // 3. Fetch Ledger for transaction counts (Income) AND Expenses
-      const { data: ledger, error: ledgerError } = await supabase.from('ledger')
+      let ledgerQuery = supabase.from('ledger')
         .select('description, amount, type, category, transaction_date')
         .eq('institution_id', institutionId);
+
+      const config: any = madrasah?.config_json || {};
+      if (config.accounting_start_date) {
+        ledgerQuery = ledgerQuery.gte('transaction_date', config.accounting_start_date);
+      }
+      if (config.accounting_end_date) {
+        ledgerQuery = ledgerQuery.lte('transaction_date', config.accounting_end_date);
+      }
+
+      const { data: ledger, error: ledgerError } = await ledgerQuery;
       console.log("Ledger:", ledger, "Error:", ledgerError);
 
       // 4. Process Data
@@ -150,16 +169,23 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
       let totalExpected = 0;
       let totalCollected = 0;
       let totalExpense = 0;
+      let totalOverallIncome = 0;
 
-      // Calculate Expenses
+      // Calculate Expenses and Overall Income
       ledger?.forEach(l => {
         if (l.type === 'expense' && l.transaction_date.startsWith(dateFilter)) {
           totalExpense += l.amount;
         }
+        if (l.type === 'income' && l.transaction_date.startsWith(dateFilter)) {
+          totalOverallIncome += l.amount;
+        }
       });
-      console.log("Total Expense calculated:", totalExpense);
+      console.log("Total Expense calculated:", totalExpense, "Total overall income calculated:", totalOverallIncome);
 
       structures.forEach(s => {
+        // Daily view doesn't have fixed target monthly/yearly subscription goals
+        if (viewMode === 'daily') return;
+
         // If department_id is null, it's a global fee and applies to all students
         const count = s.department_id === null 
             ? (students?.length || 0) 
@@ -267,10 +293,11 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
       // Set Stats
       setStats({
         expected_income: totalExpected,
-        prediction: totalCollected,
+        prediction: viewMode === 'daily' ? totalOverallIncome : totalOverallIncome, // represents overall actual income
         total_expense: totalExpense,
-        net_income: totalCollected - totalExpense,
-        collection_rate: totalExpected > 0 ? ((totalCollected / totalExpected) * 100).toFixed(1) : 0
+        net_income: totalOverallIncome - totalExpense,
+        collection_rate: totalExpected > 0 ? ((totalCollected / totalExpected) * 100).toFixed(1) : 0,
+        fee_collected: totalCollected
       });
 
       // Fetch reminders only for monthly view (current dues)
@@ -374,6 +401,12 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
         <div className="flex items-center gap-2">
             <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900' : 'bg-slate-100'} p-1 rounded-xl flex`}>
                 <button 
+                    onClick={() => setViewMode('daily')}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'daily' ? (madrasah?.theme === 'dark' ? 'bg-slate-800 shadow-sm text-[#42f5e9]' : 'bg-white shadow-sm text-[#0fb5ab]') : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    {lang === 'bn' ? 'দৈনিক' : 'Daily'}
+                </button>
+                <button 
                     onClick={() => setViewMode('monthly')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'monthly' ? (madrasah?.theme === 'dark' ? 'bg-slate-800 shadow-sm text-[#42f5e9]' : 'bg-white shadow-sm text-[#0fb5ab]') : 'text-slate-500 hover:text-slate-700'}`}
                 >
@@ -387,7 +420,14 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
                 </button>
             </div>
             
-            {viewMode === 'monthly' ? (
+            {viewMode === 'daily' ? (
+                <input 
+                    type="date" 
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className={`px-4 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#42f5e9]/20 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                />
+            ) : viewMode === 'monthly' ? (
                 <input 
                     type="month" 
                     value={selectedMonth}

@@ -1,13 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { LogOut, Camera, Loader2, User as UserIcon, ShieldCheck, Database, ChevronRight, Check, MessageSquare, Zap, Globe, Smartphone, Save, Users, Layers, Edit3, UserPlus, Languages, Mail, Key, Settings, Fingerprint, Copy, History, Server, CreditCard, Shield, Sliders, Activity, Bell, RefreshCw, AlertTriangle, GraduationCap, ChevronLeft, ArrowRight, LayoutDashboard, Settings2, X, Sparkles, Box, ShieldAlert, Award, CheckCircle2, Lock, Terminal, Cpu, Calendar as CalendarIcon, MapPin, Play, Moon, Sun, PhoneCall, UserCheck, BookOpen } from 'lucide-react';
+import { LogOut, Camera, Loader2, User as UserIcon, ShieldCheck, Database, ChevronRight, Check, MessageSquare, Zap, Globe, Smartphone, Save, Users, Layers, Edit3, UserPlus, Languages, Mail, Key, Settings, Fingerprint, Copy, History, Server, CreditCard, Shield, Sliders, Activity, Bell, RefreshCw, AlertTriangle, GraduationCap, ChevronLeft, ArrowRight, LayoutDashboard, Settings2, X, Sparkles, Box, ShieldAlert, Award, CheckCircle2, Lock, Terminal, Cpu, Calendar as CalendarIcon, MapPin, Play, Moon, Sun, PhoneCall, UserCheck, BookOpen, FileText, Download, Printer } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, View, Profile } from 'types';
 import { t } from 'translations';
-import { CommitteeYearManager } from 'components/CommitteeYearManager';
 import { MemberTypeManager } from 'components/MemberTypeManager';
 import MultiCalendar from 'components/MultiCalendar';
+import { generateMemberFormPDF } from '../utils/pdfGenerator';
 
 interface AccountProps {
   lang: Language;
@@ -24,7 +24,6 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   const [saving, setSaving] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showAcademicYearManager, setShowAcademicYearManager] = useState(false);
   const [showMemberTypeManager, setShowMemberTypeManager] = useState(false);
   const [showMemberPortalSettings, setShowMemberPortalSettings] = useState(false);
   const [showChangePin, setShowChangePin] = useState(false);
@@ -32,6 +31,18 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   const [confirmPin, setConfirmPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState({ show: false, title: '', message: '' });
+  const [downloadingForm, setDownloadingForm] = useState(false);
+  
+  const handleDownloadForm = async () => {
+    setDownloadingForm(true);
+    try {
+      await generateMemberFormPDF(madrasah, lang);
+    } catch (e) {
+      console.error("Failed to generate PDF form:", e);
+    } finally {
+      setDownloadingForm(false);
+    }
+  };
   
   const [stats, setStats] = useState({ students: 0, departments: 0 });
   const [loadingStats, setLoadingStats] = useState(true);
@@ -104,7 +115,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       if (onProfileUpdate) onProfileUpdate();
       setIsEditingProfile(false);
       setMadrasah(prev => prev ? { ...prev, name: newName, address: newAddress, phone: newPhone } : null);
-      setShowSuccessModal({ show: true, title: t('success', lang), message: 'Profile updated successfully' });
+      setShowSuccessModal({ show: true, title: t('success', lang), message: lang === 'bn' ? 'প্রোফাইল সফলভাবে আপডেট হয়েছে' : 'Profile updated successfully' });
     } catch (err: any) { alert(err.message); } finally { setSaving(false); }
   };
 
@@ -159,7 +170,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       setShowSuccessModal({ show: true, title: 'সফল', message: 'লোগো আপডেট হয়েছে।' });
     } catch (e: any) { 
       console.error('Upload error:', e);
-      alert('Logo upload failed: ' + e.message); 
+      alert((lang === 'bn' ? 'লোগো আপলোডে সমস্যা: ' : 'Logo upload failed: ') + e.message); 
     } finally { setSaving(false); }
   };
 
@@ -201,6 +212,22 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   if (!madrasah) return null;
 
   const displayName = madrasah?.name || 'User';
+
+  const role = profile?.role || 'executive';
+  const isAdmin = role === 'org_admin' || role === 'super_admin';
+  const isMember = role === 'member';
+  const canManageAccounting = isAdmin || (isMember ? !!madrasah?.member_portal_config?.permissions?.view_finances : !!profile?.permissions?.can_manage_accounting);
+
+  let config = madrasah?.config_json as any;
+  if (typeof config === 'string') {
+    try {
+      config = JSON.parse(config);
+    } catch (e) {
+      config = {};
+    }
+  }
+  const configObj: any = (typeof config === 'object' && config !== null) ? config : {};
+  const subscriptionsEnabled = configObj.modules?.subscriptions ?? true;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-36 relative z-10">
@@ -306,21 +333,6 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t('branding', lang)}</p>
           </div>
         </button>
-
-        {madrasah?.config_json?.modules?.academic_year_promotion && (
-          <button 
-            onClick={() => setShowAcademicYearManager(true)} 
-            className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-          >
-            <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <GraduationCap size={24} />
-            </div>
-            <div>
-              <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{lang === 'bn' ? 'শিক্ষাবর্ষ' : 'Academic Year'}</h5>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'প্রমোশন' : 'Promotion'}</p>
-            </div>
-          </button>
-        )}
 
         <button 
           onClick={() => setView('data-management')} 
@@ -443,6 +455,45 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           </div>
         </button>
 
+        {/* Subscriptions Card */}
+        {canManageAccounting && subscriptionsEnabled && (
+          <button 
+            onClick={() => setView('subscriptions')}
+            className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+          >
+            <div className="w-14 h-14 bg-emerald-50 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <CreditCard size={24} />
+            </div>
+            <div>
+              <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                {lang === 'bn' ? 'ফী/বকেয়া' : 'Dues'}
+              </h5>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                {lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscriptions'}
+              </p>
+            </div>
+          </button>
+        )}
+
+        {/* Member Form PDF Download Card */}
+        <button 
+          onClick={handleDownloadForm}
+          disabled={downloadingForm}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 disabled:opacity-60 disabled:pointer-events-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-blue-50 text-[#2563EB] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            {downloadingForm ? <Loader2 className="animate-spin text-[#2563EB]" size={24} /> : <FileText size={24} />}
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+              {lang === 'bn' ? 'সদস্য ফর্ম PDF' : 'Member Form PDF'}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {downloadingForm ? (lang === 'bn' ? 'ডাউনলোড হচ্ছে...' : 'Downloading...') : (lang === 'bn' ? 'অফলাইন ফরম ডাউনলোড' : 'Offline Registration Form')}
+            </p>
+          </div>
+        </button>
+
         {/* Language Card */}
         <div className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between gap-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-4">
@@ -511,16 +562,6 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           </div>
         </button>
       </div>
-
-      {/* Academic Year Manager - PORTALED */}
-      {showAcademicYearManager && madrasah && createPortal(
-        <CommitteeYearManager 
-          institution={madrasah} 
-          onClose={() => setShowAcademicYearManager(false)} 
-          lang={lang}
-        />,
-        document.body
-      )}
 
       {/* Member Type Manager - PORTALED */}
       {showMemberTypeManager && madrasah && createPortal(

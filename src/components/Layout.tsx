@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Play, UserCheck, LayoutDashboard, Calendar } from 'lucide-react';
+import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Play, UserCheck, LayoutDashboard, Calendar, Landmark, PiggyBank, Briefcase, Gift, Building2, Vote, HelpCircle } from 'lucide-react';
 import { View, Language, Institution, Transaction, Profile } from 'types';
 import { t } from 'translations';
 import { supabase } from 'supabase';
 import { useOfflineStatus } from '../hooks/useOffline';
 import MultiCalendarHeader from './MultiCalendarHeader';
+import { getCommitteeTypeConfig, MODULE_META } from '../utils/committeeTypes';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -64,6 +65,24 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
     return result;
   }, [madrasah]) as any;
 
+  const showSpecializedModulesTab = React.useMemo(() => {
+    if (!madrasah) return false;
+
+    const config = getCommitteeTypeConfig(madrasah.institution_type);
+    
+    let userConfig = madrasah?.config_json as any;
+    if (typeof userConfig === 'string') {
+      try {
+        userConfig = JSON.parse(userConfig);
+      } catch (e) {
+        userConfig = {};
+      }
+    }
+    const mods = (userConfig && typeof userConfig === 'object') ? (userConfig.modules || {}) : {};
+    
+    return config.specializedModules.some(key => mods[key] === true);
+  }, [madrasah]);
+
   const fetchDynamicNotifications = async () => {
     if (!madrasah?.id) return;
     const newNotifications: AppNotification[] = [];
@@ -78,6 +97,28 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
   const hasPermission = (perm: keyof NonNullable<Profile['permissions']>) => {
     if (isSuperAdmin || role === 'org_admin') return true;
     return !!profile?.permissions?.[perm];
+  };
+
+  const activeSubmodules = React.useMemo(() => {
+    if (!madrasah) return [];
+    
+    const config = getCommitteeTypeConfig(madrasah.institution_type);
+
+    let userConfig = madrasah?.config_json as any;
+    if (typeof userConfig === 'string') {
+      try {
+        userConfig = JSON.parse(userConfig);
+      } catch (e) {
+        userConfig = {};
+      }
+    }
+    const mods = (userConfig && typeof userConfig === 'object') ? (userConfig.modules || {}) : {};
+    
+    return config.specializedModules.filter(key => mods[key] === true);
+  }, [madrasah]);
+
+  const getSubmoduleMeta = (key: string) => {
+    return MODULE_META[key] || { labelBn: key.replace('_', ' ').toUpperCase(), labelEn: key.replace('_', ' ').toUpperCase(), icon: Landmark };
   };
 
   const isTabActive = (tab: string) => {
@@ -95,14 +136,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
     if (tab === 'sms-voice-menu' && currentView === 'sms-voice-menu') return true;
     if (tab === 'executives' && currentView === 'executives') return true;
     if (tab === 'departments' && (currentView === 'departments' || currentView === 'members' || currentView === 'member-details' || currentView === 'member-form')) return true;
+    if (tab === 'specialized' && currentView === 'specialized') return true;
+    if (tab === currentView) return true;
     return false;
   };
 
   return (
-    <div className={`flex flex-col md:flex-row w-full h-full relative overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-[#f5fffd]'}`}>
+    <div className={`flex flex-col md:flex-row w-full h-full relative overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-brand-light'}`}>
       
       {/* Desktop Sidebar */}
-      <aside className={`hidden md:flex flex-col w-72 border-r z-20 shrink-0 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#42f5e9]/30'}`}>
+      <aside className={`hidden md:flex flex-col w-72 border-r z-20 shrink-0 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-brand-lavender/30'}`}>
         <div className="p-6 flex items-center gap-4 border-b border-inherit">
           <div className="relative shrink-0">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
@@ -132,7 +175,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               {canAccess('organizations') && (
                 <button onClick={() => setView('admin-panel')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <Users size={22} strokeWidth={isTabActive('list') ? 2.5 : 2} />
-                  <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'কমিটিসমূহ' : 'Committees'}</span>
+                  <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'কমিটি' : 'Committees'}</span>
                 </button>
               )}
               {canAccess('approvals') && (
@@ -162,7 +205,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                   className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}
                 >
                   <Users size={22} strokeWidth={isTabActive('departments') ? 2.5 : 2} />
-                  <span className="text-sm font-bold font-noto">{t('members', lang)}</span>
+                  <span className="text-sm font-bold font-noto">{t('departments', lang, madrasah?.institution_type)}</span>
                 </button>
               )}
               {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && (hasPermission('can_send_sms') || hasPermission('can_use_voice_call')))) && (modules.modules.sms !== false || modules.modules.voice_broadcast) && (
@@ -208,6 +251,21 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                   <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'ইভেন্টসমূহ' : 'Events'}</span>
                 </button>
               )}
+              {!isSuperAdmin && activeSubmodules.map(subKey => {
+                const meta = getSubmoduleMeta(subKey);
+                const Icon = meta.icon;
+                const label = lang === 'bn' ? meta.labelBn : meta.labelEn;
+                return (
+                  <button 
+                    key={subKey}
+                    onClick={() => setView(subKey as any)} 
+                    className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive(subKey) ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}
+                  >
+                    <Icon size={22} strokeWidth={isTabActive(subKey) ? 2.5 : 2} className="text-[#0fb5ab]" />
+                    <span className="text-sm font-bold font-noto">{label}</span>
+                  </button>
+                );
+              })}
               <button onClick={() => setView('account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <User size={22} strokeWidth={isTabActive('account') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{t('account', lang)}</span>
@@ -219,7 +277,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
 
       <div className="flex flex-col flex-1 w-full h-full relative overflow-hidden">
         {/* Mobile Header */}
-        <header className={`md:hidden flex-none px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 flex items-center justify-between relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-[#f5fffd]/80 border-[#42f5e9]/20'} backdrop-blur-md border-b`}>
+        <header className={`md:hidden flex-none px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 flex items-center justify-between relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-brand-light/80 border-brand-lavender/20'} backdrop-blur-md border-b`}>
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <div className="relative shrink-0">
               <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
@@ -267,7 +325,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               {canAccess('organizations') && (
                 <button onClick={() => setView('admin-panel')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
                   <Users size={20} />
-                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'কমিটিসমূহ' : 'Committees'}</span>
+                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'কমিটি' : 'Committee'}</span>
                 </button>
               )}
               {canAccess('approvals') && (
@@ -293,7 +351,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                   className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}
                 >
                   <Users size={20} />
-                  <span className="text-[9px] font-black font-noto opacity-80">{t('members', lang)}</span>
+                  <span className="text-[9px] font-black font-noto opacity-80">{t('departments', lang, madrasah?.institution_type)}</span>
                 </button>
               )}
               {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && (hasPermission('can_send_sms') || hasPermission('can_use_voice_call')))) && (modules.modules.sms !== false || modules.modules.voice_broadcast) && (
@@ -341,6 +399,25 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                   <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'ইভেন্ট' : 'Events'}</span>
                 </button>
               )}
+              {!isSuperAdmin && activeSubmodules.length > 0 && (
+                activeSubmodules.length === 1 ? (
+                  (() => {
+                    const subKey = activeSubmodules[0];
+                    const meta = getSubmoduleMeta(subKey);
+                    return (
+                      <button onClick={() => setView(subKey as any)} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive(subKey) ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
+                        <meta.icon size={20} />
+                        <span className="text-[9px] font-black font-noto opacity-80 whitespace-nowrap">{lang === 'bn' ? meta.labelBn : meta.labelEn}</span>
+                      </button>
+                    );
+                  })()
+                ) : (
+                  <button onClick={() => setView('specialized')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('specialized') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
+                    <Landmark size={20} />
+                    <span className="text-[9px] font-black font-noto opacity-80 whitespace-nowrap">{lang === 'bn' ? 'ফিচার্স' : 'Features'}</span>
+                  </button>
+                )
+              )}
             </>
           )}
           
@@ -356,8 +433,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
 
       {showNotifications && (
         <div className="fixed inset-0 bg-[#080A12]/60 backdrop-blur-xl z-[9999] flex items-start justify-center p-4 pt-12">
-           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'} w-full max-w-sm rounded-[3rem] shadow-2xl border overflow-hidden flex flex-col max-h-[80vh]`}>
-              <div className={`p-6 border-b flex items-center justify-between shrink-0 ${madrasah?.theme === 'dark' ? 'border-slate-800' : 'border-slate-50'}`}>
+           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'} w-full max-w-sm rounded-[1.8rem] sm:rounded-[3rem] shadow-2xl border overflow-hidden flex flex-col max-h-[80vh]`}>
+              <div className={`p-5 sm:p-6 border-b flex items-center justify-between shrink-0 ${madrasah?.theme === 'dark' ? 'border-slate-800' : 'border-slate-50'}`}>
                  <h3 className={`text-xl font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#2E0B5E]'}`}>{t('notifications', lang)}</h3>
                  <button onClick={() => setShowNotifications(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400' : 'bg-slate-50 text-slate-400'}`}><X size={18} /></button>
               </div>

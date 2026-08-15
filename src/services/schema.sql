@@ -97,7 +97,9 @@ CREATE TABLE IF NOT EXISTS public.ledger (
     institution_id UUID NOT NULL REFERENCES public.institutions(id) ON DELETE CASCADE,
     member_id UUID REFERENCES public.members(id) ON DELETE SET NULL,
     description TEXT,
+    type TEXT DEFAULT 'credit',
     amount DECIMAL(12,2) NOT NULL,
+    transaction_id TEXT,
     transaction_type TEXT NOT NULL, -- 'income', 'expense'
     category TEXT,
     transaction_date DATE DEFAULT CURRENT_DATE,
@@ -118,11 +120,13 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     institution_id UUID NOT NULL REFERENCES public.institutions(id) ON DELETE CASCADE,
     amount DECIMAL(12,2) NOT NULL,
+    transaction_id TEXT,
     sms_count INTEGER DEFAULT 0,
     payment_method TEXT,
     sender_phone TEXT,
     status TEXT DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
     description TEXT,
+    type TEXT DEFAULT 'credit',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -405,3 +409,60 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION public.send_bulk_sms_rpc(
+  p_institution_id UUID,
+  p_student_ids UUID[],
+  p_message TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+  v_sms_count INTEGER;
+  v_current_balance INTEGER;
+BEGIN
+  -- 1. Check if caller has permission
+  IF NOT (
+    public.is_super_admin() OR 
+    auth.uid() = p_institution_id OR 
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND institution_id = p_institution_id)
+  ) THEN
+    RETURN json_build_object('success', false, 'error', 'Permission denied');
+  END IF;
+
+  v_sms_count := array_length(p_student_ids, 1);
+  
+  -- 2. Check balance
+  SELECT sms_balance INTO v_current_balance FROM public.institutions WHERE id = p_institution_id;
+  
+  IF v_current_balance < v_sms_count THEN
+    RETURN json_build_object('success', false, 'error', 'Insufficient SMS balance');
+  END IF;
+  
+  -- 3. Deduct balance
+  UPDATE public.institutions 
+  SET sms_balance = sms_balance - v_sms_count
+  WHERE id = p_institution_id;
+  
+  -- 4. Record transaction (optional but good)
+  INSERT INTO public.transactions (
+    institution_id, 
+    amount, 
+    transaction_id, 
+    sender_phone, 
+    description, 
+    type, 
+    status, 
+    sms_count
+  ) VALUES (
+    p_institution_id,
+    0,
+    'BULK_SMS_' || floor(extract(epoch from now())),
+    'SYSTEM',
+    'Sent ' || v_sms_count || ' SMS messages',
+    'debit',
+    'approved',
+    v_sms_count
+  );
+
+  RETURN json_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

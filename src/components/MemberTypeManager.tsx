@@ -76,8 +76,8 @@ export const MemberTypeManager: React.FC<MemberTypeManagerProps> = ({ institutio
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[3000] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-            <div className={`w-full max-w-md rounded-[3rem] p-6 sm:p-8 shadow-2xl relative animate-in zoom-in-95 duration-500 overflow-hidden ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[3000] flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-300">
+            <div className={`w-full max-w-md rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 shadow-2xl relative animate-in zoom-in-95 duration-500 overflow-y-auto max-h-[95vh] ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8 relative z-10">
                     <div className="flex items-center gap-4">

@@ -125,8 +125,8 @@ export const TutorialsManager: React.FC<TutorialsManagerProps> = ({ onBack, madr
 
       {/* Delete Confirmation Modal */}
       {tutorialToDelete && (
-        <div className="fixed inset-0 bg-[#080A12]/60 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl border overflow-hidden p-6 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+        <div className="fixed inset-0 bg-[#080A12]/60 backdrop-blur-xl z-[9999] flex items-center justify-center p-4 sm:p-6">
+          <div className={`w-full max-w-sm rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl border overflow-hidden p-5 sm:p-6 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
             <h3 className={`text-xl font-black mb-2 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
               Delete Tutorial
             </h3>
@@ -152,8 +152,8 @@ export const TutorialsManager: React.FC<TutorialsManagerProps> = ({ onBack, madr
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-white/50'} rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl border animate-in zoom-in-95 duration-200`}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-900/20 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-white/50'} rounded-[1.8rem] sm:rounded-[2.5rem] p-5 sm:p-8 w-full max-w-md shadow-2xl border animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[95vh]`}>
             <div className="flex justify-between items-center mb-6">
               <h2 className={`text-xl font-black font-noto ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'}`}>Add New Tutorial</h2>
               <button onClick={() => setShowAddModal(false)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${madrasah?.theme === 'dark' ? 'bg-slate-700 text-slate-400 hover:bg-slate-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}>

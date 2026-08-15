@@ -13,7 +13,7 @@ export interface Institution {
   address?: string;
   phone?: string;
   logo_url?: string;
-  institution_type: 'organization' | 'club' | 'committee' | 'foundation' | 'system' | 'madrasah' | 'school' | 'kindergarten' | 'nurani';
+  institution_type: 'committee' | 'association' | 'organization' | 'club' | 'foundation' | 'trust' | 'council' | 'union' | 'forum' | 'society' | 'federation' | 'governing_board' | 'ngo' | 'system' | 'madrasah' | 'school' | 'kindergarten' | 'nurani';
   config_json: {
     modules: {
       departments: boolean;
@@ -30,7 +30,46 @@ export interface Institution {
       notices?: boolean;
       admit_card?: boolean;
       seat_plan?: boolean;
-      academic_year_promotion?: boolean;
+      subscriptions?: boolean;
+      // Association Submodules
+      savings?: boolean;
+      loans?: boolean;
+      qard_hasan?: boolean;
+      installments?: boolean;
+      profit_distribution?: boolean;
+      // Organization/NGO Submodules
+      employees?: boolean;
+      volunteers?: boolean;
+      tasks?: boolean;
+      projects?: boolean;
+      payroll?: boolean;
+      beneficiaries?: boolean;
+      relief_mgmt?: boolean;
+      donations?: boolean;
+      monitoring?: boolean;
+      gps_tracking?: boolean;
+      // Club Submodules
+      tournaments?: boolean;
+      gallery?: boolean;
+      certificates?: boolean;
+      // Trust Submodules
+      trustees?: boolean;
+      properties?: boolean;
+      assets?: boolean;
+      legal_documents?: boolean;
+      // Council/Federation/Board/Union Submodules
+      regional_mgmt?: boolean;
+      election?: boolean;
+      welfare_fund?: boolean;
+      legal_support?: boolean;
+      training?: boolean;
+      discussions?: boolean;
+      multi_org?: boolean;
+      branches?: boolean;
+      delegates?: boolean;
+      conferences?: boolean;
+      institutions?: boolean;
+      board_members?: boolean;
     };
     org_type: 'community' | 'professional' | 'religious' | 'organization' | 'committee';
     attendance_type: 'daily' | 'meeting' | 'event' | 'period';
@@ -45,6 +84,8 @@ export interface Institution {
     result_system?: 'grading' | 'marks';
     accounting_mode?: 'qawmi_flexible' | 'school_system';
     subscription_type?: 'monthly' | 'yearly' | 'lifetime';
+    accounting_start_date?: string | null;
+    accounting_end_date?: string | null;
   };
   theme: string;
   status: 'active' | 'suspended' | 'trial';
@@ -257,6 +298,8 @@ export interface LedgerEntry {
   amount: number;
   description: string;
   transaction_date: string;
+  payment_method?: string;
+  reference_no?: string;
   created_at: string;
 }
 
@@ -399,7 +442,20 @@ export type View =
   | 'admin-tutorials'
   | 'polls'
   | 'notice-board'
-  | 'super-account';
+  | 'super-account'
+  | 'specialized'
+  | 'savings'
+  | 'loans'
+  | 'qard_hasan'
+  | 'volunteers'
+  | 'employees'
+  | 'projects'
+  | 'donations'
+  | 'properties'
+  | 'election'
+  | 'discussions'
+  | 'board_members'
+  | 'subscriptions';
 
 export interface Poll {
   id: string;
@@ -453,6 +509,7 @@ export interface Transaction {
   transaction_id: string;
   sender_phone: string;
   description: string;
+  type?: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   sms_count?: number;

@@ -6,6 +6,7 @@ import { supabase, offlineApi } from 'supabase';
 import { OfflineService } from 'services/OfflineService';
 import { Member, Department, Language, Institution } from 'types';
 import { t } from 'translations';
+import { bdDivisions, bdDistricts, bdThanas } from '../utils/bdData';
 import { sortMadrasahClasses } from 'pages/Departments';
 
 interface StudentFormProps {
@@ -48,6 +49,17 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
   // Other
   const [joinDate, setJoinDate] = useState(student?.join_date || new Date().toISOString().split('T')[0]);
   const [reference, setReference] = useState(student?.reference || '');
+
+  // Union Specific Fields
+  const initialAddressData = React.useMemo(() => {
+    try { return JSON.parse(student?.address || '{}'); } 
+    catch { return {}; }
+  }, [student]);
+  
+  const [division, setDivision] = useState(initialAddressData?.division || '');
+  const [district, setDistrict] = useState(initialAddressData?.district || '');
+  const [thana, setThana] = useState(initialAddressData?.thana || '');
+  const [ward, setWard] = useState(initialAddressData?.ward || '');
 
   const [departments, setClasses] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
@@ -137,6 +149,18 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
 
     setLoading(true);
     try {
+      let finalPhotoUrl = student?.photo_url || null;
+
+      let addressPayload = student?.address || null;
+      if (madrasah?.institution_type === 'union') {
+        addressPayload = JSON.stringify({
+          division: division.trim(),
+          district: district.trim(),
+          thana: thana.trim(),
+          ward: ward.trim()
+        });
+      }
+
       const payload = {
         name: name.trim(),
         roll: roll ? parseInt(roll) : null,
@@ -159,9 +183,11 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
         guardian_phone_2: phone2.trim() || null,
         present_address: presentAddress.trim() || null,
         permanent_address: permanentAddress.trim() || null,
+        address: addressPayload,
 
         join_date: joinDate || null,
         reference: reference.trim() || null,
+        photo_url: finalPhotoUrl,
         
         institution_id: madrasah.id
       };
@@ -205,7 +231,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
               {title || (isEditing ? (lang === 'bn' ? 'সদস্য তথ্য আপডেট' : 'Update Member') : (lang === 'bn' ? 'নতুন সদস্য নিবন্ধন' : 'New Member Registration'))}
             </h1>
             <p className="text-white/60 text-[9px] font-bold uppercase tracking-[0.2em] mt-1">
-              {isEditing ? 'Update existing record' : 'Register new member'}
+              {isEditing ? (lang === 'bn' ? 'বর্তমান তথ্য আপডেট করুন' : 'Update existing record') : (lang === 'bn' ? 'নতুন সদস্য নিবন্ধন করুন' : 'Register new member')}
             </p>
           </div>
         </div>
@@ -226,7 +252,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'সদস্যের পুরো নাম' : 'Full Name'} *
               </label>
               <input 
-                type="text" required placeholder="Full Name"
+                type="text" required placeholder={lang === 'bn' ? 'পুরো নাম' : 'Full Name'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={name} onChange={(e) => setName(e.target.value)} 
               />
@@ -238,7 +264,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'সদস্য আইডি নং' : 'Member ID Number'}
               </label>
               <input 
-                type="text" placeholder="ID Number"
+                type="text" placeholder={lang === 'bn' ? 'আইডি নাম্বার' : 'ID Number'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:bg-transparent focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={memberIdNumber} onChange={(e) => setMemberIdNumber(e.target.value)} 
               />
@@ -289,7 +315,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'পিতার নাম' : 'Father Name'}
               </label>
               <input 
-                type="text" placeholder="Father Name"
+                type="text" placeholder={lang === 'bn' ? 'পিতার নাম' : 'Father Name'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={fatherName} onChange={(e) => setFatherName(e.target.value)} 
               />
@@ -299,7 +325,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'মাতার নাম' : 'Mother Name'}
               </label>
               <input 
-                type="text" placeholder="Mother Name"
+                type="text" placeholder={lang === 'bn' ? 'মাতার নাম' : 'Mother Name'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={motherName} onChange={(e) => setMotherName(e.target.value)} 
               />
@@ -343,7 +369,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'পেশা' : 'Occupation'}
               </label>
               <input 
-                type="text" placeholder="Occupation"
+                type="text" placeholder={lang === 'bn' ? 'পেশা' : 'Occupation'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={occupation} onChange={(e) => setOccupation(e.target.value)} 
               />
@@ -353,7 +379,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'জাতীয় পরিচয়পত্র / পাসপোর্ট' : 'NID / Passport'}
               </label>
               <input 
-                type="text" placeholder="NID Number"
+                type="text" placeholder={lang === 'bn' ? 'এনআইডি নাম্বার' : 'NID Number'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={nid} onChange={(e) => setNid(e.target.value)} 
               />
@@ -363,13 +389,80 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'শিক্ষাগত যোগ্যতা' : 'Education'}
               </label>
               <input 
-                type="text" placeholder="Education Qualification"
+                type="text" placeholder={lang === 'bn' ? 'শিক্ষাগত যোগ্যতা' : 'Education Qualification'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={education} onChange={(e) => setEducation(e.target.value)} 
               />
             </div>
           </div>
         </div>
+
+        {madrasah?.institution_type === 'union' && (
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-none' : 'bg-white border-slate-100 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.08)]'} p-6 rounded-[2.5rem] border space-y-6`}>
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
+              <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'এলাকা নির্বাচন' : 'Area Selection'}</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="space-y-2">
+                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                  {lang === 'bn' ? 'বিভাগ' : 'Division'}
+                </label>
+                <select
+                  className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm appearance-none`}
+                  value={division}
+                  onChange={(e) => {
+                    setDivision(e.target.value);
+                    setDistrict('');
+                    setThana('');
+                  }}
+                >
+                  <option value="">{lang === 'bn' ? 'নির্বাচন করুন' : 'Select'}</option>
+                  {bdDivisions.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                  {lang === 'bn' ? 'জেলা' : 'District'}
+                </label>
+                <select
+                  className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm appearance-none`}
+                  value={district}
+                  onChange={(e) => {
+                    setDistrict(e.target.value);
+                    setThana('');
+                  }}
+                  disabled={!division}
+                >
+                  <option value="">{lang === 'bn' ? 'নির্বাচন করুন' : 'Select'}</option>
+                  {division && bdDistricts[division]?.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                  {lang === 'bn' ? 'থানা' : 'Thana'}
+                </label>
+                <select
+                  className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm appearance-none`}
+                  value={thana}
+                  onChange={(e) => setThana(e.target.value)}
+                  disabled={!district}
+                >
+                  <option value="">{lang === 'bn' ? 'নির্বাচন করুন' : 'Select'}</option>
+                  {district && bdThanas[district]?.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className={`flex items-center gap-2 text-[9px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E40AF]'} uppercase tracking-wider px-2`}>
+                  {lang === 'bn' ? 'ওয়ার্ড' : 'Ward'}
+                </label>
+                <input type="text" placeholder={lang === 'bn' ? 'ওয়ার্ড নম্বর বা নাম' : 'Ward'}
+                  className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
+                  value={ward} onChange={(e) => setWard(e.target.value)} disabled={!district && !thana} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Section 3: Contact & Address */}
         <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-none' : 'bg-white border-slate-100 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.08)]'} p-6 rounded-[2.5rem] border space-y-6`}>
@@ -385,7 +478,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'প্রাথমিক মোবাইল নম্বর' : 'Primary Mobile Number'} *
               </label>
               <input 
-                type="tel" required placeholder="01XXXXXXXXX"
+                type="tel" required placeholder={lang === 'bn' ? '০১XXXXXXXXX' : '01XXXXXXXXX'}
                 className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] font-black text-sm outline-none focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={phone} onChange={(e) => handlePhoneChange(e.target.value, setPhone)} 
               />
@@ -395,7 +488,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'দ্বিতীয় মোবাইল (ঐচ্ছিক)' : 'Secondary Mobile (Optional)'}
               </label>
               <input 
-                type="tel" placeholder="Optional Number"
+                type="tel" placeholder={lang === 'bn' ? 'ঐচ্ছিক নাম্বার' : 'Optional Number'}
                 className={`w-full h-[54px] px-4 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] font-black text-sm outline-none focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={phone2} onChange={(e) => handlePhoneChange(e.target.value, setPhone2)} 
               />
@@ -405,7 +498,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'ইমেইল এড্রেস' : 'Email Address'}
               </label>
               <input 
-                type="email" placeholder="email@example.com"
+                type="email" placeholder={lang === 'bn' ? 'ইমেইল এড্রেস' : 'email@example.com'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={email} onChange={(e) => setEmail(e.target.value)} 
               />
@@ -415,7 +508,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'বর্তমান ঠিকানা' : 'Present Address'}
               </label>
               <textarea 
-                rows={2} placeholder="Present Address"
+                rows={2} placeholder={lang === 'bn' ? 'বর্তমান ঠিকানা' : 'Present Address'}
                 className={`w-full p-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm resize-none`} 
                 value={presentAddress} onChange={(e) => setPresentAddress(e.target.value)} 
               />
@@ -425,7 +518,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'স্থায়ী ঠিকানা' : 'Permanent Address'}
               </label>
               <textarea 
-                rows={2} placeholder="Permanent Address"
+                rows={2} placeholder={lang === 'bn' ? 'স্থায়ী ঠিকানা' : 'Permanent Address'}
                 className={`w-full p-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm resize-none`} 
                 value={permanentAddress} onChange={(e) => setPermanentAddress(e.target.value)} 
               />
@@ -456,7 +549,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
                 {lang === 'bn' ? 'কার মাধ্যমে যুক্ত হয়েছেন' : 'Reference'}
               </label>
               <input 
-                type="text" placeholder="Reference Name"
+                type="text" placeholder={lang === 'bn' ? 'রেফারেন্স ব্যক্তির নাম' : 'Reference Name'}
                 className={`w-full h-[54px] px-5 ${isDark ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500' : 'bg-slate-50 border-slate-100 text-[#1E293B] focus:border-[#2563EB]'} border-2 rounded-[1.2rem] outline-none font-black text-sm focus:ring-4 focus:ring-[#2563EB]/5 transition-all shadow-sm`} 
                 value={reference} onChange={(e) => setReference(e.target.value)} 
               />

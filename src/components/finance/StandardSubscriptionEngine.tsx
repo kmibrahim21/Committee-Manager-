@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from 'supabase';
 import { Institution, Department } from 'types';
-import { Loader2, Plus, X, DollarSign, Tag, CheckCircle2, Download, ChevronDown, RefreshCw, AlertCircle, Info, Users, HandHeart, Bell } from 'lucide-react';
+import { Loader2, Plus, X, DollarSign, Tag, CheckCircle2, Download, ChevronDown, RefreshCw, AlertCircle, Info, Users, HandHeart, Bell, CreditCard, Calendar, Settings } from 'lucide-react';
 import { sortMadrasahClasses } from 'pages/Departments';
 import { generateDepartmentSubscriptionReportPDF, generateSubscriptionReceiptPDF } from '../../utils/pdfGenerator';
 
@@ -16,6 +16,7 @@ interface StandardSubscriptionEngineProps {
 }
 
 export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProps> = ({ activeTab, madrasah, lang, departments: initialClasses, onStudentClick, role, profile }) => {
+  const isDark = madrasah.theme === 'dark';
   const [departments, setClasses] = useState<Department[]>(initialClasses || []);
   const [feesReport, setFeesReport] = useState<any[]>([]);
   const [structures, setStructures] = useState<any[]>([]);
@@ -49,11 +50,81 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
   const [showAddStructure, setShowAddStructure] = useState(false);
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
+  const [structureStartDate, setStructureStartDate] = useState('');
+  const [structureEndDate, setStructureEndDate] = useState('');
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`custom_fee_categories_${madrasah.id}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return customCategories;
+  });
+  const [showCategorySettings, setShowCategorySettings] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [datesMap, setDatesMap] = useState<Record<string, { start_date?: string; end_date?: string }>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`fee_structure_dates_${madrasah.id}`) || '{}');
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const handleAddCustomCategory = () => {
+    if (!newCategoryInput.trim()) return;
+    const trimmed = newCategoryInput.trim();
+    if (!customCategories.includes(trimmed)) {
+      const updated = [...customCategories, trimmed];
+      setCustomCategories(updated);
+      localStorage.setItem(`custom_fee_categories_${madrasah.id}`, JSON.stringify(updated));
+      setCategory(trimmed);
+    }
+    setNewCategoryInput('');
+  };
+
+  const handleDeleteCustomCategory = (catToDelete: string) => {
+    const updated = customCategories.filter(c => c !== catToDelete);
+    setCustomCategories(updated);
+    localStorage.setItem(`custom_fee_categories_${madrasah.id}`, JSON.stringify(updated));
+  };
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showDownloadLangModal, setShowDownloadLangModal] = useState(false);
   const [downloadAction, setDownloadAction] = useState<((lang: 'en' | 'bn') => Promise<void>) | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Accounting Settings State
+  const [accountingStartDate, setAccountingStartDate] = useState(madrasah.config_json?.accounting_start_date || '');
+  const [accountingEndDate, setAccountingEndDate] = useState(madrasah.config_json?.accounting_end_date || '');
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [configSuccess, setConfigSuccess] = useState(false);
+
+  const handleSaveAccountingConfig = async () => {
+    setIsSavingConfig(true);
+    setConfigSuccess(false);
+    try {
+      const updatedConfig: any = {
+        ...(madrasah.config_json || {}),
+        accounting_start_date: accountingStartDate || null,
+        accounting_end_date: accountingEndDate || null,
+      };
+
+      const { error } = await supabase
+        .from('institutions')
+        .update({ config_json: updatedConfig })
+        .eq('id', madrasah.id);
+
+      if (error) throw error;
+      
+      madrasah.config_json = updatedConfig;
+      setConfigSuccess(true);
+      setTimeout(() => setConfigSuccess(false), 3000);
+    } catch (err: any) {
+      console.error("Error updating accounting dates:", err);
+      setActionError(lang === 'bn' ? "হিসাব শুরুর তারিখ সেভ করতে সমস্যা হয়েছে: " + err.message : "Error saving accounting dates: " + err.message);
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
 
   useEffect(() => {
     fetchClasses();
@@ -96,19 +167,63 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
             .eq('institution_id', madrasah.id)
             .eq('month', selectedMonth);
 
-        // For Qawmi, we might use a different report or the same one but interpret it differently
-        // Using the same report for now as a base
-        const { data, error } = await supabase.rpc('get_monthly_dues_report', {
-          p_institution_id: madrasah.id,
-          p_class_id: classId,
-          p_month: selectedMonth
-        });
-        
-        if (error) throw error;
+        let filteredData = [];
+        try {
+          const { data: rpcData, error: rpcError } = await supabase.rpc('get_monthly_dues_report', {
+            p_institution_id: madrasah.id,
+            p_class_id: classId,
+            p_month: selectedMonth
+          });
+          
+          if (!rpcError && rpcData && rpcData.length > 0) {
+            filteredData = rpcData;
+          } else {
+            // Robust client-side query fallback directly from public.members table
+            let query = supabase
+              .from('members')
+              .select('id, name, roll, department_id, departments(name)')
+              .eq('institution_id', madrasah.id);
+            
+            if (classId) {
+              query = query.eq('department_id', classId);
+            }
+            
+            const { data: membersData, error: membersError } = await query;
+            if (membersError) throw membersError;
+            
+            filteredData = (membersData || []).map((m: any) => ({
+              student_id: m.id,
+              student_name: m.name,
+              student_roll: m.roll,
+              department_id: m.department_id,
+              department_name: m.departments?.name || m.departments?.[0]?.name || ''
+            }));
+          }
+        } catch (e) {
+          console.warn("RPC failed, trying direct query:", e);
+          let query = supabase
+            .from('members')
+            .select('id, name, roll, department_id, departments(name)')
+            .eq('institution_id', madrasah.id);
+          
+          if (classId) {
+            query = query.eq('department_id', classId);
+          }
+          
+          const { data: membersData, error: membersError } = await query;
+          if (membersError) throw membersError;
+          
+          filteredData = (membersData || []).map((m: any) => ({
+            student_id: m.id,
+            student_name: m.name,
+            student_roll: m.roll,
+            department_id: m.department_id,
+            department_name: m.departments?.name || m.departments?.[0]?.name || ''
+          }));
+        }
 
-        let filteredData = data || [];
         if (role === 'executive' && profile?.permissions?.allowed_departments && !classId) {
-          filteredData = data.filter((student: any) => profile.permissions?.allowed_departments?.includes(student.department_id));
+          filteredData = filteredData.filter((student: any) => profile.permissions?.allowed_departments?.includes(student.department_id));
         }
 
         const correctedData = filteredData.map((student: any) => {
@@ -127,6 +242,9 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
 
             return {
                 ...student,
+                id: student.student_id,
+                name: student.student_name,
+                roll: student.student_roll,
                 total_payable: totalPayable,
                 total_paid: totalPaid,
                 balance_due: balanceDue,
@@ -136,7 +254,7 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
 
         setFeesReport(correctedData || []);
 
-        if (!data || data.length === 0) {
+        if (!filteredData || filteredData.length === 0) {
           let checkQuery = supabase.from('members').select('id', { count: 'exact', head: true }).eq('institution_id', madrasah.id);
           if (classId) checkQuery = checkQuery.eq('department_id', classId);
           const { count } = await checkQuery;
@@ -485,8 +603,8 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
          {/* COLLECT FEE MODAL */}
          {/* Modals */}
       {showDownloadLangModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[1001] flex items-center justify-center p-4">
-              <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[1001] flex items-center justify-center p-3 sm:p-4">
+              <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 w-full max-w-sm shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300">
                   <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mx-auto mb-6 shadow-sm">
                       <Download size={32} strokeWidth={2.5} />
                   </div>
@@ -531,8 +649,8 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
       )}
 
       {showFeeCollection && selectedStudent && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-6">
-                <div className="bg-white w-full max-w-sm rounded-[3rem] p-8 space-y-6 animate-in zoom-in-95 overflow-y-auto max-h-[80vh] shadow-2xl">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-4 sm:p-6">
+                <div className="bg-white w-full max-w-sm rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 space-y-4 sm:space-y-6 animate-in zoom-in-95 overflow-y-auto max-h-[92vh] sm:max-h-[80vh] shadow-2xl">
                     <div className="flex items-center justify-between">
                         <h3 className="text-xl font-black text-[#1E3A8A] font-noto">সাবস্ক্রিপশন / অনুদান</h3>
                         <button onClick={() => setShowFeeCollection(false)} className="w-9 h-9 bg-slate-50 text-slate-300 rounded-xl flex items-center justify-center"><X size={20} /></button>
@@ -631,8 +749,8 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
 
          {/* HISTORY MODAL */}
          {showHistoryModal && historyStudent && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-6">
-                <div className="bg-white w-full max-w-2xl rounded-[3rem] p-8 space-y-6 animate-in zoom-in-95 overflow-y-auto max-h-[90vh] shadow-2xl">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-4 sm:p-6">
+                <div className="bg-white w-full max-w-2xl rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 space-y-4 sm:space-y-6 animate-in zoom-in-95 overflow-y-auto max-h-[92vh] sm:max-h-[90vh] shadow-2xl">
                     <div className="flex items-center justify-between">
                         <h3 className="text-xl font-black text-[#1E3A8A] font-noto">সাবস্ক্রিপশন হিস্ট্রি</h3>
                         <button onClick={() => setShowHistoryModal(false)} className="w-9 h-9 bg-slate-50 text-slate-300 rounded-xl flex items-center justify-center"><X size={20} /></button>
@@ -714,9 +832,36 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                <button onClick={() => setActionError(null)} className="bg-white p-1.5 rounded-lg border border-red-200 text-red-600 active:scale-95"><X size={14}/></button>
             </div>
          )}
-         <button onClick={() => setShowAddStructure(true)} className="w-full py-5 bg-white rounded-[2.2rem] text-[#2563EB] font-black flex items-center justify-center gap-3 shadow-bubble active:scale-95 transition-all border border-slate-100">
-            <Plus size={24} strokeWidth={3} /> নতুন সাবস্ক্রিপশন / অনুদান খাত যোগ করুন
-         </button>
+         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-bubble mb-4 flex items-center justify-between">
+            <div>
+               <h3 className="text-lg font-black font-noto text-[#1E3A8A]">সাবস্ক্রিপশন সেটিংস</h3>
+               <p className="text-[10px] font-bold text-slate-400 uppercase">সাবস্ক্রিপশন ও ফি খাত নির্ধারণ করুন</p>
+            </div>
+            <div className="flex items-center gap-2">
+               <button 
+                  type="button"
+                  onClick={() => {
+                     setShowAddStructure(true);
+                     setShowCategorySettings(true);
+                  }} 
+                  className="px-3.5 h-12 rounded-2xl font-black text-xs flex items-center gap-1.5 border border-blue-100 bg-blue-50 text-[#2563EB] hover:bg-blue-100 active:scale-95 transition-all"
+                  title="ক্যাটাগরি সেটিং"
+               >
+                  <Settings size={18} />
+                  <span>সেটিং</span>
+               </button>
+               <button 
+                  onClick={() => {
+                     setShowAddStructure(true);
+                     setShowCategorySettings(false);
+                  }} 
+                  className="w-12 h-12 bg-[#2563EB] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 active:scale-95 transition-all"
+                  title="নতুন সেটিং যোগ করুন"
+               >
+                  <Plus size={24} strokeWidth={3} />
+               </button>
+            </div>
+         </div>
          <div className="space-y-3">
             {structures.length > 0 ? structures.map(s => (
               <div key={s.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-bubble flex items-center justify-between">
@@ -753,11 +898,76 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
          </div>
 
          {/* ADD STRUCTURE MODAL */}
+          {/* ACCOUNTING DATE CONFIGURATION CARD */}
+          <div className={`p-6 rounded-[2.5rem] border shadow-bubble mb-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+             <div className="flex items-center gap-3 mb-6">
+                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#e0fdfb] text-[#0fb5ab]'}`}>
+                     <Calendar size={18} />
+                 </div>
+                 <div>
+                     <h3 className={`text-base font-black font-noto ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>
+                         {lang === 'bn' ? 'হিসাব কাল সেটিংস' : 'Accounting Period Settings'}
+                     </h3>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase">
+                         {lang === 'bn' ? 'অ্যাকাউন্টিং ডেট ফিল্টার সীমা নির্ধারণ করুন' : 'Define accounting date range filters'}
+                     </p>
+                 </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2 block">
+                      {lang === 'bn' ? 'হিসাব শুরু হওয়ার তারিখ' : 'Accounting Start Date'}
+                   </label>
+                   <input 
+                      type="date" 
+                      value={accountingStartDate}
+                      onChange={(e) => setAccountingStartDate(e.target.value)}
+                      className={`w-full h-12 px-4 rounded-xl border font-bold text-xs outline-none focus:ring-2 focus:ring-[#42f5e9]/20 ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
+                   />
+                </div>
+                <div>
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2 block">
+                      {lang === 'bn' ? 'হিসাব শেষ হওয়ার তারিখ' : 'Accounting End Date'}
+                   </label>
+                   <input 
+                      type="date" 
+                      value={accountingEndDate}
+                      onChange={(e) => setAccountingEndDate(e.target.value)}
+                      className={`w-full h-12 px-4 rounded-xl border font-bold text-xs outline-none focus:ring-2 focus:ring-[#42f5e9]/20 ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
+                   />
+                </div>
+             </div>
+
+             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <p className="text-[10px] font-bold text-slate-400 max-w-md leading-relaxed">
+                   {lang === 'bn' 
+                      ? '* এই সময়সীমাটি আর্থিক বিবরণী ও ট্রানজেকশন ফিল্টারের ভিত্তি হিসেবে কাজ করবে।' 
+                      : '* This date range determines the limits for financial analytics reports & logs.'}
+                </p>
+                <button
+                   onClick={handleSaveAccountingConfig}
+                   disabled={isSavingConfig}
+                   className="px-6 py-3 bg-[#0fb5ab] text-[#ffffff] font-black text-xs rounded-xl shadow-md hover:bg-[#0a8078] active:scale-95 transition-all flex items-center gap-2 w-full sm:w-auto justify-center"
+                >
+                   {isSavingConfig ? <Loader2 className="animate-spin" size={14} /> : (
+                      <>
+                         {configSuccess ? (
+                            <span>{lang === 'bn' ? 'সেভ হয়েছে!' : 'Saved!'}</span>
+                         ) : (
+                            <span>{lang === 'bn' ? 'সেটিংস সেভ করুন' : 'Save Settings'}</span>
+                         )}
+                      </>
+                   )}
+                </button>
+             </div>
+          </div>
+
          {showAddStructure && (
-           <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-6">
-              <div className="bg-white w-full max-w-sm rounded-[3rem] p-8 space-y-6 animate-in zoom-in-95 shadow-2xl relative">
+           <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-4 sm:p-6">
+              <div className="bg-white w-full max-w-sm rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 space-y-4 sm:space-y-6 animate-in zoom-in-95 shadow-2xl relative">
                  <div className="flex items-center justify-between">
-                   <h3 className="text-xl font-black text-[#1E3A8A]">সাবস্ক্রিপশন / অনুদান সেটআপ</h3>
+                   <h3 className="text-xl font-black text-[#1E3A8A]">নতুন সেটিং যোগ করুন</h3>
                    <button onClick={() => setShowAddStructure(false)} className="w-9 h-9 bg-slate-50 text-slate-300 rounded-xl flex items-center justify-center"><X size={20} /></button>
                  </div>
                  <div className="space-y-4">
@@ -777,11 +987,55 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                        )}
                     </div>
                     <div className="relative">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">খাতের নাম</label>
-                       <input type="text" className="w-full h-14 bg-slate-50 rounded-2xl px-12 font-black text-sm outline-none border-2 border-transparent focus:border-[#2563EB]/20" placeholder="যেমন: খোরাকি" value={category} onChange={(e) => setCategory(e.target.value)} />
+                       <div className="flex items-center justify-between mb-1.5 px-2">
+                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">ক্যাটাগরি</label>
+                           <button 
+                              type="button" 
+                              onClick={() => setShowCategorySettings(!showCategorySettings)}
+                              className="p-1 text-[#2563EB] hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold"
+                              title="ক্যাটাগরি সেটিং"
+                           >
+                              <Settings size={14} />
+                              <span>সেটিং</span>
+                           </button>
+                        </div>
+
+                        {showCategorySettings && (
+                           <div className="p-3 rounded-2xl border border-blue-100 bg-blue-50/50 mb-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                 <span className="text-[10px] font-black text-[#1E3A8A] uppercase">নতুন ক্যাটাগরি যুক্ত করুন</span>
+                                 <button type="button" onClick={() => setShowCategorySettings(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 <input 
+                                    type="text" 
+                                    value={newCategoryInput} 
+                                    onChange={(e) => setNewCategoryInput(e.target.value)} 
+                                    placeholder="ক্যাটাগরির নাম..." 
+                                    className="flex-1 h-9 px-3 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-800 outline-none"
+                                 />
+                                 <button 
+                                    type="button" 
+                                    onClick={handleAddCustomCategory} 
+                                    className="px-3 h-9 bg-[#2563EB] text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all shrink-0"
+                                 >
+                                    যোগ
+                                 </button>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                 {customCategories.map(cat => (
+                                    <span key={cat} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg text-[9px] font-black">
+                                       {cat}
+                                       <button type="button" onClick={() => handleDeleteCustomCategory(cat)} className="hover:text-red-500 text-slate-400 ml-0.5"><X size={12} /></button>
+                                    </span>
+                                 ))}
+                              </div>
+                           </div>
+                        )}
+                       <input type="text" className="w-full h-14 bg-slate-50 rounded-2xl pl-12 pr-4 font-black text-sm outline-none border-2 border-transparent focus:border-[#2563EB]/20" placeholder="যেমন: খোরাকি" value={category} onChange={(e) => setCategory(e.target.value)} />
                        <Tag className="absolute left-4 top-[44px] text-slate-300" size={20}/>
-                       <div className="flex flex-wrap gap-2 mt-2 px-1">
-                          {['মাসিক চাঁদা', 'সদস্য ফি', 'বিলবোর্ড অনুদান', 'বার্ষিক চাঁদা', 'প্রজেক্ট অনুদান'].map(suggestion => (
+                       <div className="flex flex-wrap gap-2 mt-2 px-1 max-h-24 overflow-y-auto">
+                          {customCategories.map(suggestion => (
                              <button 
                                 key={suggestion}
                                 type="button"
@@ -811,7 +1065,7 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                            });
                            if (error) throw error;
                            setShowAddStructure(false);
-                           setCategory(''); setAmount(''); setSelectedClass('');
+                           setCategory(''); setAmount(''); setSelectedClass(''); setStructureStartDate(''); setStructureEndDate('');
                            fetchData();
                        } catch (e: any) { setActionError(e.message); } finally { setIsSaving(false); }
                     }} className="w-full py-5 bg-[#2563EB] text-white font-black rounded-full shadow-premium active:scale-95 transition-all text-base">

@@ -75,6 +75,14 @@ const CommitteeFeeAnalytics: React.FC<CommitteeFeeAnalyticsProps> = ({ madrasah,
       // 1. Fetch Ledger Data
       let ledgerQuery = supabase.from('ledger').select('*').eq('institution_id', madrasah.id);
       
+      const config: any = madrasah?.config_json || {};
+      if (config.accounting_start_date) {
+        ledgerQuery = ledgerQuery.gte('transaction_date', config.accounting_start_date);
+      }
+      if (config.accounting_end_date) {
+        ledgerQuery = ledgerQuery.lte('transaction_date', config.accounting_end_date);
+      }
+
       if (timeRange === 'month') {
         ledgerQuery = ledgerQuery.gte('transaction_date', `${selectedMonth}-01`).lte('transaction_date', `${selectedMonth}-31`);
       } else if (timeRange === 'year') {

@@ -24,7 +24,6 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
 
   const [globalSettings, setGlobalSettings] = useState({
     reve_api_key: '',
-    reve_secret_key: '',
     reve_caller_id: '',
     bkash_number: '',
     sms_rate: 0.50,
@@ -39,7 +38,6 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
     const settings = await smsApi.getGlobalSettings();
     setGlobalSettings({
       reve_api_key: settings.reve_api_key,
-      reve_secret_key: settings.reve_secret_key,
       reve_caller_id: settings.reve_caller_id,
       bkash_number: settings.bkash_number,
       sms_rate: settings.sms_rate || 0.50,
@@ -52,7 +50,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
     try {
       const { error } = await supabase.from('system_settings').update({
         reve_api_key: (globalSettings.reve_api_key || '').trim(),
-        reve_secret_key: (globalSettings.reve_secret_key || '').trim(),
+        reve_caller_id: (globalSettings.reve_caller_id || "").trim(),
         sms_rate: Number(globalSettings.sms_rate),
         voice_rate: Number(globalSettings.voice_rate)
       }).eq('id', '00000000-0000-0000-0000-000000000001');
@@ -60,7 +58,13 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
       setIsEditingBulkSMS(false);
       setShowSuccessModal({ show: true, title: 'Bulk SMS আপডেট', message: 'Bulk SMS ও রেট সেটিংস আপডেট হয়েছে।' });
       fetchGlobalSettings();
-    } catch (err: any) { alert(err.message); } finally { setSaving(false); }
+    } catch (err: any) {
+      if (err.message?.includes('reve_caller_id')) {
+        alert("Database schema mismatch: Please run this SQL in Supabase:\n\nALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS reve_api_key TEXT;\nALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS reve_caller_id TEXT;\nNOTIFY pgrst, 'reload config';");
+      } else {
+        alert(err.message);
+      }
+    } finally { setSaving(false); }
   };
 
   const handleSavePayment = async () => {
@@ -309,8 +313,9 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
                  <div className="space-y-2.5">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Gateway Protocols</h4>
                     <div className={`p-4 rounded-[2rem] border space-y-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Master API Key</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.reve_api_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_api_key: e.target.value})} /></div>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Encryption Token</label><input type="password" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.reve_secret_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_secret_key: e.target.value})} /></div>
+                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">MRAM API Key</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === "dark" ? "bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50" : "bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50"}`} value={globalSettings.reve_api_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_api_key: e.target.value})} /></div>
+                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">MRAM Sender ID</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === "dark" ? "bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50" : "bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50"}`} value={globalSettings.reve_caller_id} onChange={(e) => setGlobalSettings({...globalSettings, reve_caller_id: e.target.value})} /></div>
+<div className="hidden"><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.reve_api_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_api_key: e.target.value})} /></div>
                     </div>
                  </div>
                  <div className="space-y-2.5">

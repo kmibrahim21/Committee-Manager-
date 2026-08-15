@@ -6,11 +6,11 @@
 }
 
 @theme {
-  --color-brand-blue: #42f5e9;
-  --color-brand-light: #f5fffd;
-  --color-brand-soft: #fafefe;
-  --color-brand-lavender: #89fdf6;
-  --color-brand-deep: #0e8a84;
+  --color-brand-blue: #3b82f6;
+  --color-brand-light: #f0f9ff;
+  --color-brand-soft: #e0f2fe;
+  --color-brand-lavender: #bae6fd;
+  --color-brand-deep: #0369a1;
   --color-brand-dark: #1E293B;
 
   --shadow-bubble: 0 20px 40px -15px rgba(66, 245, 233, 0.2);
@@ -71,7 +71,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden; 
-  background-color: #bdfdfa; /* Updated to match the new theme */
+  background-color: #e0f2fe; /* Updated to match the new theme */
   position: fixed; 
   left: 0;
   top: 0;

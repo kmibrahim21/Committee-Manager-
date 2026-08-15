@@ -48,24 +48,45 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
         .order('is_pinned', { ascending: false })
         .order('created_at', { ascending: false });
 
+      const localNoticesJson = localStorage.getItem(`local_notices_${madrasah.id}`);
+      const localNotices: Notice[] = localNoticesJson ? JSON.parse(localNoticesJson) : [];
+
+      let finalNotices: Notice[] = [];
+
       if (error) {
         console.error('Error fetching notices:', error);
-        // Fallback to demo data if table doesn't exist
-        const demoNotices: Notice[] = [
-          {
-            id: '1',
-            institution_id: madrasah.id,
-            title: lang === 'bn' ? 'আগামী শুক্রবারের মিটিং' : 'Next Friday Meeting',
-            content: lang === 'bn' ? 'সকল সদস্যকে আগামী শুক্রবার বিকেল ৪টায় উপস্থিত থাকার অনুরোধ করা হলো।' : 'All members are requested to attend next Friday at 4 PM.',
-            is_pinned: true,
-            is_urgent: true,
-            created_at: new Date().toISOString()
-          }
-        ];
-        setNotices(demoNotices);
+        if (localNotices.length > 0) {
+          finalNotices = localNotices;
+        } else {
+          // Fallback to demo data if table doesn't exist and no local data
+          const demoNotices: Notice[] = [
+            {
+              id: '1',
+              institution_id: madrasah.id,
+              title: lang === 'bn' ? 'আগামী শুক্রবারের মিটিং' : 'Next Friday Meeting',
+              content: lang === 'bn' ? 'সকল সদস্যকে আগামী শুক্রবার বিকেল ৪টায় উপস্থিত থাকার অনুরোধ করা হলো।' : 'All members are requested to attend next Friday at 4 PM.',
+              is_pinned: true,
+              is_urgent: true,
+              created_at: new Date().toISOString()
+            }
+          ];
+          finalNotices = demoNotices;
+          localStorage.setItem(`local_notices_${madrasah.id}`, JSON.stringify(demoNotices));
+        }
       } else {
-        setNotices(data || []);
+        const supabaseIds = new Set((data || []).map(n => n.id));
+        const nonDuplicateLocal = localNotices.filter(n => !supabaseIds.has(n.id));
+        finalNotices = [...(data || []), ...nonDuplicateLocal];
       }
+
+      // Re-sort to ensure pinned is always on top
+      finalNotices.sort((a, b) => {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+      setNotices(finalNotices);
     } catch (e) {
       console.error(e);
     } finally {
@@ -77,7 +98,8 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
     if (!madrasah || !newNotice.title || !newNotice.content) return;
     setIsSubmitting(true);
     try {
-      const noticeData = {
+      const noticeData: Notice = {
+        id: Math.random().toString(),
         institution_id: madrasah.id,
         title: newNotice.title,
         content: newNotice.content,
@@ -88,19 +110,32 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
 
       const { data, error } = await supabase
         .from('notices')
-        .insert([noticeData])
+        .insert([{
+          institution_id: noticeData.institution_id,
+          title: noticeData.title,
+          content: noticeData.content,
+          is_pinned: noticeData.is_pinned,
+          is_urgent: noticeData.is_urgent,
+          created_at: noticeData.created_at
+        }])
         .select();
 
-      if (error) {
-        // Fallback for demo
-        setNotices(prev => [{ ...noticeData, id: Math.random().toString() }, ...prev]);
-        setIsAdding(false);
-        setNewNotice({ title: '', content: '', is_pinned: false, is_urgent: false });
-      } else if (data) {
-        setNotices(prev => [data[0], ...prev]);
-        setIsAdding(false);
-        setNewNotice({ title: '', content: '', is_pinned: false, is_urgent: false });
+      let savedNotice = noticeData;
+      if (!error && data && data[0]) {
+        savedNotice = data[0];
       }
+
+      // Save to local storage fallback
+      const localNoticesJson = localStorage.getItem(`local_notices_${madrasah.id}`);
+      const localNotices: Notice[] = localNoticesJson ? JSON.parse(localNoticesJson) : [];
+      const updatedLocalNotices = [savedNotice, ...localNotices];
+      localStorage.setItem(`local_notices_${madrasah.id}`, JSON.stringify(updatedLocalNotices));
+
+      setNotices(prev => [savedNotice, ...prev]);
+      setIsAdding(false);
+      setNewNotice({ title: '', content: '', is_pinned: false, is_urgent: false });
+      
+      alert(lang === 'bn' ? 'নোটিশ সফলভাবে সংরক্ষিত হয়েছে!' : 'Notice saved successfully!');
     } catch (e) {
       console.error(e);
     } finally {
@@ -111,16 +146,22 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
   const handleDeleteNotice = async (id: string) => {
     if (!confirm(lang === 'bn' ? 'আপনি কি নিশ্চিত?' : 'Are you sure?')) return;
     try {
-      const { error } = await supabase
+      await supabase
         .from('notices')
         .delete()
         .eq('id', id);
 
-      if (error) {
-        setNotices(prev => prev.filter(n => n.id !== id));
-      } else {
-        setNotices(prev => prev.filter(n => n.id !== id));
+      // Remove from local storage fallback
+      if (madrasah) {
+        const localNoticesJson = localStorage.getItem(`local_notices_${madrasah.id}`);
+        if (localNoticesJson) {
+          const localNotices: Notice[] = JSON.parse(localNoticesJson);
+          const updated = localNotices.filter(n => n.id !== id);
+          localStorage.setItem(`local_notices_${madrasah.id}`, JSON.stringify(updated));
+        }
       }
+
+      setNotices(prev => prev.filter(n => n.id !== id));
     } catch (e) {
       console.error(e);
     }
@@ -255,7 +296,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
       {/* Add Modal */}
       <AnimatePresence>
         {isAdding && (
-          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4">
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -264,10 +305,10 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
               className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
             />
             <motion.div 
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              className={`relative w-full max-w-lg p-6 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`relative w-full max-w-lg p-6 rounded-[2.5rem] shadow-2xl max-h-[90vh] overflow-y-auto ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
             >
               <h2 className={`text-xl font-black font-noto mb-6 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
                 {t('add_notice')}

@@ -28,15 +28,17 @@ const SMSModal: React.FC<SMSModalProps> = ({ students, madrasah, lang, onClose, 
 
   const availableShortcodes = [
     { code: '{name}', label: 'Member Name' },
-    { code: '{father_name}', label: 'Father Name' },
-    { code: '{class}', label: 'Department' },
-    { code: '{roll}', label: 'Roll' },
+    { code: '{member_id}', label: 'Member ID' },
+    { code: '{designation}', label: 'Designation' },
     { code: '{due_amount}', label: 'Due Amount' },
     { code: '{paid_amount}', label: 'Paid Amount' },
-    { code: '{result_grade}', label: 'Result Grade' },
-    { code: '{title}', label: 'Meeting Name' },
-    { code: '{attendance_percentage}', label: 'Attendance %' },
-    { code: '{institution_name}', label: 'Institution Name' },
+    { code: '{meeting_title}', label: 'Meeting Subject' },
+    { code: '{meeting_date}', label: 'Meeting Date' },
+    { code: '{meeting_time}', label: 'Meeting Time' },
+    { code: '{meeting_location}', label: 'Meeting Location' },
+    { code: '{event_title}', label: 'Event Title' },
+    { code: '{event_date}', label: 'Event Date' },
+    { code: '{institution_name}', label: 'Committee Name' },
   ];
 
   useEffect(() => { fetchTemplates(); }, [madrasah.id]);

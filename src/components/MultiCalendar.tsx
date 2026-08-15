@@ -387,8 +387,8 @@ const MultiCalendar: React.FC<MultiCalendarProps> = ({ lang, institutionId, isAd
 
       {/* Delete Confirmation Modal */}
       {eventToDelete && (
-        <div className="fixed inset-0 bg-[#080A12]/60 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl border overflow-hidden p-6 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+        <div className="fixed inset-0 bg-[#080A12]/60 backdrop-blur-xl z-[9999] flex items-center justify-center p-4 sm:p-6">
+          <div className={`w-full max-w-sm rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl border overflow-hidden p-5 sm:p-6 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
             <h3 className={`text-xl font-black mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {lang === 'bn' ? 'ইভেন্ট মুছুন' : 'Delete Event'}
             </h3>
@@ -478,10 +478,10 @@ const EventModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-[#080A12]/60 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
-      <div className={`w-full max-w-sm rounded-[3rem] shadow-2xl border overflow-hidden ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
-        <div className="p-8">
-          <div className="flex items-center justify-between mb-8">
+    <div className="fixed inset-0 bg-[#080A12]/60 backdrop-blur-xl z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div className={`w-full max-w-sm rounded-[1.8rem] sm:rounded-[3rem] shadow-2xl border overflow-hidden max-h-[92vh] flex flex-col ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+        <div className="p-5 sm:p-8 overflow-y-auto">
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
             <div>
               <h3 className={`text-2xl font-black font-noto tracking-tight ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>
                 {eventToEdit ? (lang === 'bn' ? 'ইভেন্ট সম্পাদনা' : 'Edit Event') : (lang === 'bn' ? 'নতুন ইভেন্ট' : 'New Event')}

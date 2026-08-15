@@ -431,7 +431,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                       <div className={`p-6 rounded-[2rem] border shadow-sm ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
                         <h3 className={`text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                           <BarChart3 className="text-[#0fb5ab]" size={18} />
-                          Attendance Overview
+                          {lang === 'bn' ? 'হাজিরা ওভারভিউ' : 'Attendance Overview'}
                         </h3>
                         <div className="h-64 w-full">
                           <ResponsiveContainer width="100%" height="100%">
@@ -453,7 +453,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                       <div className={`p-6 rounded-[2rem] border shadow-sm ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
                         <h3 className={`text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                           <TrendingDown className="text-red-500" size={18} />
-                          Most Absent Students
+                          {lang === 'bn' ? 'সবচেয়ে অনুপস্থিত সদস্য' : 'Most Absent Students'}
                         </h3>
                         <div className="space-y-3">
                           {[...reportData].sort((a, b) => b.absent_days - a.absent_days).slice(0, 5).map((student, idx) => (
@@ -468,8 +468,8 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="font-black text-red-500">{student.absent_days} Days</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Absent</p>
+                                <p className="font-black text-red-500">{student.absent_days} {lang === 'bn' ? 'দিন' : 'Days'}</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'bn' ? 'অনুপস্থিত' : 'Absent'}</p>
                               </div>
                             </div>
                           ))}
@@ -479,7 +479,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                   ) : (
                     <div className={`text-center py-20 rounded-[3rem] border-2 border-dashed mx-2 flex flex-col items-center ${isDark ? 'bg-slate-800/20 border-slate-700' : 'bg-white/10 border-white/20'}`}>
                       <BarChart3 size={40} className="text-slate-400/20 mb-4" />
-                      <p className="text-slate-400/40 uppercase text-xs font-black tracking-[0.2em]">No Data for Analytics</p>
+                      <p className="text-slate-400/40 uppercase text-xs font-black tracking-[0.2em]">{lang === 'bn' ? 'অ্যানালিটিক্সের জন্য কোনো ডেটা নেই' : 'No Data for Analytics'}</p>
                     </div>
                   )}
                 </div>
@@ -498,7 +498,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black border shadow-inner shrink-0 ${isDark ? 'bg-slate-900 text-[#A179FF] border-slate-700' : 'bg-slate-50 text-[#A179FF] border-slate-100'}`}>#{item.roll || '-'}</div>
                                         <div className="min-w-0">
                                             <h5 className={`font-black font-noto text-[17px] truncate leading-tight mb-0.5 ${isDark ? 'text-slate-100' : 'text-[#2E0B5E]'}`}>{item.name}</h5>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Attendance Status</p>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'হাজিরা স্ট্যাটাস' : 'Attendance Status'}</p>
                                         </div>
                                     </div>
                                     <div className={`text-2xl font-black ${pct >= 90 ? 'text-green-500' : pct >= 75 ? 'text-amber-500' : 'text-red-500'}`}>{pct}%</div>
@@ -507,15 +507,15 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                                     <div className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.3)]" style={{ width: `${pct}%` }}></div>
                                 </div>
                                 <div className="grid grid-cols-5 gap-2">
-                                   <div className={`p-2.5 rounded-xl text-center border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50/50 border-slate-50'}`}><p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Total</p><p className={`font-black text-sm ${isDark ? 'text-slate-100' : 'text-[#2E0B5E]'}`}>{item.total_days}</p></div>
-                                   <div className={`p-2.5 rounded-xl text-center border ${isDark ? 'bg-green-900/10 border-green-900/20' : 'bg-green-50/50 border-green-50'}`}><p className="text-[8px] font-black text-green-400 uppercase mb-0.5">Present</p><p className="font-black text-green-600 text-sm">{item.present_days}</p></div>
-                                   <div className={`p-2.5 rounded-xl text-center border ${isDark ? 'bg-red-900/10 border-red-900/20' : 'bg-red-50/50 border-red-50'}`}><p className="text-[8px] font-black text-red-400 uppercase mb-0.5">Absent</p><p className="font-black text-red-600 text-sm">{item.absent_days}</p></div>
+                                   <div className={`p-2.5 rounded-xl text-center border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50/50 border-slate-50'}`}><p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">{lang === 'bn' ? 'মোট' : 'Total'}</p><p className={`font-black text-sm ${isDark ? 'text-slate-100' : 'text-[#2E0B5E]'}`}>{item.total_days}</p></div>
+                                   <div className={`p-2.5 rounded-xl text-center border ${isDark ? 'bg-green-900/10 border-green-900/20' : 'bg-green-50/50 border-green-50'}`}><p className="text-[8px] font-black text-green-400 uppercase mb-0.5">{lang === 'bn' ? 'উপস্থিত' : 'Present'}</p><p className="font-black text-green-600 text-sm">{item.present_days}</p></div>
+                                   <div className={`p-2.5 rounded-xl text-center border ${isDark ? 'bg-red-900/10 border-red-900/20' : 'bg-red-50/50 border-red-50'}`}><p className="text-[8px] font-black text-red-400 uppercase mb-0.5">{lang === 'bn' ? 'অনুপস্থিত' : 'Absent'}</p><p className="font-black text-red-600 text-sm">{item.absent_days}</p></div>
                                    <div className={`p-2.5 rounded-xl text-center border ${isDark ? 'bg-amber-900/10 border-amber-900/20' : 'bg-amber-50/50 border-amber-50'}`}>
-                                      <p className="text-[8px] font-black text-amber-400 uppercase mb-0.5">Late</p>
+                                      <p className="text-[8px] font-black text-amber-400 uppercase mb-0.5">{lang === 'bn' ? 'দেরি' : 'Late'}</p>
                                       <p className="font-black text-amber-600 text-sm">{late}</p>
                                    </div>
                                    <div className={`p-2.5 rounded-xl text-center border ${isDark ? 'bg-purple-900/10 border-purple-900/20' : 'bg-purple-50/50 border-purple-50'}`}>
-                                      <p className="text-[8px] font-black text-purple-400 uppercase mb-0.5">Half</p>
+                                      <p className="text-[8px] font-black text-purple-400 uppercase mb-0.5">{lang === 'bn' ? 'অর্ধেক' : 'Half'}</p>
                                       <p className="font-black text-purple-600 text-sm">{item.half_days || 0}</p>
                                    </div>
                                 </div>
@@ -523,7 +523,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                         );
                     }) : <div className={`text-center py-20 rounded-[3rem] border-2 border-dashed mx-2 flex flex-col items-center ${isDark ? 'bg-slate-800/20 border-slate-700' : 'bg-white/10 border-white/20'}`}>
                             <FileText size={40} className="text-slate-400/20 mb-4" />
-                            <p className="text-slate-400/40 uppercase text-xs font-black tracking-[0.2em]">No Attendance Records</p>
+                            <p className="text-slate-400/40 uppercase text-xs font-black tracking-[0.2em]">{lang === 'bn' ? 'কোনো হাজিরা রেকর্ড নেই' : 'No Attendance Records'}</p>
                          </div>}
                 </div>
               )}
@@ -533,12 +533,12 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
       )}
       
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in">
           <div className={`rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden border animate-in zoom-in-95 duration-300 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
             <div className={`p-6 border-b flex justify-between items-center ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50/50 border-slate-50'}`}>
               <h2 className={`text-xl font-black flex items-center gap-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                 <Settings className="text-[#0fb5ab]" size={24} />
-                Attendance Settings
+                {lang === 'bn' ? 'হাজিরা সেটিংস' : 'Attendance Settings'}
               </h2>
               <button onClick={() => setShowSettingsModal(false)} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm ${isDark ? 'bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-900/20' : 'bg-white text-slate-400 hover:text-red-500 hover:bg-red-50'}`}>
                 <XCircle size={20} />
@@ -546,24 +546,24 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
             </div>
             <div className="p-6 space-y-5">
               <div className="space-y-2">
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Half Day Time</label>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">{lang === 'bn' ? 'হাফ ডের সময়' : 'Half Day Time'}</label>
                 <input 
                   type="time" 
                   value={halfDayTime}
                   onChange={(e) => setHalfDayTime(e.target.value)}
                   className={`w-full h-14 px-5 border-2 rounded-2xl font-bold outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#42f5e9]/30 focus:bg-white'}`}
                 />
-                <p className="text-[10px] text-slate-400 font-bold">Students arriving after this time will be marked as Half Day.</p>
+                <p className="text-[10px] text-slate-400 font-bold">{lang === 'bn' ? 'এই সময়ের পর আগত সদস্যদের হাফ ডে হিসেবে ধরা হবে।' : 'Students arriving after this time will be marked as Half Day.'}</p>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">Full Day Time</label>
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">{lang === 'bn' ? 'ফুল ডের সময়' : 'Full Day Time'}</label>
                 <input 
                   type="time" 
                   value={fullDayTime}
                   onChange={(e) => setFullDayTime(e.target.value)}
                   className={`w-full h-14 px-5 border-2 rounded-2xl font-bold outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#42f5e9]/30 focus:bg-white'}`}
                 />
-                <p className="text-[10px] text-slate-400 font-bold">Standard full day attendance time.</p>
+                <p className="text-[10px] text-slate-400 font-bold">{lang === 'bn' ? 'স্ট্যান্ডার্ড ফুল ডে হাজিরার সময়।' : 'Standard full day attendance time.'}</p>
               </div>
             </div>
             <div className={`p-6 border-t flex gap-3 ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50/50 border-slate-50'}`}>
@@ -571,14 +571,14 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                 onClick={() => setShowSettingsModal(false)}
                 className={`flex-1 h-14 font-black rounded-xl border-2 active:scale-95 transition-all ${isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-white text-slate-600 border-slate-200'}`}
               >
-                Cancel
+                {lang === 'bn' ? 'বাতিল' : 'Cancel'}
               </button>
               <button 
                 onClick={saveSettings}
                 disabled={savingSettings}
                 className="flex-1 h-14 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-xl shadow-premium active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                {savingSettings ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> Save</>}
+                {savingSettings ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> {lang === 'bn' ? 'সেভ করুন' : 'Save'}</>}
               </button>
             </div>
           </div>

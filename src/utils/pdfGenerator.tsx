@@ -10,6 +10,7 @@ import { DepartmentSubscriptionReportTemplate } from '../components/pdf/Departme
 import { SubscriptionReceiptTemplate } from '../components/pdf/SubscriptionReceiptTemplate';
 import { FinalMinutesTemplate } from '../components/pdf/FinalMinutesTemplate';
 import { SeatingPlanTemplate } from '../components/pdf/SeatingPlanTemplate';
+import { MemberFormTemplate } from '../components/pdf/MemberFormTemplate';
 
 let bengaliFontBase64: string | null = null;
 
@@ -302,4 +303,39 @@ export const generateFinalMinutesPDF = async (
     document.body.removeChild(container);
     
     doc.save(`Final_Minutes_${departmentName}.pdf`);
+};
+
+// --- BLANK OFFLINE MEMBER REGISTRATION FORM GENERATOR ---
+export const generateMemberFormPDF = async (
+    madrasah: Institution | null,
+    lang: 'en' | 'bn' = 'en'
+) => {
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    
+    await new Promise<void>((resolve) => {
+        root.render(<MemberFormTemplate madrasah={madrasah} lang={lang} />);
+        setTimeout(resolve, 500);
+    });
+
+    const imgData = await toPng(container.firstElementChild as HTMLElement, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        width: 794,
+        height: 1123,
+    });
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    doc.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+    
+    root.unmount();
+    document.body.removeChild(container);
+    
+    doc.save(`Blank-Member-Registration-Form.pdf`);
 };

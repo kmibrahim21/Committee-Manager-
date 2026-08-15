@@ -27,17 +27,17 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ stats, nextMeeting,
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                    { label: 'Total', value: stats.total, icon: Calendar, color: 'text-blue-500', bg: 'bg-blue-50' },
-                    { label: 'Upcoming', value: stats.upcoming, icon: Clock3, color: 'text-amber-500', bg: 'bg-amber-50' },
-                    { label: 'Completed', value: stats.completed, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                    { label: 'Rate', value: `${stats.attendanceRate}%`, icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                    { label: lang === 'bn' ? 'মোট' : 'Total', value: stats.total, icon: Calendar, color: 'text-blue-500', bg: 'bg-blue-50' },
+                    { label: lang === 'bn' ? 'আসন্ন' : 'Upcoming', value: stats.upcoming, icon: Clock3, color: 'text-amber-500', bg: 'bg-amber-50' },
+                    { label: lang === 'bn' ? 'সম্পন্ন' : 'Completed', value: stats.completed, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                    { label: lang === 'bn' ? 'উপস্থিতি হার' : 'Rate', value: `${stats.attendanceRate}%`, icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
                 ].map((stat, i) => (
                     <motion.div 
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
                         key={stat.label} 
-                        className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3 group hover:shadow-md transition-all"
+                        className="bg-white p-3 rounded-2xl border border-blue-50/70 shadow-[0_2px_12px_rgba(37,99,235,0.01)] hover:shadow-[0_4px_20px_rgba(37,99,235,0.03)] hover:border-blue-100 flex items-center gap-3 group hover:bg-blue-50/5 transition-all"
                     >
                         <div className={`p-2 rounded-lg ${stat.bg} ${stat.color} transition-transform group-hover:scale-105`}>
                             <stat.icon size={16} />
@@ -63,7 +63,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ stats, nextMeeting,
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-300"></span>
                                 </span>
-                                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-100">Next Assembly</span>
+                                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-100">{lang === 'bn' ? 'পরবর্তী সভা' : 'Next Assembly'}</span>
                             </div>
                             
                             {nextMeeting ? (
@@ -75,36 +75,36 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ stats, nextMeeting,
                                         <div className="flex items-start gap-3">
                                             <div className="p-2 bg-white/10 rounded-lg border border-white/5"><Calendar size={14} className="text-blue-300" /></div>
                                             <div>
-                                                <p className="text-[8px] text-blue-200 font-black uppercase tracking-widest mb-0.5 opacity-60">Date</p>
+                                                <p className="text-[8px] text-blue-200 font-black uppercase tracking-widest mb-0.5 opacity-60">{lang === 'bn' ? 'তারিখ' : 'Date'}</p>
                                                 <p className="text-sm font-black">{new Date(nextMeeting.date).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-start gap-3">
                                             <div className="p-2 bg-white/10 rounded-lg border border-white/5"><Clock size={14} className="text-blue-300" /></div>
                                             <div>
-                                                <p className="text-[8px] text-blue-200 font-black uppercase tracking-widest mb-0.5 opacity-60">Time</p>
+                                                <p className="text-[8px] text-blue-200 font-black uppercase tracking-widest mb-0.5 opacity-60">{lang === 'bn' ? 'সময়' : 'Time'}</p>
                                                 <p className="text-sm font-black">{nextMeeting.time || '10:00 AM'}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-start gap-3">
                                             <div className="p-2 bg-white/10 rounded-lg border border-white/5"><MapPin size={14} className="text-blue-300" /></div>
                                             <div>
-                                                <p className="text-[8px] text-blue-200 font-black uppercase tracking-widest mb-0.5 opacity-60">Venue</p>
-                                                <p className="text-sm font-black truncate max-w-[120px]">{nextMeeting.venue || 'Main Chamber'}</p>
+                                                <p className="text-[8px] text-blue-200 font-black uppercase tracking-widest mb-0.5 opacity-60">{lang === 'bn' ? 'স্থান' : 'Venue'}</p>
+                                                <p className="text-sm font-black truncate max-w-[120px]">{nextMeeting.venue || (lang === 'bn' ? 'মেইন চেম্বার' : 'Main Chamber')}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-start gap-3">
                                             <div className="p-2 bg-white/10 rounded-lg border border-white/5"><Users size={14} className="text-blue-300" /></div>
                                             <div>
-                                                <p className="text-[8px] text-blue-200 font-black uppercase tracking-widest mb-0.5 opacity-60">Group</p>
-                                                <p className="text-sm font-black truncate max-w-[120px]">{nextMeeting.departments?.name || 'Council'}</p>
+                                                <p className="text-[8px] text-blue-200 font-black uppercase tracking-widest mb-0.5 opacity-60">{lang === 'bn' ? 'কমিটি/গ্রুপ' : 'Group'}</p>
+                                                <p className="text-sm font-black truncate max-w-[120px]">{nextMeeting.departments?.name || (lang === 'bn' ? 'সাধারণ সভা' : 'Council')}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="py-6">
-                                    <p className="text-base text-blue-200 font-black uppercase tracking-[0.2em] opacity-40">No pending assemblies</p>
+                                    <p className="text-base text-blue-200 font-black uppercase tracking-[0.2em] opacity-40">{lang === 'bn' ? 'কোনো আসন্ন মিটিং নেই' : 'No pending assemblies'}</p>
                                 </div>
                             )}
                         </div>
@@ -115,7 +115,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ stats, nextMeeting,
                                 className="flex-1 bg-white text-[#1E3A8A] px-5 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-blue-50 hover:scale-[1.02] active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 group/btn"
                             >
                                 <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                                <span>Manage</span>
+                                <span>{lang === 'bn' ? 'পরিচালনা' : 'Manage'}</span>
                                 <ArrowRight size={12} />
                             </button>
                             <button 
@@ -123,7 +123,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ stats, nextMeeting,
                                 className="flex-1 bg-blue-600/50 backdrop-blur-md text-white border border-white/10 px-5 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-blue-600/70 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                             >
                                 <Calendar className="w-3.5 h-3.5" />
-                                <span>Calendar</span>
+                                <span>{lang === 'bn' ? 'ক্যালেন্ডার' : 'Calendar'}</span>
                             </button>
                         </div>
                     </div>

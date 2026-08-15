@@ -186,10 +186,10 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
         {/* Statistics Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
              {[
-               { label: 'Upcoming', count: events.filter(e => e.status === 'planned').length, icon: <Sparkles className="text-[#0fb5ab]" /> },
-               { label: 'Ongoing', count: events.filter(e => e.status === 'ongoing').length, icon: <Megaphone className="text-amber-500" /> },
-               { label: 'Completed', count: events.filter(e => e.status === 'completed').length, icon: <CheckCircle2 className="text-emerald-500" /> },
-               { label: 'Total', count: events.length, icon: <History className="text-slate-500" /> }
+               { label: lang === 'bn' ? 'আসন্ন' : 'Upcoming', count: events.filter(e => e.status === 'planned').length, icon: <Sparkles className="text-[#0fb5ab]" /> },
+               { label: lang === 'bn' ? 'চলমান' : 'Ongoing', count: events.filter(e => e.status === 'ongoing').length, icon: <Megaphone className="text-amber-500" /> },
+               { label: lang === 'bn' ? 'সম্পন্ন' : 'Completed', count: events.filter(e => e.status === 'completed').length, icon: <CheckCircle2 className="text-emerald-500" /> },
+               { label: lang === 'bn' ? 'মোট' : 'Total', count: events.length, icon: <History className="text-slate-500" /> }
              ].map((stat, i) => (
              <div key={i} className={`p-4 rounded-[2rem] border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'} flex items-center gap-4`}>
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
@@ -224,8 +224,16 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                onChange={(e) => setFilterType(e.target.value)}
                className={`flex-1 md:w-48 px-4 py-4 rounded-2xl outline-none font-black text-xs uppercase tracking-widest ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-50 text-slate-600'}`}
              >
-                <option value="all">All Types</option>
-                {eventTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                <option value="all">{lang === 'bn' ? 'সকল ধরন' : 'All Types'}</option>
+                {eventTypes.map(t => <option key={t} value={t}>{lang === 'bn' ? (
+                  t === 'General' ? 'সাধারণ' : 
+                  t === 'Meeting' ? 'মিটিং' : 
+                  t === 'Seminar' ? 'সেমিনার' : 
+                  t === 'Cultural' ? 'সাংস্কৃতিক' : 
+                  t === 'Religious' ? 'ধর্মীয়' : 
+                  t === 'Exam' ? 'পরীক্ষা' : 
+                  t === 'Holiday' ? 'ছুটি' : 'অন্যান্য'
+                ) : t}</option>)}
              </select>
 
              <div className={`flex p-1 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
@@ -266,7 +274,12 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                   <div className="p-8 space-y-6">
                     <div className="flex items-start justify-between">
                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusColor(event.status)}`}>
-                          {event.status}
+                          {lang === 'bn' ? (
+                            event.status === 'planned' ? 'আসন্ন' :
+                            event.status === 'ongoing' ? 'চলমান' :
+                            event.status === 'completed' ? 'সম্পন্ন' :
+                            event.status === 'cancelled' ? 'বাতিল' : event.status
+                          ) : event.status}
                        </div>
                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                          <button className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}><Edit2 size={16} className="text-[#0fb5ab]" /></button>
@@ -275,7 +288,17 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                     </div>
 
                     <div>
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{event.event_type}</p>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                         {lang === 'bn' ? (
+                           event.event_type === 'General' ? 'সাধারণ' : 
+                           event.event_type === 'Meeting' ? 'মিটিং' : 
+                           event.event_type === 'Seminar' ? 'সেমিনার' : 
+                           event.event_type === 'Cultural' ? 'সাংস্কৃতিক' : 
+                           event.event_type === 'Religious' ? 'ধর্মীয়' : 
+                           event.event_type === 'Exam' ? 'পরীক্ষা' : 
+                           event.event_type === 'Holiday' ? 'ছুটি' : event.event_type
+                         ) : event.event_type}
+                       </p>
                        <h3 className="text-xl font-black leading-tight line-clamp-2">{event.title}</h3>
                     </div>
 
@@ -310,7 +333,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                           <div className={`w-8 h-8 rounded-full border-2 ${isDark ? 'bg-slate-700 border-slate-900' : 'bg-slate-200 border-white'} flex items-center justify-center text-[10px] font-black`}>A</div>
                           <div className={`w-8 h-8 rounded-full border-2 ${isDark ? 'bg-slate-600 border-slate-900' : 'bg-slate-300 border-white'} flex items-center justify-center text-[10px] font-black`}>+</div>
                        </div>
-                       <button className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest hover:underline">View Details</button>
+                       <button className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest hover:underline">{lang === 'bn' ? 'বিস্তারিত দেখুন' : 'View Details'}</button>
                     </div>
                   </div>
                 </motion.div>
@@ -321,8 +344,8 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
              <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${isDark ? 'bg-slate-900' : 'bg-[#42f5e9]/10'}`}>
                 <CalendarDays size={40} className="text-[#0fb5ab]/40" />
              </div>
-             <h3 className="text-xl font-black mb-2">No Events Found</h3>
-             <p className="text-slate-400 text-sm max-w-xs">Start building your organization strategy by adding your first event protocol.</p>
+             <h3 className="text-xl font-black mb-2">{lang === 'bn' ? 'কোনো ইভেন্ট পাওয়া যায়নি' : 'No Events Found'}</h3>
+             <p className="text-slate-400 text-sm max-w-xs">{lang === 'bn' ? 'আপনার প্রতিষ্ঠানের ইভেন্ট যোগ করে শুরু করুন।' : 'Start building your organization strategy by adding your first event protocol.'}</p>
           </div>
         )}
       </div>
@@ -330,7 +353,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
       {/* Add Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -342,23 +365,23 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className={`relative w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden ${
+              className={`relative w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${
                 isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'
               }`}
             >
-              <div className="flex items-center justify-between p-8 border-b border-transparent">
+              <div className="flex items-center justify-between p-8 border-b border-transparent shrink-0">
                 <h3 className="text-2xl font-black font-noto">{lang === 'bn' ? 'নতুন ইভেন্ট যোগ করুন' : 'Create New Event'}</h3>
                 <button onClick={() => setShowAddModal(false)} className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all">
                   <X size={24} />
                 </button>
               </div>
 
-              <div className="p-8 max-h-[70vh] overflow-y-auto space-y-6">
+              <div className="p-8 flex-1 overflow-y-auto space-y-6 max-h-[60vh]">
                  {/* Title */}
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Event Title</label>
-                    <input 
-                      placeholder="Grand Seminar 2024..."
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'ইভেন্টের শিরোনাম' : 'Event Title'}</label>
+                     <input 
+                      placeholder={lang === 'bn' ? 'গ্র্যান্ড সেমিনার ২০২৪...' : 'Grand Seminar 2024...'}
                       value={newEvent.title}
                       onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
                       className={`w-full h-14 rounded-2xl px-6 font-bold outline-none border-2 transition-all ${
@@ -369,33 +392,41 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Type</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'ধরন' : 'Type'}</label>
                       <select 
                         value={newEvent.event_type}
                         onChange={(e) => setNewEvent({...newEvent, event_type: e.target.value})}
                         className={`w-full h-14 rounded-2xl px-6 font-bold outline-none cursor-pointer ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
                       >
-                         {eventTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                         {eventTypes.map(t => <option key={t} value={t}>{lang === 'bn' ? (
+                          t === 'General' ? 'সাধারণ' : 
+                          t === 'Meeting' ? 'মিটিং' : 
+                          t === 'Seminar' ? 'সেমিনার' : 
+                          t === 'Cultural' ? 'সাংস্কৃতিক' : 
+                          t === 'Religious' ? 'ধর্মীয়' : 
+                          t === 'Exam' ? 'পরীক্ষা' : 
+                          t === 'Holiday' ? 'ছুটি' : 'অন্যান্য'
+                        ) : t}</option>)}
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Status</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'স্ট্যাটাস' : 'Status'}</label>
                       <select 
                         value={newEvent.status}
                         onChange={(e) => setNewEvent({...newEvent, status: e.target.value as any})}
                         className={`w-full h-14 rounded-2xl px-6 font-bold outline-none cursor-pointer ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
                       >
-                         <option value="planned">Planned (আসন্ন)</option>
-                         <option value="ongoing">Ongoing (চলমান)</option>
-                         <option value="completed">Completed (সম্পন্ন)</option>
-                         <option value="cancelled">Cancelled (বাতিল)</option>
+                         <option value="planned">{lang === 'bn' ? 'আসন্ন (Planned)' : 'Planned (আসন্ন)'}</option>
+                         <option value="ongoing">{lang === 'bn' ? 'চলমান (Ongoing)' : 'Ongoing (চলমান)'}</option>
+                         <option value="completed">{lang === 'bn' ? 'সম্পন্ন (Completed)' : 'Completed (সম্পন্ন)'}</option>
+                         <option value="cancelled">{lang === 'bn' ? 'বাতিল (Cancelled)' : 'Cancelled (বাতিল)'}</option>
                       </select>
                     </div>
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Start Date & Time</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'শুরুর তারিখ ও সময়' : 'Start Date & Time'}</label>
                       <input 
                         type="datetime-local"
                         value={newEvent.start_date?.slice(0, 16)}
@@ -404,7 +435,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">End Date (Optional)</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'শেষের তারিখ (ঐচ্ছিক)' : 'End Date (Optional)'}</label>
                       <input 
                         type="datetime-local"
                         value={newEvent.end_date?.slice(0, 16)}
@@ -416,18 +447,18 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Venue / Location</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'স্থান/লোকেশন' : 'Venue / Location'}</label>
                        <input 
-                         placeholder="Main Auditorium..."
+                         placeholder={lang === 'bn' ? 'মেইন অডিটোরিয়াম...' : 'Main Auditorium...'}
                          value={newEvent.venue}
                          onChange={(e) => setNewEvent({...newEvent, venue: e.target.value})}
                          className={`w-full h-14 rounded-2xl px-6 font-bold outline-none ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
                        />
                     </div>
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Select Guest/Guest Name</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'গেস্টের নাম' : 'Select Guest/Guest Name'}</label>
                        <input 
-                         placeholder="Chief Guest Name..."
+                         placeholder={lang === 'bn' ? 'প্রধান অতিথির নাম...' : 'Chief Guest Name...'}
                          value={newEvent.guest_name}
                          onChange={(e) => setNewEvent({...newEvent, guest_name: e.target.value})}
                          className={`w-full h-14 rounded-2xl px-6 font-bold outline-none ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
@@ -436,9 +467,9 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                  </div>
 
                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Description / Details</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'বিস্তারিত তথ্য' : 'Description / Details'}</label>
                     <textarea 
-                      placeholder="Protocol description..."
+                      placeholder={lang === 'bn' ? 'ইভেন্টের বিস্তারিত...' : 'Protocol description...'}
                       value={newEvent.description}
                       onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
                       className={`w-full h-24 rounded-2xl p-6 font-bold outline-none resize-none ${isDark ? 'bg-slate-800 border-transparent' : 'bg-slate-50 border-transparent'}`}
@@ -452,7 +483,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                    disabled={loading || !newEvent.title}
                    className="w-full py-6 bg-[#42f5e9] text-[#0e8a84] rounded-[2rem] font-black shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all text-xs uppercase tracking-widest disabled:opacity-50"
                  >
-                   {loading ? <Loader2 className="animate-spin" /> : <><Sparkles size={18} /> Initialize Event Protocol</>}
+                   {loading ? <Loader2 className="animate-spin" /> : <><Sparkles size={18} /> {lang === 'bn' ? 'ইভেন্ট তৈরি করুন' : 'Initialize Event Protocol'}</>}
                  </button>
               </div>
             </motion.div>
@@ -468,11 +499,11 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
               <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mb-6 mx-auto">
                  <AlertCircle size={32} />
               </div>
-              <h3 className="text-xl font-black text-center mb-2">Delete Protocol?</h3>
-              <p className="text-slate-400 text-sm font-bold text-center mb-8">Are you sure you want to permanently erase this event from the neural registers?</p>
+              <h3 className="text-xl font-black text-center mb-2">{lang === 'bn' ? 'ইভেন্ট ডিলিট করবেন?' : 'Delete Protocol?'}</h3>
+              <p className="text-slate-400 text-sm font-bold text-center mb-8">{lang === 'bn' ? 'আপনি কি নিশ্চিত যে আপনি এই ইভেন্টটি ডিলিট করতে চান?' : 'Are you sure you want to permanently erase this event from the neural registers?'}</p>
               <div className="flex gap-3">
-                 <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest">Cancel</button>
-                 <button onClick={() => handleDeleteEvent(showDeleteConfirm)} className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-200">Erase Data</button>
+                 <button onClick={() => setShowDeleteConfirm(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest">{lang === 'bn' ? 'বাতিল' : 'Cancel'}</button>
+                 <button onClick={() => handleDeleteEvent(showDeleteConfirm)} className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-200">{lang === 'bn' ? 'ডিলিট করুন' : 'Erase Data'}</button>
               </div>
            </div>
         </div>

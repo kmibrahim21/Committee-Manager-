@@ -69,17 +69,18 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
   const [showShortcodes, setShowShortcodes] = useState(false);
 
   const availableShortcodes = [
-    { code: '{name}', label: lang === 'bn' ? 'ছাত্রের নাম' : 'Member Name' },
-    { code: '{father_name}', label: lang === 'bn' ? 'পিতার নাম' : 'Father Name' },
-    { code: '{class}', label: lang === 'bn' ? 'শ্রেণী' : 'Department' },
-    { code: '{roll}', label: lang === 'bn' ? 'রোল' : 'Roll' },
-    { code: '{due_amount}', label: lang === 'bn' ? 'বকেয়া টাকা' : 'Due Amount' },
-    { code: '{paid_amount}', label: lang === 'bn' ? 'পরিশোধিত টাকা' : 'Paid Amount' },
-    { code: '{month}', label: lang === 'bn' ? 'মাস' : 'Month' },
-    { code: '{result_grade}', label: lang === 'bn' ? 'রেজাল্ট গ্রেড' : 'Result Grade' },
-    { code: '{title}', label: lang === 'bn' ? 'পরীক্ষার নাম' : 'Meeting Name' },
-    { code: '{attendance_percentage}', label: lang === 'bn' ? 'উপস্থিতি হার' : 'Attendance %' },
-    { code: '{institution_name}', label: lang === 'bn' ? 'প্রতিষ্ঠানের নাম' : 'Institution Name' },
+    { code: '{name}', label: lang === 'bn' ? 'মেম্বারের নাম' : 'Member Name' },
+    { code: '{member_id}', label: lang === 'bn' ? 'মেম্বার আইডি' : 'Member ID' },
+    { code: '{designation}', label: lang === 'bn' ? 'পদবী' : 'Designation' },
+    { code: '{due_amount}', label: lang === 'bn' ? 'বকেয়া চাঁদা' : 'Due Amount' },
+    { code: '{paid_amount}', label: lang === 'bn' ? 'পরিশোধিত চাঁদা' : 'Paid Amount' },
+    { code: '{meeting_title}', label: lang === 'bn' ? 'সভার বিষয়' : 'Meeting Subject' },
+    { code: '{meeting_date}', label: lang === 'bn' ? 'সভার তারিখ' : 'Meeting Date' },
+    { code: '{meeting_time}', label: lang === 'bn' ? 'সভার সময়' : 'Meeting Time' },
+    { code: '{meeting_location}', label: lang === 'bn' ? 'সভার স্থান' : 'Meeting Location' },
+    { code: '{event_title}', label: lang === 'bn' ? 'অনুষ্ঠানের নাম' : 'Event Title' },
+    { code: '{event_date}', label: lang === 'bn' ? 'অনুষ্ঠানের তারিখ' : 'Event Date' },
+    { code: '{institution_name}', label: lang === 'bn' ? 'কমিটি/প্রতিষ্ঠানের নাম' : 'Committee Name' },
   ];
 
   // Error/Status Modal

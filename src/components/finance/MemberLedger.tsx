@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from 'supabase';
 import { Institution, Language, Department, LedgerEntry, Fee, Subscription } from 'types';
-import { X, ArrowLeft, Download, Calendar, DollarSign, ArrowUpCircle, FileText, Loader2, TrendingUp, TrendingDown, Clock } from 'lucide-react';
+import { motion } from 'motion/react';
+import { X, ArrowLeft, Download, Calendar, DollarSign, ArrowUpCircle, FileText, Loader2, TrendingUp, TrendingDown, Clock, CreditCard, Hash } from 'lucide-react';
 
 interface MemberLedgerProps {
   member: any;
@@ -36,7 +37,6 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
       if (feesData) setFees(feesData);
 
       // 2. Fetch ledger entries mentioning this member
-      // Note: This is a bit loose but works with the current schema
       const { data: ledgerData } = await supabase
         .from('ledger')
         .select('*')
@@ -74,93 +74,114 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
   const totalDue = Math.max(0, totalPayableYearToDate - totalPaid);
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="space-y-6 pb-12"
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center gap-5">
           <button 
             onClick={onBack}
-            className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all active:scale-90 ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all active:scale-90 ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className={`text-xl font-black font-noto ${isDark ? 'text-slate-100' : 'text-[#1E293B]'}`}>{member.name}</h2>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{className} | রোল: {member.roll || '-'}</p>
+            <h2 className={`text-2xl font-black font-noto ${isDark ? 'text-white' : 'text-[#1E293B]'}`}>{member.name}</h2>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{className} • রোল: {member.roll || '-'}</p>
           </div>
         </div>
         <div className="flex gap-2">
-            <select 
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className={`h-10 px-4 rounded-xl border text-xs font-black outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}
-            >
-                {[0, 1, 2].map(offset => {
-                    const year = (new Date().getFullYear() - offset).toString();
-                    return <option key={year} value={year}>{year}</option>;
-                })}
-            </select>
+            <div className="relative">
+              <select 
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className={`h-11 px-5 pr-10 rounded-2xl border text-[11px] font-black uppercase outline-none transition-all appearance-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}
+              >
+                  {[0, 1, 2].map(offset => {
+                      const year = (new Date().getFullYear() - offset).toString();
+                      return <option key={year} value={year}>{year}</option>;
+                  })}
+              </select>
+              <Calendar className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" size={14} />
+            </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-          <Loader2 className="animate-spin mb-4" size={32} />
-          <p className="text-[10px] font-black uppercase tracking-widest">ডাটা লোড হচ্ছে...</p>
+        <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+          <Loader2 className="animate-spin mb-6 text-[#0fb5ab]" size={48} />
+          <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">প্রসেস হচ্ছে...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 px-1">
           {/* Left Column: Summary & Monthly Status */}
           <div className="lg:col-span-2 space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className={`p-4 rounded-3xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
-                    <TrendingUp size={16} />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <motion.div 
+                whileHover={{ y: -5 }}
+                className={`p-6 rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
+                    <TrendingUp size={20} />
                   </div>
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">মোট প্রদেয়</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">মাসিক ফি</span>
                 </div>
-                <p className={`text-lg font-black ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>৳{totalPayablePerMonth}</p>
-              </div>
+                <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>৳{totalPayablePerMonth.toLocaleString('bn-BD')}</p>
+              </motion.div>
 
-              <div className={`p-4 rounded-3xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
-                    <DollarSign size={16} />
+              <motion.div 
+                whileHover={{ y: -5 }}
+                className={`p-6 rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                    <DollarSign size={20} />
                   </div>
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">মোট পরিশোধিত</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">পরিশোধিত</span>
                 </div>
-                <p className={`text-lg font-black ${isDark ? 'text-slate-100' : 'text-emerald-600'}`}>৳{totalPaid}</p>
-              </div>
+                <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-emerald-600'}`}>৳{totalPaid.toLocaleString('bn-BD')}</p>
+              </motion.div>
 
-              <div className={`p-4 rounded-3xl border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-600'}`}>
-                    <TrendingDown size={16} />
+              <motion.div 
+                whileHover={{ y: -5 }}
+                className={`p-6 rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>
+                    <TrendingDown size={20} />
                   </div>
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">মোট বকেয়া</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">মোট বকেয়া</span>
                 </div>
-                <p className={`text-lg font-black ${isDark ? 'text-slate-100' : 'text-red-600'}`}>৳{totalDue}</p>
-              </div>
+                <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-red-600'}`}>৳{totalDue.toLocaleString('bn-BD')}</p>
+              </motion.div>
             </div>
 
             {/* Monthly Grid */}
-            <div className={`p-8 rounded-[3rem] border shadow-sm ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>মাসিক ফি স্ট্যাটাস ({selectedYear})</h3>
+            <div className={`p-10 rounded-[3.5rem] border shadow-2xl relative overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800 shadow-black/20' : 'bg-white border-white/20 shadow-blue-900/5'}`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
+                <div>
+                  <h3 className={`text-lg font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>মাসিক ফি স্ট্যাটাস</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{selectedYear} সালের সাবস্ক্রিপশন কার্ড</p>
+                </div>
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Paid</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Paid</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Partial</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-sm shadow-orange-200"></div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Partial</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">Unpaid</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unpaid</span>
                   </div>
                 </div>
               </div>
@@ -175,15 +196,25 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
                   const paidAmt = (Number(monthFee?.amount_paid) || 0) + (Number(monthFee?.discount) || 0);
 
                   return (
-                    <div key={monthStr} className={`p-5 rounded-3xl border transition-all hover:scale-[1.02] ${status === 'paid' ? (isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100') : status === 'partial' ? (isDark ? 'bg-orange-500/10 border-orange-500/20' : 'bg-orange-50 border-orange-100') : (isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100')}`}>
-                      <p className={`text-[11px] font-black mb-2 ${status === 'paid' ? 'text-emerald-600' : status === 'partial' ? 'text-orange-600' : 'text-slate-400'}`}>{monthName}</p>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${status === 'paid' ? 'bg-emerald-500 text-white' : status === 'partial' ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                          {status === 'paid' ? 'Paid' : status === 'partial' ? 'Partial' : 'Unpaid'}
-                        </span>
-                        {paidAmt > 0 && <span className="text-[10px] font-black text-slate-600">৳{paidAmt}</span>}
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      key={monthStr} 
+                      className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col justify-between h-32 ${status === 'paid' ? (isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-100') : status === 'partial' ? (isDark ? 'bg-orange-500/10 border-orange-500/30' : 'bg-orange-50 border-orange-100') : (isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100')}`}
+                    >
+                      <p className={`text-[11px] font-black uppercase tracking-widest ${status === 'paid' ? 'text-emerald-600' : status === 'partial' ? 'text-orange-600' : 'text-slate-400'}`}>{monthName}</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${status === 'paid' ? 'bg-emerald-500 text-white' : status === 'partial' ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                            {status === 'paid' ? 'Paid' : status === 'partial' ? 'Partial' : 'Unpaid'}
+                          </span>
+                          {paidAmt > 0 && <span className={`text-[10px] font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>৳{paidAmt}</span>}
+                        </div>
+                        {status === 'unpaid' && <div className="h-1 bg-slate-200 rounded-full w-full" />}
+                        {status !== 'unpaid' && (
+                          <div className={`h-1 rounded-full w-full ${status === 'paid' ? 'bg-emerald-500' : 'bg-orange-500'}`} />
+                        )}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -192,32 +223,51 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
 
           {/* Right Column: Recent Transactions */}
           <div className="space-y-6">
-            <div className={`p-8 rounded-[3rem] border shadow-sm h-full ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>লেনদেন ইতিহাস</h3>
-                <Clock size={18} className="text-slate-300" />
+            <div className={`p-10 rounded-[3.5rem] border shadow-2xl h-full relative overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800 shadow-black/20' : 'bg-white border-white/20 shadow-blue-900/5'}`}>
+              <div className="flex items-center justify-between mb-10">
+                <div>
+                  <h3 className={`text-lg font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>লেনদেনের ইতিহাস</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">এই সদস্যের সর্বশেষ লেনদেনসমূহ</p>
+                </div>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-50 text-slate-300'}`}>
+                  <Clock size={22} />
+                </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {ledgerEntries.length > 0 ? (
                   ledgerEntries.map((entry, idx) => (
-                    <div key={entry.id} className={`relative pl-8 pb-6 ${idx === ledgerEntries.length - 1 ? '' : 'border-l-2 border-dashed border-slate-100'}`}>
-                      <div className={`absolute -left-[11px] top-0 w-5 h-5 rounded-full border-4 border-white shadow-sm flex items-center justify-center ${isDark ? 'bg-emerald-500 border-slate-800' : 'bg-emerald-500 border-white'}`}></div>
-                      <div className="space-y-1">
+                    <motion.div 
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      key={entry.id} 
+                      className={`relative pl-8 pb-8 ${idx === ledgerEntries.length - 1 ? '' : 'border-l-2 border-dashed border-slate-100'}`}
+                    >
+                      <div className={`absolute -left-[11px] top-0 w-5 h-5 rounded-full border-4 shadow-sm flex items-center justify-center ${isDark ? 'bg-emerald-500 border-slate-800 shadow-emerald-900/50' : 'bg-emerald-500 border-white shadow-emerald-200'}`}></div>
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <p className={`text-xs font-black ${isDark ? 'text-slate-200' : 'text-[#1E293B]'}`}>৳{entry.amount}</p>
-                          <span className="text-[9px] font-bold text-slate-400">{new Date(entry.transaction_date).toLocaleDateString('bn-BD')}</span>
+                          <p className={`text-base font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>+ ৳{entry.amount.toLocaleString('bn-BD')}</p>
+                          <div className="flex items-center gap-1.5 text-slate-400">
+                            <Calendar size={10} />
+                            <span className="text-[9px] font-bold">{new Date(entry.transaction_date).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' })}</span>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed line-clamp-2">{entry.description}</p>
+                        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-white shadow-inner'}`}>
+                          <p className="text-[11px] text-slate-500 font-bold leading-relaxed line-clamp-2 italic">"{entry.description.split(' (')[0]}"</p>
+                        </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))
                 ) : (
-                  <div className="text-center py-20 flex flex-col items-center justify-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-200">
-                      <FileText size={24} />
+                  <div className="text-center py-24 flex flex-col items-center justify-center gap-4">
+                    <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 border-2 border-dashed border-slate-100">
+                      <FileText size={32} />
                     </div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">কোনো লেনদেন নেই</p>
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">কোনো লেনদেন নেই</p>
+                      <p className="text-[9px] font-bold text-slate-300 uppercase">ইতিহাস খালি রয়েছে</p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -225,7 +275,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

@@ -5,11 +5,12 @@ import {
   ArrowLeft, Edit3, User as UserIcon, Smartphone, PhoneCall, 
   UserCheck, MessageCircle, Hash, BookOpen, Phone, Trash2, 
   AlertTriangle, Loader2, X, MapPin, Calendar, Briefcase, 
-  Dna, CreditCard, Share2, MoreHorizontal, GraduationCap
+  Dna, CreditCard, Share2, MoreHorizontal, GraduationCap, Camera
 } from 'lucide-react';
 import { Member, Language, Institution } from 'types';
 import { supabase } from 'supabase';
 import { t } from 'translations';
+import { compressAndUploadMemberPhoto } from '../utils/imageUpload';
 
 interface StudentDetailsProps {
   student: Member;
@@ -25,8 +26,42 @@ interface StudentDetailsProps {
 const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEdit, onBack, lang, readOnly, institutionId, triggerRefresh }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'personal' | 'address'>('overview');
   const isDark = madrasah?.theme === 'dark';
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !madrasah || !student.id) return;
+
+    setUploading(true);
+    try {
+      const photoUrl = await compressAndUploadMemberPhoto(file, madrasah.id, student.id);
+      if (photoUrl) {
+        const { error } = await supabase
+          .from('members')
+          .update({ photo_url: photoUrl })
+          .eq('id', student.id);
+        
+        if (error) throw error;
+        if (triggerRefresh) triggerRefresh();
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const parsedAddress = React.useMemo(() => {
+    try {
+      if (madrasah?.institution_type === 'union' && student.address?.includes('{')) {
+        return JSON.parse(student.address);
+      }
+    } catch { }
+    return null;
+  }, [student.address, madrasah?.institution_type]);
 
   const initiateWhatsAppCall = async (phone: string) => {
     window.location.href = `https://wa.me/88${phone.replace(/\D/g, '')}`;
@@ -131,20 +166,54 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
           </div>
 
           <div className="mt-auto flex items-center gap-5 pb-2">
-            <div className="relative flex-shrink-0">
-              <div className="absolute inset-0 bg-[#42f5e9] blur-[30px] opacity-20 scale-150 animate-pulse" />
-              <div className={`relative w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-[#0fb5ab] border-2 border-white shadow-xl overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
-                <UserIcon size={40} strokeWidth={2.5} />
+            <div className="flex flex-col items-center gap-2 flex-shrink-0">
+              <div className="relative group">
+                <div className="absolute inset-0 bg-[#42f5e9] blur-[30px] opacity-20 scale-150 animate-pulse" />
+                <div className={`relative w-28 h-28 rounded-[2rem] flex items-center justify-center text-[#0fb5ab] border-2 border-white shadow-xl overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+                  {uploading ? (
+                    <Loader2 className="animate-spin text-[#0fb5ab]" size={32} />
+                  ) : student.photo_url ? (
+                    <img 
+                      src={student.photo_url} 
+                      alt={student.name} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <UserIcon size={56} strokeWidth={2.5} />
+                  )}
+                </div>
+
+                {!readOnly && (
+                  <>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="absolute -top-1 -right-1 w-8 h-8 bg-white text-[#0fb5ab] rounded-lg flex items-center justify-center shadow-lg border-2 border-white active:scale-90 transition-all hover:bg-slate-50 z-20"
+                    >
+                      <Camera size={16} strokeWidth={3} />
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                    />
+                  </>
+                )}
               </div>
-              <div className={`absolute -bottom-1 -right-1 h-7 px-2 bg-white text-[#0fb5ab] rounded-lg flex items-center justify-center shadow-lg border-2 border-white font-black text-[10px]`}>
-                {student.member_id_number ? `#${student.member_id_number}` : <Hash size={14} strokeWidth={3} />}
+
+              {/* Member ID number cleanly rendered below the photo */}
+              <div className={`h-7 px-3 bg-white text-[#0fb5ab] rounded-full flex items-center justify-center shadow-md border-2 border-white font-black text-[11px] font-mono tracking-wider`}>
+                {student.member_id_number ? `ID: ${student.member_id_number}` : <Hash size={14} strokeWidth={3} />}
               </div>
             </div>
             
             <div className="flex flex-col text-left">
-              <h1 className="text-xl font-black text-white font-noto tracking-tighter drop-shadow-md leading-tight">{student.name}</h1>
-              <div className="flex items-center gap-2 mt-1 px-3 py-0.5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full w-fit">
-                <span className="text-[9px] font-black text-white uppercase tracking-widest">{student.departments?.name || 'N/A'}</span>
+              <h1 className="text-2xl font-black text-white font-noto tracking-tighter drop-shadow-md leading-tight">{student.name}</h1>
+              <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full w-fit">
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">{student.departments?.name || 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -244,7 +313,7 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
                  >
                     <div className="flex items-center gap-2 truncate">
                       <Hash size={16} />
-                      <span className="truncate">{student.email || 'No Email'}</span>
+                      <span className="truncate">{student.email || (lang === 'bn' ? 'ইমেইল নেই' : 'No Email')}</span>
                     </div>
                  </button>
               </div>
@@ -301,13 +370,24 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {madrasah?.institution_type === 'union' && parsedAddress && (
+                  <div className={`p-5 rounded-[1.5rem] border-2 md:col-span-2 ${isDark ? 'bg-[#42f5e9]/5 border-[#42f5e9]/20' : 'bg-[#0fb5ab]/5 border-[#0fb5ab]/20'}`}>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">{lang === 'bn' ? 'এলাকা' : 'Area'}</p>
+                    <div className="flex gap-4">
+                       {parsedAddress.division && <div><p className="text-[10px] font-bold text-slate-500">{lang === 'bn' ? 'বিভাগ' : 'Division'}</p><p className={`text-sm font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{parsedAddress.division}</p></div>}
+                       {parsedAddress.district && <div><p className="text-[10px] font-bold text-slate-500">{lang === 'bn' ? 'জেলা' : 'District'}</p><p className={`text-sm font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{parsedAddress.district}</p></div>}
+                       {parsedAddress.thana && <div><p className="text-[10px] font-bold text-slate-500">{lang === 'bn' ? 'থানা' : 'Thana'}</p><p className={`text-sm font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{parsedAddress.thana}</p></div>}
+                       {parsedAddress.ward && <div><p className="text-[10px] font-bold text-slate-500">{lang === 'bn' ? 'ওয়ার্ড' : 'Ward'}</p><p className={`text-sm font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{parsedAddress.ward}</p></div>}
+                    </div>
+                  </div>
+                )}
                 <div className={`p-5 rounded-[1.5rem] border-2 ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{lang === 'bn' ? 'বর্তমান ঠিকানা' : 'Present Address'}</p>
-                   <p className={`text-[13px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{student.present_address || student.address || 'Not Added'}</p>
+                   <p className={`text-[13px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{student.present_address || (madrasah?.institution_type !== 'union' ? student.address : null) || (lang === 'bn' ? 'যুক্ত করা হয়নি' : 'Not Added')}</p>
                 </div>
                 <div className={`p-5 rounded-[1.5rem] border-2 ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{lang === 'bn' ? 'স্থায়ী ঠিকানা' : 'Permanent Address'}</p>
-                   <p className={`text-[13px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{student.permanent_address || 'Not Added'}</p>
+                   <p className={`text-[13px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{student.permanent_address || (lang === 'bn' ? 'যুক্ত করা হয়নি' : 'Not Added')}</p>
                 </div>
               </div>
             </div>
@@ -320,7 +400,7 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
                  </div>
                  <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{lang === 'bn' ? 'যোগদানের তারিখ' : 'Member Since'}</p>
-                    <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{student.join_date || 'No Date set'}</p>
+                    <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{student.join_date || (lang === 'bn' ? 'তারিখ সেট করা নেই' : 'No Date set')}</p>
                  </div>
               </div>
 
@@ -332,7 +412,7 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
                  </div>
                  <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{lang === 'bn' ? 'রেফারেন্স' : 'Referred By'}</p>
-                    <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{student.reference || 'None'}</p>
+                    <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{student.reference || (lang === 'bn' ? 'নেই' : 'None')}</p>
                  </div>
               </div>
             </div>

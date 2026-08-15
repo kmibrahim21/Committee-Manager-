@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2, PlusCircle } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Transaction, AdminSMSStock } from 'types';
+import { COMMITTEE_TYPES as UTILITY_COMMITTEE_TYPES } from '../utils/committeeTypes';
 
 interface InstitutionWithStats extends Institution {
   student_count?: number;
@@ -22,21 +23,28 @@ interface AdminPanelProps {
   setStatusModal: (modal: {show: boolean, type: 'success' | 'error', title: string, message: string}) => void;
 }
 
-const COMMITTEE_TYPES = [
-  { id: 'committee', label: 'কমিটি', labelEn: 'Committee' },
-  { id: 'association', label: 'সমিতি', labelEn: 'Association' },
-  { id: 'organization', label: 'সংস্থা', labelEn: 'Organization' },
-  { id: 'club', label: 'ক্লাব', labelEn: 'Club' },
-  { id: 'foundation', label: 'ফাউন্ডেশন', labelEn: 'Foundation' },
-  { id: 'trust', label: 'ট্রাস্ট', labelEn: 'Trust' },
-  { id: 'council', label: 'পরিষদ', labelEn: 'Council' },
-  { id: 'union', label: 'সংঘ', labelEn: 'Sangha' },
-  { id: 'forum', label: 'ফোরাম', labelEn: 'Forum' },
-  { id: 'society', label: 'সোসাইটি', labelEn: 'Society' },
-  { id: 'federation', label: 'ফেডারেশন', labelEn: 'Federation' },
-  { id: 'governing_board', label: 'বোর্ড', labelEn: 'Board' },
-  { id: 'ngo', label: 'এনজিও', labelEn: 'NGO' },
-];
+const DISPLAY_COMMITTEE_TYPES = UTILITY_COMMITTEE_TYPES.map(t => ({
+  id: t.id,
+  label: t.labelBn,
+  labelEn: t.labelEn
+})).concat([{ id: 'ngo', label: 'এনজিও', labelEn: 'NGO' }]);
+
+// Dynamic default modules mapping based on committee type
+const ACCOUNT_TYPE_DEFAULT_MODULES = (() => {
+  const mapping: Record<string, Record<string, boolean>> = {};
+  UTILITY_COMMITTEE_TYPES.forEach(type => {
+    const typeModules: Record<string, boolean> = {};
+    [...type.defaultModules, ...type.specializedModules].forEach(mod => {
+      typeModules[mod] = true;
+    });
+    mapping[type.id] = typeModules;
+  });
+  // Add NGO specifically as it's often used interchangeably with Organization
+  if (mapping['organization'] && !mapping['ngo']) {
+    mapping['ngo'] = { ...mapping['organization'] };
+  }
+  return mapping;
+})();
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dataVersion = 0, onProfileUpdate, madrasah, profile, setStatusModal }) => {
   const [madrasahs, setMadrasahs] = useState<InstitutionWithStats[]>([]);
@@ -128,10 +136,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editLoginCode, setEditLoginCode] = useState('');
   const [editActive, setEditActive] = useState(true);
   const [editReveApiKey, setEditReveApiKey] = useState('');
-  const [editReveSecretKey, setEditReveSecretKey] = useState('');
   const [editReveCallerId, setEditReveCallerId] = useState('');
   const [editVoiceSenderId, setEditVoiceSenderId] = useState('');
-  const [editReveClientId, setEditReveClientId] = useState('');
   const [editModules, setEditModules] = useState({
     departments: true,
     attendance: true,
@@ -139,7 +145,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     admit_card: true,
     seat_plan: true,
     accounting: true,
-    academic_year_promotion: true,
+    subscriptions: true,
     voice_broadcast: false,
     sms: true
   });
@@ -153,6 +159,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editInstitutionType, setEditInstitutionType] = useState<any>('madrasah');
   const [editFeeEngine, setEditFeeEngine] = useState<'school' | 'qawmi' | 'kindergarten' | 'simple'>('school');
   const [editAccountingMode, setEditAccountingMode] = useState<'qawmi_flexible' | 'school_system'>('school_system');
+
+  const [detailsTab, setDetailsTab] = useState<'basic' | 'advanced' | 'subscription' | 'settings'>('basic');
 
   const [editPassword, setEditPassword] = useState('');
   const [isDeletingUser, setIsDeletingUser] = useState(false);
@@ -339,10 +347,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     setEditLoginCode(user.login_code || '');
     setEditActive(user.is_active);
     setEditReveApiKey(user.reve_api_key || '');
-    setEditReveSecretKey(user.reve_secret_key || '');
     setEditReveCallerId(user.reve_caller_id || '');
     setEditVoiceSenderId(user.voice_sender_id || '');
-    setEditReveClientId(user.reve_client_id || '');
     let userConfig: any = user.config_json;
     if (typeof userConfig === 'string') {
       try {
@@ -362,7 +368,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       admit_card: true,
       seat_plan: true,
       accounting: true,
-      academic_year_promotion: true,
+      subscriptions: true,
       voice_broadcast: true,
       sms: true,
       ...userModules
@@ -433,9 +439,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         login_code: editLoginCode.trim(),
         is_active: editActive,
         reve_api_key: editReveApiKey.trim() || null,
-        reve_secret_key: editReveSecretKey.trim() || null,
         reve_caller_id: editReveCallerId.trim() || null,
-        reve_client_id: editReveClientId.trim() || null,
         voice_sender_id: editVoiceSenderId.trim() || null,
         institution_type: editInstitutionType,
         subscription_end: editSubscriptionEnd || null,
@@ -480,8 +484,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       let message = err.message;
       if (message.includes("Could not find the 'email' column")) {
         message = "Database schema mismatch: 'email' column is missing in 'institutions' table. Please run the SQL migration script in Supabase SQL Editor: \n\nALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS email TEXT;\nNOTIFY pgrst, 'reload config';";
-      } else if (message.includes("Could not find the 'reve_client_id' column")) {
-        message = "Database schema mismatch: 'reve_client_id' column is missing in 'institutions' table. Please run the SQL migration script in Supabase SQL Editor: \n\nALTER TABLE public.institutions ADD COLUMN IF NOT EXISTS reve_client_id TEXT;\nNOTIFY pgrst, 'reload config';";
       }
       setStatusModal({ show: true, type: 'error', title: 'ব্যর্থ', message: message });
     } finally {
@@ -715,28 +717,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                     <Users2 size={20} />
                   </div>
                   <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalInstitutions}</h4>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Portals</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'মোট পোর্টাল' : 'Total Portals'}</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center`}>
                   <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
                     <Activity size={20} />
                   </div>
                   <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.activeInstitutions}</h4>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Active Portals</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'সচল পোর্টাল' : 'Active Portals'}</p>
                 </div>
                 <div onClick={() => setView('approvals')} className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none hover:border-yellow-900' : 'bg-white border-slate-100 shadow-bubble hover:border-yellow-200'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center cursor-pointer transition-all active:scale-95`}>
                   <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-50 text-yellow-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
                     <CreditCard size={20} />
                   </div>
                   <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.pendingApprovals}</h4>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Pending Approvals</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'পেন্ডিং রিকোয়েস্ট' : 'Pending Approvals'}</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center`}>
                   <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-50 text-purple-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
                     <Banknote size={20} />
                   </div>
                   <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalRevenue.toLocaleString('bn-BD')}</h4>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Revenue (৳)</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'মোট আয় (৳)' : 'Total Revenue (৳)'}</p>
                 </div>
               </div>
 
@@ -746,14 +748,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                     <GraduationCap size={16} />
                   </div>
                   <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalStudents.toLocaleString('bn-BD')}</h4>
-                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Students</p>
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্য' : 'Members'}</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-4 rounded-[2rem] border flex flex-col items-center text-center`}>
                   <div className={`w-8 h-8 ${madrasah?.theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-50 text-orange-500'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
                     <Layers size={16} />
                   </div>
                   <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalClasses.toLocaleString('bn-BD')}</h4>
-                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Classes</p>
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কমিটি' : 'Committees'}</p>
                 </div>
               </div>
 
@@ -894,8 +896,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value as any)}
                 >
-                  <option value="all">All Types</option>
-                  {COMMITTEE_TYPES.map(type => (
+                  <option value="all">{lang === 'bn' ? 'সকল ধরণ' : 'All Types'}</option>
+                  {DISPLAY_COMMITTEE_TYPES.map(type => (
                     <option key={type.id} value={type.id}>{type.labelEn}</option>
                   ))}
                 </select>
@@ -913,7 +915,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                           <h3 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} truncate font-noto text-lg`}>{m.name}</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <p className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${m.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                              {m.is_active ? 'Active' : 'Blocked'}
+                              {m.is_active ? (lang === 'bn' ? 'সচল' : 'Active') : (lang === 'bn' ? 'বন্ধ' : 'Blocked')}
                             </p>
                             <span className="text-[10px] text-slate-300">•</span>
                             <p className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-[#42f5e9]/10 text-[#0fb5ab]">
@@ -921,10 +923,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                             </p>
                             {m.config_json?.modules?.voice_broadcast !== false && (
                               <p className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">
-                                Voice
+                                {lang === 'bn' ? 'ভয়েস' : 'Voice'}
                               </p>
                             )}
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.phone || 'No Phone'}</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.phone || (lang === 'bn' ? 'ফোন নেই' : 'No Phone')}</p>
                           </div>
                         </div>
                       </div>
@@ -932,7 +934,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                   </div>
                 )) : (
                   <div className={`text-center py-20 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'} rounded-[2.5rem] border-2 border-dashed`}>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">No Madrasahs Found</p>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{lang === 'bn' ? 'কোনো কমিটি পাওয়া যায়নি' : 'No Committees Found'}</p>
                   </div>
                 )}
               </div>
@@ -1108,31 +1110,70 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       </div>
                       <h2 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>{selectedUser.name}</h2>
                       <div className={`mt-3 px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${editActive ? (madrasah?.theme === 'dark' ? 'bg-emerald-900/30 text-emerald-400 border-emerald-900/50' : 'bg-emerald-50 text-emerald-600 border-emerald-100') : (madrasah?.theme === 'dark' ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-50 text-red-600 border-red-100')}`}>
-                         <Activity size={12} /> {editActive ? 'Active Portal' : 'Access Restricted'}
+                         <Activity size={12} /> {editActive ? (lang === 'bn' ? 'সচল পোর্টাল' : 'Active Portal') : (lang === 'bn' ? 'বন্ধ পোর্টাল' : 'Access Restricted')}
                       </div>
                    </div>
 
                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-4 rounded-3xl text-center border`}>
                          <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{userStats.students}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Students</p>
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্য' : 'Students'}</p>
                       </div>
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-4 rounded-3xl text-center border`}>
                          <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{userStats.departments}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Classes</p>
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কমিটি' : 'Classes'}</p>
                       </div>
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 border-[#42f5e9]/50' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20'} p-4 rounded-3xl text-center border`}>
                          <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{selectedUser.sms_balance || 0}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">SMS Bal</p>
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'এসএমএস' : 'SMS Bal'}</p>
                       </div>
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-emerald-900/30 border-emerald-900/50' : 'bg-emerald-50 border-emerald-100'} p-4 rounded-3xl text-center border`}>
                          <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>{Number(selectedUser.balance || 0).toFixed(2)}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Voice Bal</p>
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'ভয়েস' : 'Voice Bal'}</p>
                       </div>
                    </div>
 
                    <div className={`space-y-6 pt-4 border-t ${madrasah?.theme === 'dark' ? 'border-slate-800' : 'border-slate-50'}`}>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                      {/* Tab Selectors */}
+                      <div className="flex flex-wrap gap-2 pb-4 border-b border-dashed border-slate-200 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => setDetailsTab('basic')}
+                          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'basic' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
+                        >
+                          <UserIcon size={14} />
+                          <span>{lang === 'bn' ? 'প্রাথমিক তথ্য' : 'General Info'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDetailsTab('advanced')}
+                          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'advanced' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
+                        >
+                          <Sliders size={14} />
+                          <span>{lang === 'bn' ? 'অ্যাডভান্সড কনফিগ' : 'Advanced Config'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDetailsTab('subscription')}
+                          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'subscription' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
+                        >
+                          <CreditCard size={14} />
+                          <span>{lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscription'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDetailsTab('settings')}
+                          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'settings' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
+                        >
+                          <Settings size={14} />
+                          <span>{lang === 'bn' ? 'সিস্টেম সেটিংস' : 'System Settings'}</span>
+                        </button>
+                      </div>
+
+                      {/* Tab Contents */}
+                      {detailsTab === 'basic' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                          <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Committee Name</label>
                             <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editName} onChange={(e) => setEditName(e.target.value)} />
@@ -1153,11 +1194,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                          </div>
                       </div>
 
-                      <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
-                         <div className="flex items-center justify-between px-1">
-                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                               <Sliders size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> Advanced Config
-                            </h4>
+                        </div>
+                      )}
+
+                      {detailsTab === 'advanced' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
+                              <div className="flex items-center justify-between px-1">
+                                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Sliders size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> Advanced Config
+                                 </h4>
                             <button onClick={() => setEditActive(!editActive)} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${editActive ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
                                {editActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
                                <span className="text-[10px] font-black uppercase tracking-widest">{editActive ? 'Active' : 'Inactive'}</span>
@@ -1166,15 +1212,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                          <div className="space-y-4">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">REVE API Key</label>
+                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">MRAM API Key</label>
                                   <input type="text" className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-bold text-xs`} value={editReveApiKey} onChange={(e) => setEditReveApiKey(e.target.value)} placeholder="System Default Used" />
                                </div>
                                <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">REVE Secret</label>
-                                  <input type="text" className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-bold text-xs`} value={editReveSecretKey} onChange={(e) => setEditReveSecretKey(e.target.value)} placeholder="System Default Used" />
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Override Sender ID</label>
+                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">MRAM Sender ID</label>
                                   <input type="text" className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm`} value={editReveCallerId} onChange={(e) => setEditReveCallerId(e.target.value)} placeholder="e.g. 12345" />
                                </div>
                                <div className="space-y-1.5">
@@ -1185,11 +1227,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                                <div className="space-y-3 lg:col-span-2">
                                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Committee Type</label>
                                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                                    {COMMITTEE_TYPES.map(type => (
+                                    {DISPLAY_COMMITTEE_TYPES.map(type => (
                                       <button
                                         key={type.id}
                                         type="button"
-                                        onClick={() => setEditInstitutionType(type.id)}
+                                        onClick={() => {
+                                          setEditInstitutionType(type.id);
+                                          const defaultMods = ACCOUNT_TYPE_DEFAULT_MODULES[type.id] || ACCOUNT_TYPE_DEFAULT_MODULES.committee;
+                                          setEditModules(defaultMods as any);
+                                        }}
                                         className={`px-3 py-2.5 rounded-xl border text-[10px] font-black transition-all ${
                                           editInstitutionType === type.id 
                                             ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] border-[#42f5e9]/50 text-white shadow-lg' : 'bg-[#0fb5ab] border-[#0fb5ab] text-white shadow-md')
@@ -1228,11 +1274,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                          </div>
                       </div>
 
-                      <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
-                         <div className="flex items-center justify-between px-1">
-                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                               <CreditCard size={14} className={madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'} /> Subscription Info
-                            </h4>
+                        </div>
+                      )}
+
+                      {detailsTab === 'subscription' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
+                              <div className="flex items-center justify-between px-1">
+                                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <CreditCard size={14} className={madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'} /> Subscription Info
+                                 </h4>
                          </div>
                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className="space-y-1.5">
@@ -1258,11 +1309,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                          </div>
                       </div>
 
-                      <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
-                         <div className="flex items-center justify-between px-1">
-                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                               <Settings size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> System Settings
-                            </h4>
+                        </div>
+                      )}
+
+                      {detailsTab === 'settings' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
+                              <div className="flex items-center justify-between px-1">
+                                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Settings size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> System Settings
+                                 </h4>
                          </div>
                          <div className="space-y-4">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1314,6 +1370,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                             </div>
                          </div>
                       </div>
+                        </div>
+                      )}
 
                       <button onClick={handleUserUpdate} disabled={isUpdatingUser} className="w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
                          {isUpdatingUser ? <Loader2 className="animate-spin" size={24} /> : <><Save size={24} /> Save Profile Changes</>}
@@ -1383,8 +1441,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">ধরণ</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {COMMITTEE_TYPES.map(type => (
+                <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto p-1">
+                  {DISPLAY_COMMITTEE_TYPES.map(type => (
                     <button
                       key={type.id}
                       type="button"

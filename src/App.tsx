@@ -19,6 +19,7 @@ import WalletSMS from 'pages/WalletSMS';
 import CommitteeManagement from 'pages/CommitteeManagement';
 import DataManagement from 'pages/DataManagement';
 import CommitteeFinances from 'pages/CommitteeFinances';
+import Subscriptions from 'pages/Subscriptions';
 import MemberParticipation from 'pages/MemberParticipation';
 import Meetings from 'pages/Meetings';
 import Minutes from 'pages/MeetingMinutes';
@@ -31,6 +32,7 @@ import Polls from 'pages/Polls';
 import NoticeBoard from 'pages/NoticeBoard';
 import { VoiceServiceDashboard } from 'components/VoiceServiceDashboard';
 import { TutorialsManager } from 'components/TutorialsManager';
+import { SpecializedModules } from 'components/SpecializedModules';
 import { View, Department as Department, Member as Member, Language } from 'types';
 import { t } from 'translations';
 import { BookOpen, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -90,18 +92,50 @@ const App: React.FC = () => {
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#42f5e9] mesh-bg-vibrant">
-      <div className="flex flex-col items-center justify-center animate-in fade-in duration-1000">
-        <div className="relative flex items-center justify-center mb-8">
-          <div className="absolute w-16 h-16 bg-white/10 rounded-full blur-xl animate-pulse"></div>
-          <div className="relative w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 flex items-center justify-center shadow-2xl">
-            <div className="w-3 h-3 bg-white rounded-full animate-ping"></div>
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#0B132B] transition-colors duration-500">
+      <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-700">
+        <div className="relative flex items-center justify-center mb-10">
+          {/* Extremely elegant thin spinner without any pulsing background bubble */}
+          <div className="w-12 h-12 rounded-full border-[2.5px] border-[#E2E8F0]/30 dark:border-[#334155]/30 border-t-[#0fb5ab] dark:border-t-[#42f5e9] animate-spin" />
         </div>
-        <h1 className="text-[#0e8a84] font-black tracking-[0.7em] text-[11px] uppercase opacity-90">COMMITTEE MANAGER</h1>
+        <div className="text-center space-y-3">
+          <h1 className="text-[#0F172A] dark:text-[#F1F5F9] font-black tracking-[0.3em] text-sm uppercase leading-none font-sans">
+            COMMITTEE MANAGER
+          </h1>
+          <p className="text-[#64748B] dark:text-[#94A3B8] text-[9px] font-black uppercase tracking-[0.4em] leading-none opacity-80 font-mono">
+            SECURE PORTAL
+          </p>
+        </div>
       </div>
     </div>
   );
+
+  const missingVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (missingVars) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center mb-6 animate-pulse">
+          <ShieldAlert size={40} />
+        </div>
+        <h1 className="text-2xl font-black text-white mb-2 font-noto">সেটিংস অসম্পূর্ণ!</h1>
+        <p className="text-slate-400 max-w-xs mb-8 text-sm leading-relaxed">
+          আপনার অ্যাপটি ডাটাবেসের সাথে সংযুক্ত নয়। দয়া করে <b>Settings</b> মেনু থেকে <b>VITE_SUPABASE_URL</b> এবং <b>VITE_SUPABASE_ANON_KEY</b> সেট করুন।
+        </p>
+        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl text-left w-full max-w-md mb-8">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">প্রয়োজনীয় ভেরিয়েবলসমূহ:</p>
+          <code className="block text-xs text-amber-400/80 mb-1">VITE_SUPABASE_URL=your_url</code>
+          <code className="block text-xs text-amber-400/80">VITE_SUPABASE_ANON_KEY=your_key</code>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-8 py-4 bg-[#42f5e9] text-[#0fb5ab] rounded-2xl font-black shadow-lg shadow-[#42f5e9]/20 active:scale-95 transition-all"
+        >
+          সেটিংস সেট করার পর রিফ্রেশ দিন
+        </button>
+      </div>
+    );
+  }
 
   if (session && !madrasah && !authError) {
     return (
@@ -135,32 +169,6 @@ const App: React.FC = () => {
   if (!session && !madrasah) return <Auth lang={lang} signInAsMember={signInAsMember} />;
 
   const isVercel = window.location.hostname.includes('vercel.app');
-  const missingVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  if (missingVars) {
-    return (
-      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center mb-6 animate-pulse">
-          <ShieldAlert size={40} />
-        </div>
-        <h1 className="text-2xl font-black text-white mb-2 font-noto">সেটিংস অসম্পূর্ণ!</h1>
-        <p className="text-slate-400 max-w-xs mb-8 text-sm leading-relaxed">
-          আপনার অ্যাপটি ডাটাবেসের সাথে সংযুক্ত নয়। দয়া করে <b>Settings</b> মেনু থেকে <b>VITE_SUPABASE_URL</b> এবং <b>VITE_SUPABASE_ANON_KEY</b> সেট করুন।
-        </p>
-        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl text-left w-full max-w-md mb-8">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">প্রয়োজনীয় ভেরিয়েবলসমূহ:</p>
-          <code className="block text-xs text-amber-400/80 mb-1">VITE_SUPABASE_URL=your_url</code>
-          <code className="block text-xs text-amber-400/80">VITE_SUPABASE_ANON_KEY=your_key</code>
-        </div>
-        <button 
-          onClick={() => window.location.reload()}
-          className="px-8 py-4 bg-[#42f5e9] text-[#0fb5ab] rounded-2xl font-black shadow-lg shadow-[#42f5e9]/20 active:scale-95 transition-all"
-        >
-          সেটিংস সেট করার পর রিফ্রেশ দিন
-        </button>
-      </div>
-    );
-  }
 
   const renderView = () => {
     const role = profile?.role || 'accountant';
@@ -189,18 +197,23 @@ const App: React.FC = () => {
                   onNavigateToAccounting={() => setView('accounting')}
                   onNavigateToAttendance={() => setView('attendance')}
                   onNavigateToExams={() => setView('meetings')}
+                  onNavigateToMeetings={() => setView('meetings')}
                   onNavigateToClasses={() => setView('departments')}
                   onNavigateToMembers={() => { setSelectedClass(null); setView('members'); }}
                   onNavigateToTeachers={() => setView('executives')}
                   onNavigateToVoiceBroadcast={() => {
                     setView('voice-broadcast');
                   }}
+                  onNavigateToSubscriptions={() => setView('subscriptions')}
                 />;
       case 'departments':
         if (role === 'member') { setView('home'); return null; }
         return <Departments onClassClick={(cls) => { setSelectedClass(cls); setView('members'); }} lang={lang} madrasah={madrasah} dataVersion={dataVersion} triggerRefresh={triggerRefresh} readOnly={role !== 'org_admin' && role !== 'super_admin' && !profile?.permissions?.can_manage_departments} profile={profile} />;
       case 'members':
-        if (!selectedClass && madrasah?.config_json?.modules?.departments !== false) {
+        const parsedConfig = typeof madrasah?.config_json === 'string'
+          ? (() => { try { return JSON.parse(madrasah.config_json); } catch(e) { return {}; } })()
+          : (madrasah?.config_json || {});
+        if (!selectedClass && parsedConfig?.modules?.departments !== false) {
            setView('departments');
            return null;
         }
@@ -215,6 +228,7 @@ const App: React.FC = () => {
                   canAdd={role === 'org_admin' || role === 'super_admin' || !!profile?.permissions?.can_manage_members}
                   canSendSMS={role === 'org_admin' || role === 'super_admin' || !!profile?.permissions?.can_send_sms}
                   institutionId={madrasah?.id}
+                  madrasah={madrasah}
                 />;
       case 'executives':
         if (role === 'member') { setView('home'); return null; }
@@ -276,6 +290,9 @@ const App: React.FC = () => {
       case 'accounting':
         if (role === 'member' && !madrasah?.member_portal_config?.permissions?.view_finances) { setView('home'); return null; }
         return <CommitteeFinances lang={lang} madrasah={madrasah} onBack={() => setView('home')} role={role} profile={profile} />;
+      case 'subscriptions':
+        if (role === 'member' && !madrasah?.member_portal_config?.permissions?.view_finances) { setView('home'); return null; }
+        return <Subscriptions lang={lang} madrasah={madrasah} onBack={() => setView('account')} role={role} profile={profile} />;
       case 'attendance':
         if (role === 'member' && !madrasah?.member_portal_config?.permissions?.view_attendance) { setView('home'); return null; }
         return <MemberParticipation lang={lang} madrasah={madrasah} onBack={() => setView('home')} userId={session?.user?.id} profile={profile} />;
@@ -287,6 +304,19 @@ const App: React.FC = () => {
       case 'minutes':
         if (role === 'member' && !madrasah?.member_portal_config?.permissions?.view_minutes) { setView('home'); return null; }
         return <Minutes lang={lang} madrasah={madrasah} onBack={() => setView('home')} role={role} profile={profile} />;
+      case 'specialized':
+      case 'savings':
+      case 'loans':
+      case 'qard_hasan':
+      case 'volunteers':
+      case 'employees':
+      case 'projects':
+      case 'donations':
+      case 'properties':
+      case 'election':
+      case 'discussions':
+      case 'board_members':
+        return <SpecializedModules lang={lang} madrasah={madrasah} profile={profile} onBack={() => setView('home')} initialTab={view === 'specialized' ? undefined : view} />;
       default:
         return <Home 
                   onMemberClick={(s) => { setSelectedStudent(s); setView('member-details'); }} 
@@ -310,12 +340,14 @@ const App: React.FC = () => {
                   onNavigateToAccounting={() => setView('accounting')}
                   onNavigateToAttendance={() => setView('attendance')}
                   onNavigateToExams={() => setView('meetings')}
+                  onNavigateToMeetings={() => setView('meetings')}
                   onNavigateToClasses={() => setView('departments')}
                   onNavigateToMembers={() => { setSelectedClass(null); setView('members'); }}
                   onNavigateToTeachers={() => setView('executives')}
                   onNavigateToVoiceBroadcast={() => {
                     setView('voice-broadcast');
                   }}
+                  onNavigateToSubscriptions={() => setView('subscriptions')}
                 />;
     }
   };
@@ -333,7 +365,7 @@ const App: React.FC = () => {
       {/* Status Modal - PORTALED */}
       {statusModal.show && createPortal(
         <div className="modal-overlay bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300 z-[100]">
-          <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-50'} w-full max-w-sm rounded-[3.5rem] p-10 text-center shadow-2xl border animate-in zoom-in-95 duration-500 relative overflow-hidden`}>
+          <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-50'} w-full max-w-sm rounded-[1.8rem] sm:rounded-[3.5rem] p-6 sm:p-10 text-center shadow-2xl border animate-in zoom-in-95 duration-500 relative overflow-hidden`}>
              <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform duration-700 ${statusModal.type === 'success' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' : 'bg-red-50 text-red-500 border-red-100'} border-4 shadow-inner`}>
                 {statusModal.type === 'success' ? <CheckCircle2 size={40} strokeWidth={2.5} /> : <AlertCircle size={40} strokeWidth={2.5} />}
              </div>

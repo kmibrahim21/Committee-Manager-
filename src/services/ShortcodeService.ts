@@ -10,16 +10,17 @@ export const ShortcodeService = {
     
     const shortcodes: Record<string, any> = {
       '{name}': data.name || '-',
-      '{father_name}': data.guardian_name || '-',
-      '{class}': data.name || '-',
-      '{roll}': data.roll || '-',
+      '{member_id}': data.member_id_number || data.roll || '-',
+      '{designation}': data.member_type_label || data.member_type || '-',
       '{due_amount}': data.due_amount !== undefined ? data.due_amount : '-',
       '{paid_amount}': data.paid_amount !== undefined ? data.paid_amount : '-',
-      '{result_grade}': data.result_grade || '-',
-      '{title}': data.title || '-',
-      '{attendance_percentage}': data.attendance_percentage !== undefined ? `${data.attendance_percentage}%` : '-',
+      '{meeting_title}': data.meeting_title || '-',
+      '{meeting_date}': data.meeting_date || '-',
+      '{meeting_time}': data.meeting_time || '-',
+      '{meeting_location}': data.meeting_location || '-',
+      '{event_title}': data.event_title || '-',
+      '{event_date}': data.event_date || '-',
       '{institution_name}': data.institution_name || '-',
-      '{month}': data.month || '-',
     };
 
     let finalMessage = message;
@@ -39,101 +40,88 @@ export const ShortcodeService = {
 
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-    // 1. Fetch Students, Classes, and Institution Info
+    // 1. Fetch Members, Departments, and Institution Info
     const { data: students, error: studentError } = await supabase
       .from('members')
       .select(`
         id,
         name,
-        guardian_name,
         roll,
+        member_id_number,
+        member_type,
         departments (name),
         institutions (name)
       `)
       .in('id', studentIds);
 
     if (studentError) {
-      console.error('Error fetching student data for shortcodes:', studentError);
+      console.error('Error fetching member data for shortcodes:', studentError);
       return [];
     }
 
-    // 2. Fetch Fees (Current Month)
+    // 2. Fetch Subscriptions (Current Month)
     const { data: fees } = await supabase
-      .from('fees')
+      .from('subscriptions')
       .select('student_id, amount_due, amount_paid')
-      .eq('month', currentMonth)
+      .eq('period', currentMonth)
       .in('student_id', studentIds);
 
-    // 3. Fetch Latest Meeting Results
-    // This is a bit complex to do in one query for all students.
-    // We'll fetch the latest exam for the institution first.
-    const { data: latestExam } = await supabase
+    // 3. Fetch Latest Meeting
+    const { data: latestMeeting } = await supabase
       .from('meetings')
-      .select('id, title')
+      .select('title, date, time, location')
       .eq('institution_id', institutionId)
       .order('date', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    let marks: any[] = [];
-    if (latestExam) {
-      const { data: marksData } = await supabase
-        .from('exam_marks')
-        .select('student_id, marks_obtained, exam_subjects(full_marks)')
-        .eq('exam_id', latestExam.id)
-        .in('student_id', studentIds);
-      marks = marksData || [];
-    }
+    // 4. Fetch Latest Event
+    const { data: latestEvent } = await supabase
+      .from('events')
+      .select('title, date')
+      .eq('institution_id', institutionId)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    // 4. Fetch Attendance (Current Month)
-    const { data: attendance } = await supabase
-      .from('attendance')
-      .select('student_id, status')
-      .gte('date', `${currentMonth}-01`)
-      .in('student_id', studentIds);
+    // Mapping helper for member types in Bengali
+    const memberTypeLabels: Record<string, string> = {
+      'president': 'সভাপতি',
+      'vice_president': 'সহ-সভাপতি',
+      'secretary': 'সাধারণ সম্পাদক',
+      'joint_secretary': 'যুগ্ম সাধারণ সম্পাদক',
+      'organizing_secretary': 'সাংগঠনিক সম্পাদক',
+      'treasurer': 'কোষাধ্যক্ষ',
+      'member': 'কার্যকরী সদস্য',
+      'general': 'সাধারণ সদস্য',
+      'executive': 'নির্বাহী সদস্য',
+      'adviser': 'উপদেষ্টা'
+    };
 
     // Combine all data
     return students.map(s => {
       const studentFees = fees?.find(f => f.student_id === s.id);
       
-      // Calculate Grade (Simple logic: marks / total * 100)
-      const studentMarks = marks.filter(m => m.student_id === s.id);
-      let totalObtained = 0;
-      let totalFull = 0;
-      studentMarks.forEach(m => {
-        totalObtained += Number(m.marks_obtained);
-        totalFull += Number(m.exam_subjects?.full_marks || 100);
-      });
-      const percentage = totalFull > 0 ? (totalObtained / totalFull) * 100 : 0;
-      
-      let grade = '-';
-      if (totalFull > 0) {
-        if (percentage >= 80) grade = 'A+';
-        else if (percentage >= 70) grade = 'A';
-        else if (percentage >= 60) grade = 'A-';
-        else if (percentage >= 50) grade = 'B';
-        else if (percentage >= 40) grade = 'C';
-        else if (percentage >= 33) grade = 'D';
-        else grade = 'F';
-      }
-
-      // Calculate Attendance Percentage
-      const studentAttendance = attendance?.filter(a => a.student_id === s.id) || [];
-      const presentCount = studentAttendance.filter(a => a.status === 'present' || a.status === 'late').length;
-      const attPercentage = studentAttendance.length > 0 ? Math.round((presentCount / studentAttendance.length) * 100) : undefined;
+      const mType = s.member_type || 'general';
+      const mTypeLabel = memberTypeLabels[mType.toLowerCase()] || mType;
 
       return {
         id: s.id,
         name: s.name,
-        guardian_name: s.guardian_name,
         roll: s.roll,
+        member_id_number: s.member_id_number,
+        member_type: s.member_type,
+        member_type_label: mTypeLabel,
         department_name: (s.departments as any)?.name,
         institution_name: (s.institutions as any)?.name,
         due_amount: studentFees?.amount_due,
         paid_amount: studentFees?.amount_paid,
-        title: latestExam?.title,
-        result_grade: grade,
-        attendance_percentage: attPercentage,
+        meeting_title: latestMeeting?.title || '-',
+        meeting_date: latestMeeting?.date || '-',
+        meeting_time: latestMeeting?.time || '-',
+        meeting_location: latestMeeting?.location || '-',
+        event_title: latestEvent?.title || '-',
+        event_date: latestEvent?.date || '-',
         month: currentMonth
       };
     });

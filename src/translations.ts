@@ -160,8 +160,8 @@ export const translations = {
     menu_meetings: 'মিটিং',
     menu_exams: 'মিটিং',
     menu_accounting: 'হিসাব',
-    menu_members: 'সদস্য',
-    menu_students: 'সদস্য',
+    menu_members: 'কমিটি',
+    menu_students: 'কমিটি',
     menu_sms: 'এসএমএস',
     access_credentials: 'লগইন তথ্য',
     phone_label: 'ফোন',
@@ -525,11 +525,12 @@ export const overrides: Record<string, any> = {
       select_class: 'কমিটি সিলেক্ট করুন',
       class_select: 'কমিটি নির্বাচন করুন',
       class_choose: 'কমিটি বেছে নিন',
-      menu_students: 'সদস্য',
+      menu_students: 'কমিটি',
       menu_attendance: 'হাজিরা',
       menu_exams: 'মিটিং',
       menu_accounting: 'হিসাব',
       menu_sms: 'এসএমএস',
+      executive_committee: 'কার্যনির্বাহী কমিটি',
     },
     en: {
       departments: 'Committees & Members',
@@ -554,6 +555,7 @@ export const overrides: Record<string, any> = {
       menu_exams: 'Meetings',
       menu_accounting: 'Accounting',
       menu_sms: 'SMS',
+      executive_committee: 'Executive Committee',
     }
   },
   organization: {
@@ -575,11 +577,12 @@ export const overrides: Record<string, any> = {
       select_class: 'শাখা সিলেক্ট করুন',
       class_select: 'শাখা নির্বাচন করুন',
       class_choose: 'শাখা বেছে নিন',
-      menu_students: 'সদস্য',
+      menu_students: 'কমিটি',
       menu_attendance: 'হাজিরা',
       menu_exams: 'মিটিং',
       menu_accounting: 'হিসাব',
       menu_sms: 'এসএমএস',
+      executive_committee: 'কর্মকর্তা ও নির্বাহী তালিকা',
     },
     en: {
       departments: 'Branches & Members',
@@ -604,6 +607,59 @@ export const overrides: Record<string, any> = {
       menu_exams: 'Meetings',
       menu_accounting: 'Accounting',
       menu_sms: 'SMS',
+      executive_committee: 'Executives & Staff',
+    }
+  },
+  governing_board: {
+    bn: {
+      departments: 'ইনস্টিটিউট ও সদস্য',
+      classes_title: 'ইনস্টিটিউট সমূহ',
+      students: 'মেম্বার/সদস্য',
+      class_name_label: 'ইনস্টিটিউটের নাম',
+      new_class: 'নতুন ইনস্টিটিউট',
+      edit_class: 'ইনস্টিটিউট পরিবর্তন',
+      no_classes: 'কোনো ইনস্টিটিউট খুঁজে পাওয়া যায়নি',
+      first_class: 'প্রথম ইনস্টিটিউট যোগ করুন',
+      students_count: 'জন সদস্য',
+      add_student: 'নতুন সদস্য',
+      edit_student: 'সদস্যের তথ্য সংশোধন',
+      no_students: 'এই ইনস্টিটিউটে কোনো সদস্য পাওয়া যায়নি',
+      student_info: 'সদস্যের তথ্য',
+      name: 'সদস্যের নাম',
+      select_class: 'ইনস্টিটিউট সিলেক্ট করুন',
+      class_select: 'ইনস্টিটিউট নির্বাচন করুন',
+      class_choose: 'ইনস্টিটিউট বেছে নিন',
+      menu_students: 'ইনস্টিটিউট',
+      menu_attendance: 'হাজিরা',
+      menu_exams: 'মিটিং',
+      menu_accounting: 'হিসাব',
+      menu_sms: 'এসএমএস',
+      executive_committee: 'বোর্ড সদস্য ও নির্বাহী',
+    },
+    en: {
+      departments: 'Institutions & Members',
+      classes_title: 'Institutions',
+      students: 'Members',
+      class_name_label: 'Institution Name',
+      new_class: 'New Institution',
+      edit_class: 'Edit Institution',
+      no_classes: 'No institutions found',
+      first_class: 'Add the first institution',
+      students_count: 'Members',
+      add_student: 'Add Member',
+      edit_student: 'Edit Member',
+      no_students: 'No members found in this institution',
+      student_info: 'Member Info',
+      name: 'Member Name',
+      select_class: 'Select Institution',
+      class_select: 'Select Institution',
+      class_choose: 'Choose an Institution',
+      menu_students: 'Institutions',
+      menu_attendance: 'Attendance',
+      menu_exams: 'Meetings',
+      menu_accounting: 'Accounting',
+      menu_sms: 'SMS',
+      executive_committee: 'Board Members & Executives',
     }
   }
 };
@@ -616,6 +672,7 @@ export const t = (key: keyof typeof translations.bn, lang: Language, type?: stri
   let overrideType = type;
   if (type === 'club' || type === 'committee') overrideType = 'committee';
   if (type === 'organization' || type === 'foundation') overrideType = 'organization';
+  if (type === 'governing_board' || type === 'federation' || type === 'union' || type === 'council') overrideType = 'governing_board';
   
   if (overrides[overrideType] && overrides[overrideType][lang] && overrides[overrideType][lang][key]) {
     return overrides[overrideType][lang][key];

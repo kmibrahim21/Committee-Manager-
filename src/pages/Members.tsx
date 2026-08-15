@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Search, CheckCircle2, MessageSquare, X, BookOpen, Chev
 import { supabase, offlineApi, smsApi } from 'supabase';
 import { Department, Member, Language, Institution } from 'types';
 import { t } from 'translations';
+import { bdDivisions, bdDistricts, bdThanas } from '../utils/bdData';
 
 
 interface StudentsProps {
@@ -31,6 +32,13 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Union Specific Filters
+  const [filterDivision, setFilterDivision] = useState('');
+  const [filterDistrict, setFilterDistrict] = useState('');
+  const [filterThana, setFilterThana] = useState('');
+  const [filterWard, setFilterWard] = useState('');
+
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [templates, setTemplates] = useState<any[]>([]);
@@ -75,6 +83,21 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
         query = query.ilike('name', `%${searchQuery}%`);
       }
 
+      if (madrasah?.institution_type === 'union') {
+        if (filterDivision.trim()) {
+          query = query.ilike('address', `%"division":"${filterDivision.trim()}"%`);
+        }
+        if (filterDistrict.trim()) {
+          query = query.ilike('address', `%"district":"${filterDistrict.trim()}"%`);
+        }
+        if (filterThana.trim()) {
+          query = query.ilike('address', `%"thana":"${filterThana.trim()}"%`);
+        }
+        if (filterWard.trim()) {
+          query = query.ilike('address', `%"ward":"${filterWard.trim()}"%`);
+        }
+      }
+
       const { data, error } = await query;
       if (error) throw error;
 
@@ -94,12 +117,12 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [institutionId, selectedClass.id, page, searchQuery]);
+  }, [institutionId, selectedClass?.id, page, searchQuery, filterDivision, filterDistrict, filterThana, filterWard, madrasah?.institution_type]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchStudents(true), 400); // Optimized debounced search
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, filterDivision, filterDistrict, filterThana, filterWard]);
 
   useEffect(() => {
     fetchTemplates();
@@ -213,6 +236,41 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
               onChange={(e) => setSearchQuery(e.target.value)} 
             />
           </div>
+
+          {madrasah?.institution_type === 'union' && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+              <div className="relative">
+                <select
+                  className="w-full h-11 px-4 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-xl outline-none text-white font-black text-xs placeholder:text-white/40 focus:border-white/40 focus:bg-white/20 transition-all shadow-sm appearance-none"
+                  value={filterDivision} onChange={(e) => { setFilterDivision(e.target.value); setFilterDistrict(''); setFilterThana(''); }}>
+                  <option value="" className="text-black">{lang === 'bn' ? 'সব বিভাগ' : 'All Divisions'}</option>
+                  {bdDivisions.map(d => <option key={d} value={d} className="text-black">{d}</option>)}
+                </select>
+              </div>
+              <div className="relative">
+                <select
+                  className="w-full h-11 px-4 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-xl outline-none text-white font-black text-xs placeholder:text-white/40 focus:border-white/40 focus:bg-white/20 transition-all shadow-sm appearance-none"
+                  value={filterDistrict} onChange={(e) => { setFilterDistrict(e.target.value); setFilterThana(''); }}
+                  disabled={!filterDivision}>
+                  <option value="" className="text-black">{lang === 'bn' ? 'সব জেলা' : 'All Districts'}</option>
+                  {filterDivision && bdDistricts[filterDivision]?.map(d => <option key={d} value={d} className="text-black">{d}</option>)}
+                </select>
+              </div>
+              <div className="relative">
+                <select
+                  className="w-full h-11 px-4 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-xl outline-none text-white font-black text-xs placeholder:text-white/40 focus:border-white/40 focus:bg-white/20 transition-all shadow-sm appearance-none"
+                  value={filterThana} onChange={(e) => setFilterThana(e.target.value)} disabled={!filterDistrict}>
+                  <option value="" className="text-black">{lang === 'bn' ? 'সব থানা' : 'All Thanas'}</option>
+                  {filterDistrict && bdThanas[filterDistrict]?.map(t => <option key={t} value={t} className="text-black">{t}</option>)}
+                </select>
+              </div>
+              <div className="relative">
+                <input type="text" placeholder={lang === 'bn' ? 'ওয়ার্ড' : 'Ward'}
+                  className="w-full h-11 px-4 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-xl outline-none text-white font-black text-xs placeholder:text-white/40 focus:border-white/40 focus:bg-white/20 transition-all shadow-sm"
+                  value={filterWard} onChange={(e) => setFilterWard(e.target.value)} disabled={!filterDistrict && !filterThana} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -226,9 +284,20 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
           >
             <div className="flex items-center gap-4 flex-1 min-w-0">
               <div className="relative shrink-0">
-                <div className={`w-14 h-14 rounded-[1rem] flex flex-col items-center justify-center shrink-0 border-2 shadow-inner transition-all duration-300 ${isSelectionMode && selectedIds.has(student.id) ? 'bg-[#42f5e9] text-[#0e8a84] border-[#42f5e9]' : (isDark ? 'bg-slate-800 text-[#42f5e9] border-slate-700 group-hover:bg-slate-700 group-hover:border-[#42f5e9]/40' : 'bg-slate-50 text-[#0fb5ab] border-slate-100 group-hover:bg-[#42f5e9]/10 group-hover:border-[#42f5e9]/20')}`}>
-                  <span className={`text-[8px] font-black leading-none uppercase tracking-widest ${isSelectionMode && selectedIds.has(student.id) ? 'opacity-70' : 'opacity-40'}`}>{lang === 'bn' ? 'আইডি নং' : 'ID NO'}</span>
-                  <span className="text-sm font-black leading-none mt-1 truncate max-w-full px-1">{student.member_id_number || student.roll || '-'}</span>
+                <div className={`w-14 h-14 rounded-[1rem] flex flex-col items-center justify-center shrink-0 border-2 shadow-inner transition-all duration-300 overflow-hidden ${isSelectionMode && selectedIds.has(student.id) ? 'bg-[#42f5e9] text-[#0e8a84] border-[#42f5e9]' : (isDark ? 'bg-slate-800 text-[#42f5e9] border-slate-700 group-hover:bg-slate-700 group-hover:border-[#42f5e9]/40' : 'bg-slate-50 text-[#0fb5ab] border-slate-100 group-hover:bg-[#42f5e9]/10 group-hover:border-[#42f5e9]/20')}`}>
+                  {student.photo_url ? (
+                    <img 
+                      src={student.photo_url} 
+                      alt={student.name} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <>
+                      <span className={`text-[8px] font-black leading-none uppercase tracking-widest ${isSelectionMode && selectedIds.has(student.id) ? 'opacity-70' : 'opacity-40'}`}>{lang === 'bn' ? 'আইডি নং' : 'ID NO'}</span>
+                      <span className="text-sm font-black leading-none mt-1 truncate max-w-full px-1">{student.member_id_number || student.roll || '-'}</span>
+                    </>
+                  )}
                 </div>
                 {isSelectionMode && (
                   <div className={`absolute -top-1.5 -right-1.5 w-6 h-6 rounded-lg flex items-center justify-center shadow-lg border-2 transition-all duration-300 ${selectedIds.has(student.id) ? 'bg-[#42f5e9] text-[#0e8a84] border-white scale-110' : (isDark ? 'bg-slate-800 text-slate-600 border-slate-700' : 'bg-white text-slate-200 border-slate-100')}`}>

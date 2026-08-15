@@ -43,7 +43,7 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
         admit_card: configObj.modules?.admit_card ?? true,
         seat_plan: configObj.modules?.seat_plan ?? true,
         accounting: configObj.modules?.accounting ?? true,
-        academic_year_promotion: configObj.modules?.academic_year_promotion ?? false,
+        subscriptions: configObj.modules?.subscriptions ?? true,
         voice_broadcast: configObj.modules?.voice_broadcast ?? true,
         sms: configObj.modules?.sms ?? true,
       },
@@ -155,7 +155,7 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
               {isSuperAdmin ? (
                 <>
                   <NavItem icon={BarChart3} label={t('dashboard', lang, madrasah?.institution_type)} tab="dashboard" onClick={() => setView('admin-dashboard')} />
-                  <NavItem icon={Users} label={lang === 'bn' ? 'প্রতিষ্ঠান' : 'Institutions'} tab="list" onClick={() => setView('admin-panel')} />
+                  <NavItem icon={Users} label={lang === 'bn' ? 'কমিটি' : 'Committees'} tab="list" onClick={() => setView('admin-panel')} />
                   <NavItem icon={CreditCard} label={t('approvals', lang, madrasah?.institution_type)} tab="approvals" onClick={() => setView('admin-approvals')} />
                 </>
               ) : (
@@ -172,6 +172,10 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
                   
                   {modules.modules.accounting && (role === 'org_admin' || role === 'accountant' || (role === 'executive' && hasPermission('can_manage_accounting'))) && (
                     <NavItem icon={Banknote} label={t('menu_accounting', lang, madrasah?.institution_type)} tab="accounting" onClick={() => setView('accounting')} />
+                  )}
+                  
+                  {modules.modules.subscriptions && (role === 'org_admin' || role === 'accountant' || (role === 'executive' && hasPermission('can_manage_accounting'))) && (
+                    <NavItem icon={CreditCard} label={lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscriptions'} tab="subscriptions" onClick={() => setView('subscriptions')} />
                   )}
                   
                   {(role !== 'executive' || hasPermission('can_manage_members') || hasPermission('can_manage_departments')) && (

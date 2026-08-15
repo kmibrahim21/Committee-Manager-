@@ -27,6 +27,7 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
   const [activePolls, setActivePolls] = useState<Poll[]>([]);
   const [completedPolls, setCompletedPolls] = useState<Poll[]>([]);
   const [votes, setVotes] = useState<PollVote[]>([]);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newPoll, setNewPoll] = useState({ question: '', options: ['', ''], end_date: '' });
@@ -37,6 +38,18 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
   useEffect(() => {
     fetchPolls();
   }, []);
+
+  useEffect(() => {
+    if (profile && votes.length > 0) {
+      const initialSelections: Record<string, number> = {};
+      votes.forEach(v => {
+        if (v.member_id === profile.id) {
+          initialSelections[v.poll_id] = v.option_index;
+        }
+      });
+      setSelectedOptions(prev => ({ ...initialSelections, ...prev }));
+    }
+  }, [votes, profile]);
 
   const fetchPolls = async () => {
     if (!madrasah) return;
@@ -52,26 +65,57 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
         .from('poll_votes')
         .select('*');
 
+      const localPollsJson = localStorage.getItem(`local_polls_${madrasah.id}`);
+      const localVotesJson = localStorage.getItem(`local_poll_votes_${madrasah.id}`);
+      const localPolls: Poll[] = localPollsJson ? JSON.parse(localPollsJson) : [];
+      const localVotes: PollVote[] = localVotesJson ? JSON.parse(localVotesJson) : [];
+
+      let finalPolls: Poll[] = [];
+      let finalVotes: PollVote[] = [];
+
       if (!pollsError && pollsData) {
-        setActivePolls(pollsData.filter(p => p.is_active));
-        setCompletedPolls(pollsData.filter(p => !p.is_active));
+        const supabaseIds = new Set(pollsData.map(p => p.id));
+        const nonDuplicateLocal = localPolls.filter(p => !supabaseIds.has(p.id));
+        finalPolls = [...pollsData, ...nonDuplicateLocal];
       } else {
-        // Mock data
-        const mockPolls: Poll[] = [
-          {
-            id: '1',
-            institution_id: madrasah.id,
-            question: lang === 'bn' ? 'আগামী পিকনিকের জন্য কোনটি সেরা জায়গা?' : 'Which place is best for next picnic?',
-            options: lang === 'bn' ? ['কক্সবাজার', 'সিলেট', 'সুন্দরবন'] : ['Coxs Bazar', 'Sylhet', 'Sundarban'],
-            is_active: true,
-            created_at: new Date().toISOString()
-          }
-        ];
-        setActivePolls(mockPolls);
+        if (localPolls.length > 0) {
+          finalPolls = localPolls;
+        } else {
+          const demoPolls: Poll[] = [
+            {
+              id: '1',
+              institution_id: madrasah.id,
+              question: lang === 'bn' ? 'আগামী পিকনিকের জন্য কোনটি সেরা জায়গা?' : 'Which place is best for next picnic?',
+              options: lang === 'bn' ? ['কক্সবাজার', 'সিলেট', 'সুন্দরবন'] : ['Coxs Bazar', 'Sylhet', 'Sundarban'],
+              is_active: true,
+              created_at: new Date().toISOString()
+            }
+          ];
+          finalPolls = demoPolls;
+          localStorage.setItem(`local_polls_${madrasah.id}`, JSON.stringify(demoPolls));
+        }
       }
-      
+
       if (!votesError && votesData) {
-        setVotes(votesData);
+        const supabaseVoteKeys = new Set(votesData.map(v => `${v.poll_id}_${v.member_id}`));
+        const nonDuplicateLocalVotes = localVotes.filter(v => !supabaseVoteKeys.has(`${v.poll_id}_${v.member_id}`));
+        finalVotes = [...votesData, ...nonDuplicateLocalVotes];
+      } else {
+        finalVotes = localVotes;
+      }
+
+      setActivePolls(finalPolls.filter(p => p.is_active));
+      setCompletedPolls(finalPolls.filter(p => !p.is_active));
+      setVotes(finalVotes);
+
+      if (profile) {
+        const initialSelections: Record<string, number> = {};
+        finalVotes.forEach(v => {
+          if (v.member_id === profile.id) {
+            initialSelections[v.poll_id] = v.option_index;
+          }
+        });
+        setSelectedOptions(initialSelections);
       }
     } catch (e) {
       console.error(e);
@@ -80,30 +124,55 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
     }
   };
 
-  const handleVote = async (pollId: string, optionIndex: number) => {
-    if (!profile) return;
-    
-    // Check if already voted
-    if (votes.some(v => v.poll_id === pollId && v.member_id === profile.id)) return;
+  const handleSaveVote = async (pollId: string) => {
+    if (!profile || !madrasah) return;
+    const selectedIndex = selectedOptions[pollId];
+    if (selectedIndex === undefined) return;
 
     try {
       const voteData = {
         poll_id: pollId,
         member_id: profile.id,
-        option_index: optionIndex,
+        option_index: selectedIndex,
         created_at: new Date().toISOString()
       };
 
+      // 1. Delete previous vote from Supabase to prevent duplicate key error
+      try {
+        await supabase
+          .from('poll_votes')
+          .delete()
+          .eq('poll_id', pollId)
+          .eq('member_id', profile.id);
+      } catch (err) {
+        console.error('Database clean up error:', err);
+      }
+
+      // 2. Insert new vote into Supabase
       const { data, error } = await supabase
         .from('poll_votes')
         .insert([voteData])
         .select();
 
-      if (error) {
-        setVotes(prev => [...prev, { ...voteData, id: Math.random().toString() }]);
-      } else if (data) {
-        setVotes(prev => [...prev, data[0]]);
+      let savedVote = { ...voteData, id: Math.random().toString() };
+      if (!error && data && data[0]) {
+        savedVote = data[0];
       }
+
+      // 3. Update local storage
+      const localVotesJson = localStorage.getItem(`local_poll_votes_${madrasah.id}`);
+      let localVotes: PollVote[] = localVotesJson ? JSON.parse(localVotesJson) : [];
+      localVotes = localVotes.filter(v => !(v.poll_id === pollId && v.member_id === profile.id));
+      localVotes.push(savedVote);
+      localStorage.setItem(`local_poll_votes_${madrasah.id}`, JSON.stringify(localVotes));
+
+      // 4. Update state
+      setVotes(prev => {
+        const filtered = prev.filter(v => !(v.poll_id === pollId && v.member_id === profile.id));
+        return [...filtered, savedVote];
+      });
+
+      alert(lang === 'bn' ? 'ভোট সফলভাবে সংরক্ষিত হয়েছে!' : 'Vote saved successfully!');
     } catch (e) {
       console.error(e);
     }
@@ -113,29 +182,44 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
     if (!madrasah || !newPoll.question || newPoll.options.some(o => !o)) return;
     setIsSubmitting(true);
     try {
-      const pollData = {
+      const pollData: Poll = {
+        id: Math.random().toString(),
         institution_id: madrasah.id,
         question: newPoll.question,
         options: newPoll.options,
         is_active: true,
         created_at: new Date().toISOString(),
-        end_date: newPoll.end_date || null
+        end_date: newPoll.end_date || undefined
       };
 
       const { data, error } = await supabase
         .from('polls')
-        .insert([pollData])
+        .insert([{
+          institution_id: pollData.institution_id,
+          question: pollData.question,
+          options: pollData.options,
+          is_active: pollData.is_active,
+          created_at: pollData.created_at,
+          end_date: pollData.end_date || null
+        }])
         .select();
 
-      if (error) {
-        setActivePolls(prev => [{ ...pollData, id: Math.random().toString() }, ...prev]);
-        setIsCreating(false);
-        setNewPoll({ question: '', options: ['', ''], end_date: '' });
-      } else if (data) {
-        setActivePolls(prev => [data[0], ...prev]);
-        setIsCreating(false);
-        setNewPoll({ question: '', options: ['', ''], end_date: '' });
+      let savedPoll = pollData;
+      if (!error && data && data[0]) {
+        savedPoll = data[0];
       }
+
+      // Save to local storage fallback
+      const localPollsJson = localStorage.getItem(`local_polls_${madrasah.id}`);
+      const localPolls: Poll[] = localPollsJson ? JSON.parse(localPollsJson) : [];
+      const updatedLocalPolls = [savedPoll, ...localPolls];
+      localStorage.setItem(`local_polls_${madrasah.id}`, JSON.stringify(updatedLocalPolls));
+
+      setActivePolls(prev => [savedPoll, ...prev]);
+      setIsCreating(false);
+      setNewPoll({ question: '', options: ['', ''], end_date: '' });
+
+      alert(lang === 'bn' ? 'পোল সফলভাবে তৈরি এবং সংরক্ষিত হয়েছে!' : 'Poll created and saved successfully!');
     } catch (e) {
       console.error(e);
     } finally {
@@ -146,23 +230,25 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
   const handleClosePoll = async (id: string) => {
     if (!confirm(lang === 'bn' ? 'আপনি কি পোলটি বন্ধ করতে চান?' : 'Do you want to close this poll?')) return;
     try {
-      const { error } = await supabase
+      await supabase
         .from('polls')
         .update({ is_active: false })
         .eq('id', id);
 
-      if (error) {
-        const poll = activePolls.find(p => p.id === id);
-        if (poll) {
-          setActivePolls(prev => prev.filter(p => p.id !== id));
-          setCompletedPolls(prev => [{ ...poll, is_active: false }, ...prev]);
+      // Update in local storage fallback
+      if (madrasah) {
+        const localPollsJson = localStorage.getItem(`local_polls_${madrasah.id}`);
+        if (localPollsJson) {
+          const localPolls: Poll[] = JSON.parse(localPollsJson);
+          const updated = localPolls.map(p => p.id === id ? { ...p, is_active: false } : p);
+          localStorage.setItem(`local_polls_${madrasah.id}`, JSON.stringify(updated));
         }
-      } else {
-        const poll = activePolls.find(p => p.id === id);
-        if (poll) {
-          setActivePolls(prev => prev.filter(p => p.id !== id));
-          setCompletedPolls(prev => [{ ...poll, is_active: false }, ...prev]);
-        }
+      }
+
+      const poll = activePolls.find(p => p.id === id);
+      if (poll) {
+        setActivePolls(prev => prev.filter(p => p.id !== id));
+        setCompletedPolls(prev => [{ ...poll, is_active: false }, ...prev]);
       }
     } catch (e) {
       console.error(e);
@@ -193,7 +279,9 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
       voted: { bn: 'ভোট দিয়েছেন', en: 'You Voted' },
       total_votes: { bn: 'মোট ভোট', en: 'Total Votes' },
       close_poll: { bn: 'বন্ধ করুন', en: 'Close Poll' },
-      no_active: { bn: 'কোনো চলমান পোল নেই', en: 'No active polls found' }
+      no_active: { bn: 'কোনো চলমান পোল নেই', en: 'No active polls found' },
+      save_vote: { bn: 'ভোট সংরক্ষণ করুন', en: 'Save Vote' },
+      change_vote: { bn: 'ভোট পরিবর্তন করুন', en: 'Change Vote' }
     };
     return translations[key]?.[lang] || key;
   };
@@ -257,21 +345,22 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
                         
                         <div className="space-y-3">
                           {poll.options.map((option, idx) => {
-                            const isSelected = userVote?.option_index === idx;
+                            const isSelected = selectedOptions[poll.id] === idx;
+                            const isSavedUserVote = userVote?.option_index === idx;
                             const stat = stats[idx];
+                            const hasVoted = !!userVote;
                             
                             return (
                               <button
                                 key={idx}
-                                disabled={!!userVote}
-                                onClick={() => handleVote(poll.id, idx)}
+                                onClick={() => setSelectedOptions(prev => ({ ...prev, [poll.id]: idx }))}
                                 className={`w-full group relative overflow-hidden transition-all text-left rounded-2xl h-14 px-5 flex items-center justify-between font-bold border ${
-                                  userVote
-                                    ? (isSelected ? 'border-[#42f5e9] bg-[#42f5e9]/10 text-[#0fb5ab]' : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-500' : 'bg-slate-50 border-slate-100 text-slate-400'))
+                                  isSelected
+                                    ? 'border-[#42f5e9] bg-[#42f5e9]/10 text-[#0fb5ab]'
                                     : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white hover:border-[#42f5e9]/50' : 'bg-slate-50 border-[#42f5e9]/10 text-[#0fb5ab] hover:border-[#42f5e9]/30')
                                 }`}
                               >
-                                {userVote && (
+                                {hasVoted && (
                                   <motion.div 
                                     initial={{ width: 0 }}
                                     animate={{ width: `${stat.percentage}%` }}
@@ -281,8 +370,13 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
                                 <span className="relative z-10 flex items-center gap-2">
                                   {isSelected && <CheckCircle2 size={18} />}
                                   {option}
+                                  {isSavedUserVote && (
+                                    <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ml-2">
+                                      {lang === 'bn' ? 'সংরক্ষিত' : 'Saved'}
+                                    </span>
+                                  )}
                                 </span>
-                                {userVote && (
+                                {hasVoted && (
                                   <span className="relative z-10 text-xs font-black">
                                     {stat.percentage}%
                                   </span>
@@ -291,6 +385,18 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
                             );
                           })}
                         </div>
+
+                        {/* Save / Change Vote Button */}
+                        {selectedOptions[poll.id] !== undefined && selectedOptions[poll.id] !== userVote?.option_index && (
+                          <div className="mt-4 flex justify-end">
+                            <button
+                              onClick={() => handleSaveVote(poll.id)}
+                              className="bg-[#42f5e9] text-[#0e8a84] px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider active:scale-95 transition-all shadow-md shadow-[#42f5e9]/15 flex items-center gap-2"
+                            >
+                              <span>{userVote ? t('change_vote') : t('save_vote')}</span>
+                            </button>
+                          </div>
+                        )}
                         
                         <div className="mt-6 pt-5 border-t border-inherit flex items-center justify-between">
                           <div className="flex items-center gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -373,7 +479,7 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
       {/* Create Modal */}
       <AnimatePresence>
         {isCreating && (
-          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4">
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -382,10 +488,10 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
               className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
             />
             <motion.div 
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              className={`relative w-full max-w-lg p-6 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`relative w-full max-w-lg p-6 rounded-[2.5rem] shadow-2xl max-h-[90vh] overflow-y-auto ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
             >
               <h2 className={`text-xl font-black font-noto mb-6 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
                 {t('create_poll')}

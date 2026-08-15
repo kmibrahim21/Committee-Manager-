@@ -114,16 +114,32 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
 
     useEffect(() => {
         if (meetings.length > 0) {
-            const now = new Date();
             const total = meetings.length;
             const completed = meetings.filter(m => m.status === 'completed').length;
             const upcoming = meetings.filter(m => m.status === 'planned' || m.status === 'ongoing').length;
             
             setStats({ total, upcoming, completed, attendanceRate: 85 });
 
-            const sorted = [...meetings].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            const next = sorted.find(m => new Date(m.date) >= now && m.status !== 'cancelled' && m.status !== 'completed');
-            setNextMeeting(next || sorted[0]);
+            // Filter all active/planned/ongoing meetings
+            const upcomingMeetings = meetings.filter(m => m.status === 'planned' || m.status === 'ongoing');
+            
+            let next = null;
+            if (upcomingMeetings.length > 0) {
+                // Sort ascending so the closest upcoming meeting is first
+                const sortedUpcoming = [...upcomingMeetings].sort((a, b) => {
+                    const dateA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+                    const dateB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+                    return dateA - dateB;
+                });
+                next = sortedUpcoming[0];
+            } else {
+                // If no upcoming planned meetings, fallback to the latest completed/other meeting (most recent date)
+                const sortedAllDesc = [...meetings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                next = sortedAllDesc[0];
+            }
+            setNextMeeting(next);
+        } else {
+            setNextMeeting(null);
         }
     }, [meetings]);
 
@@ -182,7 +198,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
             if (error) throw error;
             setAttendanceRecords(prev => ({ ...prev, [memberId]: status }));
         } catch (e) {
-            alert('Error updating attendance');
+            alert(lang === 'bn' ? 'উপস্থিতি আপডেট করতে সমস্যা হয়েছে' : 'Error updating attendance');
         }
     };
 
@@ -300,7 +316,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
 
             fetchInitialData();
         } catch (e) {
-            alert('Error updating status');
+            alert(lang === 'bn' ? 'স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে' : 'Error updating status');
         } finally {
             setLoading(false);
         }
@@ -481,7 +497,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                         </div>
                         <div className="md:w-64">
                             <select 
-                                className={`w-full h-14 ${isDark ? 'bg-slate-900/50 text-white' : 'bg-white text-slate-600'} rounded-2xl px-6 font-black text-[10px] uppercase tracking-widest shadow-sm border border-transparent outline-none focus:border-blue-500/20 transition-all cursor-pointer appearance-none`}
+                                className={`w-full h-14 ${isDark ? 'bg-[#0E1726]/80 text-white' : 'bg-white text-slate-600 border border-blue-50'} rounded-2xl px-6 font-black text-[10px] uppercase tracking-widest shadow-sm border border-transparent outline-none focus:border-blue-500/20 transition-all cursor-pointer appearance-none`}
                                 value={selectedDept}
                                 onChange={(e) => setSelectedDept(e.target.value)}
                             >
@@ -496,7 +512,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                     {/* Content Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredMeetings.map((meeting) => (
-                            <div key={meeting.id} className={`p-5 sm:p-6 rounded-[1.5rem] border ${isDark ? 'bg-[#0F111A] border-slate-800' : 'bg-white border-slate-100'} shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group relative overflow-hidden flex flex-col justify-between min-h-[320px]`}>
+                            <div key={meeting.id} className={`p-5 sm:p-6 rounded-[1.5rem] border ${isDark ? 'bg-[#0A1224] border-blue-900/40' : 'bg-white border-blue-100/60 shadow-[0_4px_24px_rgba(37,99,235,0.01)] hover:shadow-[0_8px_32px_rgba(37,99,235,0.03)] hover:border-blue-200/80'} hover:-translate-y-1 transition-all group relative overflow-hidden flex flex-col justify-between min-h-[320px]`}>
                                 <div>
                                     <div className="flex items-start justify-between mb-6">
                                         <div className={`p-3 rounded-xl ${meeting.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : meeting.status === 'cancelled' ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'} shadow-inner`}>
@@ -505,7 +521,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                                         <div className="flex items-center gap-1">
                                             <button 
                                                 onClick={() => { setEditingMeeting(meeting); setShowEditModal(true); }}
-                                                className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-blue-500/10 text-slate-700 hover:text-blue-400' : 'hover:bg-blue-50 text-slate-300 hover:text-blue-600'}`}
+                                                className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-blue-500/10 text-sky-400 hover:text-blue-400' : 'hover:bg-blue-50 text-blue-300 hover:text-blue-600'}`}
                                             >
                                                 <Edit3 size={16} />
                                             </button>
@@ -520,25 +536,30 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
 
                                     <div className="space-y-3">
                                         <div className="flex flex-wrap gap-2">
-                                            <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-50 text-slate-400'}`}>
+                                            <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${isDark ? 'bg-blue-950/60 text-sky-400' : 'bg-blue-50/60 text-blue-500'}`}>
                                                 {new Date(meeting.date).toLocaleDateString()} • {meeting.time || '10:00 AM'}
                                             </div>
                                             {meeting.type && (
                                                 <div className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${isDark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600 border border-blue-50'}`}>
-                                                    {meeting.type}
+                                                    {lang === 'bn' ? (
+                                                        meeting.type === 'General' ? 'সাধারণ' :
+                                                        meeting.type === 'Emergency' ? 'জরুরি' :
+                                                        meeting.type === 'Strategic' ? 'কৌশলগত' :
+                                                        meeting.type === 'Annual' ? 'বার্ষিক' : meeting.type
+                                                    ) : meeting.type}
                                                 </div>
                                             )}
                                         </div>
                                         <h3 className={`text-lg font-black font-noto leading-tight ${isDark ? 'text-white' : 'text-[#1E3A8A]'} group-hover:text-[#2563EB] transition-colors line-clamp-2`}>{meeting.title}</h3>
                                         
                                         <div className="flex flex-wrap gap-2 pt-1">
-                                            <div className={`flex items-center gap-2 ${isDark ? 'bg-slate-800' : 'bg-slate-50'} py-1.5 px-3 rounded-full`}>
+                                            <div className={`flex items-center gap-2 ${isDark ? 'bg-blue-950/40 text-sky-400/80' : 'bg-blue-50/40 text-blue-900/60'} py-1.5 px-3 rounded-full`}>
                                                 <MapPin size={12} className="text-blue-500" />
-                                                <span className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{meeting.venue || (lang === 'bn' ? 'সভার কক্ষ' : 'HQ')}</span>
+                                                <span className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-sky-300/80' : 'text-blue-900/60'}`}>{meeting.venue || (lang === 'bn' ? 'সভার কক্ষ' : 'HQ')}</span>
                                             </div>
-                                            <div className={`flex items-center gap-2 ${isDark ? 'bg-slate-800' : 'bg-slate-50'} py-1.5 px-3 rounded-full`}>
-                                                <Users size={12} className="text-slate-400" />
-                                                <span className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{meeting.departments?.name || (lang === 'bn' ? 'সাধারণ সভা' : 'General')}</span>
+                                            <div className={`flex items-center gap-2 ${isDark ? 'bg-blue-950/40 text-sky-400/80' : 'bg-blue-50/40 text-blue-900/60'} py-1.5 px-3 rounded-full`}>
+                                                <Users size={12} className="text-blue-500" />
+                                                <span className={`text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-sky-300/80' : 'text-blue-900/60'}`}>{meeting.departments?.name || (lang === 'bn' ? 'সাধারণ সভা' : 'General')}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -551,7 +572,12 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                                         'bg-blue-500/10 text-blue-500'
                                     }`}>
                                         <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                                        {meeting.status}
+                                        {lang === 'bn' ? (
+                                            meeting.status === 'planned' ? 'আসন্ন' :
+                                            meeting.status === 'ongoing' ? 'চলমান' :
+                                            meeting.status === 'completed' ? 'সম্পন্ন' :
+                                            meeting.status === 'cancelled' ? 'বাতিল' : meeting.status
+                                        ) : meeting.status}
                                     </div>
                                     
                                     <button 
@@ -605,11 +631,11 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
 
             {/* Delete Confirmation Modal */}
             {deletingId && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-3xl z-[3000] flex items-center justify-center p-6">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-3xl z-[3000] flex items-center justify-center p-4 sm:p-6">
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-white w-full max-w-sm rounded-[3rem] p-10 shadow-2xl text-center"
+                        className="bg-white w-full max-w-sm rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 shadow-2xl text-center"
                     >
                         <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
                             <Trash2 size={48} />
@@ -641,36 +667,36 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
 
             {/* Add Modal */}
             {showAddModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[2000] flex items-center justify-center p-4 sm:p-10">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[2000] flex items-center justify-center p-3 sm:p-10">
                     <motion.div 
                         initial={{ opacity: 0, y: 100, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="bg-white w-full max-w-2xl rounded-[4rem] p-8 sm:p-16 shadow-2xl relative overflow-hidden flex flex-col max-h-full"
+                        className="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col max-h-[92vh]"
                     >
-                        <div className="flex items-center justify-between mb-12">
-                            <h3 className="text-3xl sm:text-5xl font-black text-[#1E3A8A] font-noto tracking-tight">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl sm:text-2xl font-black text-[#1E3A8A] font-noto tracking-tight">
                                 {lang === 'bn' ? 'নতুন মিটিং সূচী' : 'New Assembly'}
                             </h3>
-                            <button onClick={() => setShowAddModal(false)} className="p-4 bg-slate-50 text-slate-300 hover:text-rose-500 rounded-3xl transition-all">
-                                <X size={32} />
+                            <button onClick={() => setShowAddModal(false)} className="w-10 h-10 bg-slate-50 text-slate-400 hover:text-rose-500 rounded-xl flex items-center justify-center transition-all">
+                                <X size={20} />
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto pr-4 no-scrollbar space-y-10 py-2">
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-2">
-                                <div className="space-y-3">
+                        <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-5 py-2">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1">
+                                <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Assemble Name</label>
                                     <input 
-                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg font-noto"
+                                        className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm font-noto"
                                         placeholder="সূচীর শিরোনাম..."
                                         value={newMeeting.title}
                                         onChange={(e) => setNewMeeting({...newMeeting, title: e.target.value})}
                                     />
                                 </div>
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Venue / Location</label>
                                     <input 
-                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg font-noto"
+                                        className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm font-noto"
                                         placeholder="কোথায় অনুষ্ঠিত হবে?"
                                         value={newMeeting.venue}
                                         onChange={(e) => setNewMeeting({...newMeeting, venue: e.target.value})}
@@ -678,12 +704,12 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                                 </div>
                             </div>
 
-                            <div className="space-y-3 px-2">
+                            <div className="space-y-2 px-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-noto">
                                     {lang === 'bn' ? 'কমিটি নির্বাচন' : 'Select Committee'}
                                 </label>
                                 <select 
-                                    className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white appearance-none cursor-pointer text-lg font-noto"
+                                    className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white cursor-pointer text-sm font-noto"
                                     value={newMeeting.department_id || ''}
                                     onChange={(e) => setNewMeeting({...newMeeting, department_id: e.target.value})}
                                 >
@@ -694,31 +720,31 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                                 </select>
                             </div>
                             
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-2">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date of Convention</label>
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সভার তারিখ' : 'Date of Convention'}</label>
                                     <input 
                                         type="date"
-                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg"
+                                        className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm"
                                         value={newMeeting.date}
                                         onChange={(e) => setNewMeeting({...newMeeting, date: e.target.value})}
                                     />
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Convention Time</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সভার সময়' : 'Convention Time'}</label>
                                     <input 
                                         type="time"
-                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg"
+                                        className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm"
                                         value={newMeeting.time}
                                         onChange={(e) => setNewMeeting({...newMeeting, time: e.target.value})}
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-3 px-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Strategic description & Goals</label>
+                            <div className="space-y-2 px-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কৌশলগত বিবরণ ও লক্ষ্য' : 'Strategic description & Goals'}</label>
                                 <textarea 
-                                    className="w-full h-40 bg-slate-50 rounded-[2.5rem] p-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg resize-none font-noto"
+                                    className="w-full h-28 bg-slate-50 rounded-2xl p-4 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm resize-none font-noto"
                                     placeholder="সভার উদ্দেশ্য এবং বর্ণনা..."
                                     value={newMeeting.description}
                                     onChange={(e) => setNewMeeting({...newMeeting, description: e.target.value})}
@@ -726,19 +752,19 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                             </div>
                         </div>
 
-                        <div className="pt-12 mt-auto border-t border-slate-50 flex gap-6">
+                        <div className="pt-4 mt-4 border-t border-slate-100 flex gap-4 shrink-0">
                             <button 
                                 onClick={() => setShowAddModal(false)}
-                                className="px-12 py-6 bg-slate-100 text-slate-600 font-black rounded-3xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[11px]"
+                                className="px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[11px]"
                             >
                                 {lang === 'bn' ? 'বাতিল' : 'Abort'}
                             </button>
                             <button 
                                 onClick={handleCreateMeeting}
                                 disabled={loading}
-                                className="flex-1 py-6 bg-[#2563EB] text-white font-black rounded-3xl shadow-2xl shadow-blue-900/20 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all text-xs uppercase tracking-widest"
+                                className="flex-1 py-3 bg-[#2563EB] text-white font-bold rounded-2xl shadow-lg shadow-blue-900/10 hover:bg-blue-700 hover:scale-[1.01] active:scale-95 transition-all text-xs uppercase tracking-widest"
                             >
-                                {loading ? <Loader2 className="animate-spin mx-auto" /> : (lang === 'bn' ? 'সেভ করুন' : 'Authorize Convention')}
+                                {loading ? <Loader2 className="animate-spin mx-auto text-white" size={16} /> : (lang === 'bn' ? 'সেভ করুন' : 'Authorize Convention')}
                             </button>
                         </div>
                     </motion.div>
@@ -747,47 +773,47 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
 
             {/* Edit Modal */}
             {showEditModal && editingMeeting && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[2000] flex items-center justify-center p-4 sm:p-10">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[2000] flex items-center justify-center p-3 sm:p-10">
                     <motion.div 
                         initial={{ opacity: 0, y: 100, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="bg-white w-full max-w-2xl rounded-[4rem] p-8 sm:p-16 shadow-2xl relative overflow-hidden flex flex-col max-h-full"
+                        className="bg-white w-full max-w-lg rounded-3xl p-5 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col max-h-[92vh]"
                     >
-                        <div className="flex items-center justify-between mb-12">
-                            <h3 className="text-3xl sm:text-5xl font-black text-[#1E3A8A] font-noto tracking-tight">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl sm:text-2xl font-black text-[#1E3A8A] font-noto tracking-tight">
                                 {lang === 'bn' ? 'সূচী সংশোধন' : 'Refine assembly'}
                             </h3>
-                            <button onClick={() => setShowEditModal(false)} className="p-4 bg-slate-50 text-slate-300 hover:text-rose-500 rounded-3xl transition-all">
-                                <X size={32} />
+                            <button onClick={() => setShowEditModal(false)} className="w-10 h-10 bg-slate-50 text-slate-400 hover:text-rose-500 rounded-xl flex items-center justify-center transition-all">
+                                <X size={20} />
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto pr-4 no-scrollbar space-y-10 py-2">
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-2">
-                                <div className="space-y-3">
+                        <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-5 py-2">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1">
+                                <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Assemble Name</label>
                                     <input 
-                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg font-noto"
+                                        className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm font-noto"
                                         value={editingMeeting.title}
                                         onChange={(e) => setEditingMeeting({...editingMeeting, title: e.target.value})}
                                     />
                                 </div>
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Venue / Location</label>
                                     <input 
-                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg font-noto"
+                                        className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm font-noto"
                                         value={editingMeeting.venue}
                                         onChange={(e) => setEditingMeeting({...editingMeeting, venue: e.target.value})}
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-3 px-2">
+                            <div className="space-y-2 px-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-noto">
                                     {lang === 'bn' ? 'কমিটি নির্বাচন' : 'Select Committee'}
                                 </label>
                                 <select 
-                                    className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white appearance-none cursor-pointer text-lg font-noto"
+                                    className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white cursor-pointer text-sm font-noto"
                                     value={editingMeeting.department_id || ''}
                                     onChange={(e) => setEditingMeeting({...editingMeeting, department_id: e.target.value})}
                                 >
@@ -798,50 +824,50 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                                 </select>
                             </div>
                             
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 px-2">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date of Convention</label>
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সভার তারিখ' : 'Date of Convention'}</label>
                                     <input 
                                         type="date"
-                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg"
+                                        className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm"
                                         value={editingMeeting.date}
                                         onChange={(e) => setEditingMeeting({...editingMeeting, date: e.target.value})}
                                     />
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Convention Time</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সভার সময়' : 'Convention Time'}</label>
                                     <input 
                                         type="time"
-                                        className="w-full h-18 bg-slate-50 rounded-3xl px-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg"
+                                        className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm"
                                         value={editingMeeting.time}
                                         onChange={(e) => setEditingMeeting({...editingMeeting, time: e.target.value})}
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-3 px-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Strategic Goals</label>
+                            <div className="space-y-2 px-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কৌশলগত লক্ষ্য' : 'Strategic Goals'}</label>
                                 <textarea 
-                                    className="w-full h-40 bg-slate-50 rounded-[2.5rem] p-8 font-black text-[#1E3A8A] outline-none border-2 border-transparent focus:border-blue-100 transition-all focus:bg-white text-lg resize-none font-noto"
+                                    className="w-full h-28 bg-slate-50 rounded-2xl p-4 font-black text-[#1E3A8A] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm resize-none font-noto"
                                     value={editingMeeting.description}
                                     onChange={(e) => setEditingMeeting({...editingMeeting, description: e.target.value})}
                                 />
                             </div>
                         </div>
 
-                        <div className="pt-12 mt-auto border-t border-slate-50 flex gap-6">
+                        <div className="pt-4 mt-4 border-t border-slate-100 flex gap-4 shrink-0">
                             <button 
                                 onClick={() => setShowEditModal(false)}
-                                className="px-12 py-6 bg-slate-100 text-slate-600 font-black rounded-3xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[11px]"
+                                className="px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[11px]"
                             >
                                 {lang === 'bn' ? 'বাতিল' : 'Abort'}
                             </button>
                             <button 
                                 onClick={handleUpdateMeeting}
                                 disabled={loading}
-                                className="flex-1 py-6 bg-emerald-600 text-white font-black rounded-3xl shadow-2xl shadow-emerald-900/20 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all text-xs uppercase tracking-widest"
+                                className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-900/10 hover:bg-emerald-700 hover:scale-[1.01] active:scale-95 transition-all text-xs uppercase tracking-widest"
                             >
-                                {loading ? <Loader2 className="animate-spin mx-auto" /> : (lang === 'bn' ? 'আপডেট করুন' : 'Confirm refinement')}
+                                {loading ? <Loader2 className="animate-spin mx-auto text-white" size={16} /> : (lang === 'bn' ? 'আপডেট করুন' : 'Confirm refinement')}
                             </button>
                         </div>
                     </motion.div>

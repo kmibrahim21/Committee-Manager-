@@ -5,7 +5,8 @@ import {
   ArrowLeft, Edit3, User as UserIcon, Smartphone, PhoneCall, 
   UserCheck, MessageCircle, Hash, BookOpen, Phone, Trash2, 
   AlertTriangle, Loader2, X, MapPin, Calendar, Briefcase, 
-  Dna, CreditCard, Share2, MoreHorizontal, GraduationCap, Camera
+  Dna, CreditCard, Share2, MoreHorizontal, GraduationCap, Camera,
+  PiggyBank, Coins
 } from 'lucide-react';
 import { Member, Language, Institution } from 'types';
 import { supabase } from 'supabase';
@@ -30,6 +31,81 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'personal' | 'address'>('overview');
   const isDark = madrasah?.theme === 'dark';
+
+  const associationConfig = React.useMemo(() => {
+    if (!madrasah || !student.department_id) return null;
+    
+    let configObj = madrasah.config_json as any;
+    if (typeof configObj === 'string') {
+      try {
+        configObj = JSON.parse(configObj);
+      } catch {
+        configObj = {};
+      }
+    }
+    
+    const deptConfig = configObj?.departments_config?.[student.department_id];
+    if (deptConfig?.association_type) {
+      return {
+        type: deptConfig.association_type,
+        settings: deptConfig.management_settings || {}
+      };
+    }
+    return null;
+  }, [madrasah, student.department_id]);
+
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [memberDeposited, setMemberDeposited] = useState(0);
+  const [totalPool, setTotalPool] = useState(0);
+
+  React.useEffect(() => {
+    if (!associationConfig || !madrasah?.id || !student.name) return;
+
+    const fetchFinancialStats = async () => {
+      setFinanceLoading(true);
+      try {
+        const deptName = student.departments?.name || '';
+        
+        // Fetch member deposits
+        const { data: memberData, error: mErr } = await supabase
+          .from('ledger')
+          .select('amount')
+          .eq('institution_id', madrasah.id)
+          .eq('category', 'Member Fee')
+          .ilike('description', `%${student.name}%`);
+
+        if (!mErr && memberData) {
+          const sum = memberData.reduce((total, item) => total + Number(item.amount), 0);
+          setMemberDeposited(sum);
+        } else {
+          setMemberDeposited(0);
+        }
+
+        // Fetch total department pool
+        if (deptName) {
+          const { data: deptData, error: dErr } = await supabase
+            .from('ledger')
+            .select('amount')
+            .eq('institution_id', madrasah.id)
+            .eq('category', 'Member Fee')
+            .ilike('description', `%${deptName}%`);
+
+          if (!dErr && deptData) {
+            const sum = deptData.reduce((total, item) => total + Number(item.amount), 0);
+            setTotalPool(sum);
+          } else {
+            setTotalPool(0);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching member financial stats:', err);
+      } finally {
+        setFinanceLoading(false);
+      }
+    };
+
+    fetchFinancialStats();
+  }, [associationConfig, madrasah?.id, student.name, student.departments?.name]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -237,87 +313,359 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
       {/* Main Content Area */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Organizational Identity Card */}
-            <div className={`md:col-span-2 p-6 rounded-[2rem] border-2 transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#42f5e9] to-[#0fb5ab] rounded-xl flex items-center justify-center text-[#053d3a]">
-                  <UserCheck size={22} strokeWidth={2.5} />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Organizational Identity Card */}
+              <div className={`md:col-span-2 p-6 rounded-[2rem] border-2 transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-[#42f5e9] to-[#0fb5ab] rounded-xl flex items-center justify-center text-[#053d3a]">
+                    <UserCheck size={22} strokeWidth={2.5} />
+                  </div>
+                  <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{lang === 'bn' ? 'সাংগঠনিক পরিচিতি' : 'Identity'}</h3>
                 </div>
-                <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{lang === 'bn' ? 'সাংগঠনিক পরিচিতি' : 'Identity'}</h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <BentoItem 
+                    label={lang === 'bn' ? 'সদস্য ধরণ' : 'Member Type'} 
+                    value={getMemberTypeLabel(student.member_type)} 
+                    icon={<UserCheck size={14} />} 
+                    isDark={isDark} 
+                    badge={getStatusColor(student.member_type || 'general')}
+                  />
+                  <BentoItem 
+                    label={lang === 'bn' ? 'সদস্য পরিচিত নম্বর' : 'ID Number'} 
+                    value={student.member_id_number || 'N/A'} 
+                    icon={<Hash size={14} />} 
+                    isDark={isDark} 
+                  />
+                  <BentoItem 
+                    label={lang === 'bn' ? 'কমিটি / শাখা' : 'Committee'} 
+                    value={student.departments?.name} 
+                    icon={<MapPin size={14} />} 
+                    isDark={isDark} 
+                  />
+                  <BentoItem 
+                    label={lang === 'bn' ? 'যোগদানের তারিখ' : 'Member Since'} 
+                    value={student.join_date} 
+                    icon={<Calendar size={14} />} 
+                    isDark={isDark} 
+                  />
+                </div>
               </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <BentoItem 
-                  label={lang === 'bn' ? 'সদস্য ধরণ' : 'Member Type'} 
-                  value={getMemberTypeLabel(student.member_type)} 
-                  icon={<UserCheck size={14} />} 
-                  isDark={isDark} 
-                  badge={getStatusColor(student.member_type || 'general')}
-                />
-                <BentoItem 
-                  label={lang === 'bn' ? 'সদস্য পরিচিত নম্বর' : 'ID Number'} 
-                  value={student.member_id_number || 'N/A'} 
-                  icon={<Hash size={14} />} 
-                  isDark={isDark} 
-                />
-                <BentoItem 
-                  label={lang === 'bn' ? 'কমিটি / শাখা' : 'Committee'} 
-                  value={student.departments?.name} 
-                  icon={<MapPin size={14} />} 
-                  isDark={isDark} 
-                />
-                <BentoItem 
-                  label={lang === 'bn' ? 'যোগদানের তারিখ' : 'Member Since'} 
-                  value={student.join_date} 
-                  icon={<Calendar size={14} />} 
-                  isDark={isDark} 
-                />
+
+              {/* Action Center - Integrated into grid */}
+              <div className={`p-6 rounded-[2rem] border-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center text-white">
+                    <Smartphone size={22} strokeWidth={2.5} />
+                  </div>
+                  <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{lang === 'bn' ? 'যোগাযোগ কেন্দ্র' : 'Actions'}</h3>
+                </div>
+                
+                <div className="space-y-2">
+                   <button 
+                     onClick={() => window.location.href = `tel:${student.phone}`}
+                     className="w-full h-12 px-5 rounded-xl bg-[#0fb5ab] text-white font-black text-[12px] flex items-center justify-between shadow-lg shadow-[#0fb5ab]/10 active:scale-95 transition-all"
+                   >
+                      <div className="flex items-center gap-2">
+                        <Phone size={16} fill="currentColor" />
+                        <span>{student.phone}</span>
+                      </div>
+                   </button>
+                   
+                   <button 
+                     onClick={() => initiateWhatsAppMessage(student.phone)}
+                     className="w-full h-12 px-5 rounded-xl bg-emerald-500 text-white font-black text-[12px] flex items-center justify-between shadow-lg shadow-emerald-500/10 active:scale-95 transition-all"
+                   >
+                      <div className="flex items-center gap-2">
+                        <MessageCircle size={16} fill="currentColor" />
+                        <span>WhatsApp</span>
+                      </div>
+                   </button>
+
+                   <button 
+                     onClick={() => { student.email && (window.location.href = `mailto:${student.email}`) }}
+                     disabled={!student.email}
+                     className={`w-full h-12 px-5 rounded-xl font-black text-[12px] flex items-center justify-between transition-all ${student.email ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/10' : 'bg-slate-100 text-slate-400 opacity-50'}`}
+                   >
+                      <div className="flex items-center gap-2 truncate">
+                        <Hash size={16} />
+                        <span className="truncate">{student.email || (lang === 'bn' ? 'ইমেইল নেই' : 'No Email')}</span>
+                      </div>
+                   </button>
+                </div>
               </div>
             </div>
 
-            {/* Action Center - Integrated into grid */}
-            <div className={`p-6 rounded-[2rem] border-2 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center text-white">
-                  <Smartphone size={22} strokeWidth={2.5} />
-                </div>
-                <h3 className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{lang === 'bn' ? 'যোগাযোগ কেন্দ্র' : 'Actions'}</h3>
-              </div>
-              
-              <div className="space-y-2">
-                 <button 
-                   onClick={() => window.location.href = `tel:${student.phone}`}
-                   className="w-full h-12 px-5 rounded-xl bg-[#0fb5ab] text-white font-black text-[12px] flex items-center justify-between shadow-lg shadow-[#0fb5ab]/10 active:scale-95 transition-all"
-                 >
-                    <div className="flex items-center gap-2">
-                      <Phone size={16} fill="currentColor" />
-                      <span>{student.phone}</span>
+            {/* Association / Management Policy & Stats Card */}
+            {associationConfig && (
+              <div className={`p-8 rounded-[2.5rem] border-2 transition-all space-y-6 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-50 shadow-sm'}`}>
+                {associationConfig.type === 'capital_share' && (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                          <Share2 size={20} />
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {lang === 'bn' ? 'মূলধন ও শেয়ার বিবরণী' : 'Capital & Share Summary'}
+                          </h3>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {lang === 'bn' ? 'নীতিমালা ও সদস্য প্রোফাইল বিশ্লেষণ' : 'Policy & Member Profile Analysis'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-600 border border-purple-500/20 w-fit">
+                        {lang === 'bn' ? 'মূলধন ও শেয়ার সমিতি' : 'Capital & Share Association'}
+                      </span>
                     </div>
-                 </button>
-                 
-                 <button 
-                   onClick={() => initiateWhatsAppMessage(student.phone)}
-                   className="w-full h-12 px-5 rounded-xl bg-emerald-500 text-white font-black text-[12px] flex items-center justify-between shadow-lg shadow-emerald-500/10 active:scale-95 transition-all"
-                 >
-                    <div className="flex items-center gap-2">
-                      <MessageCircle size={16} fill="currentColor" />
-                      <span>WhatsApp</span>
-                    </div>
-                 </button>
 
-                 <button 
-                   onClick={() => { student.email && (window.location.href = `mailto:${student.email}`) }}
-                   disabled={!student.email}
-                   className={`w-full h-12 px-5 rounded-xl font-black text-[12px] flex items-center justify-between transition-all ${student.email ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/10' : 'bg-slate-100 text-slate-400 opacity-50'}`}
-                 >
-                    <div className="flex items-center gap-2 truncate">
-                      <Hash size={16} />
-                      <span className="truncate">{student.email || (lang === 'bn' ? 'ইমেইল নেই' : 'No Email')}</span>
+                    {financeLoading ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-slate-400">
+                        <Loader2 className="animate-spin text-purple-600" size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading Stats...'}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* 4-Column Bento Box of Math Stats */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্যের মোট জমা' : 'Total Deposited'}</p>
+                            <p className="text-lg font-black text-emerald-600 font-noto mt-1.5">৳{memberDeposited.toLocaleString('bn-BD')}</p>
+                          </div>
+
+                          {(() => {
+                            const shareVal = Number(associationConfig.settings.share_value) || 0;
+                            const memberShares = shareVal > 0 ? memberDeposited / shareVal : 0;
+                            const maxShares = Number(associationConfig.settings.max_shares) || 0;
+                            const isExceeded = maxShares > 0 && memberShares > maxShares;
+
+                            return (
+                              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'মোট শেয়ার সংখ্যা' : 'Shares Owned'}</p>
+                                  {isExceeded && (
+                                    <span className="bg-red-500 text-white text-[7px] px-1 rounded font-black">{lang === 'bn' ? 'সীমা অতিক্রম' : 'Limit'}</span>
+                                  )}
+                                </div>
+                                <p className="text-lg font-black text-purple-600 font-noto mt-1.5">
+                                  {memberShares.toFixed(1)} {lang === 'bn' ? 'টি' : 'Shares'}
+                                </p>
+                              </div>
+                            );
+                          })()}
+
+                          {(() => {
+                            const sharePct = totalPool > 0 ? (memberDeposited / totalPool) * 100 : 0;
+                            return (
+                              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'পুলে শেয়ারের হার' : 'Share Ratio %'}</p>
+                                <p className="text-lg font-black text-indigo-600 font-noto mt-1.5">{sharePct.toFixed(2)}%</p>
+                              </div>
+                            );
+                          })()}
+
+                          {(() => {
+                            const sharePct = totalPool > 0 ? (memberDeposited / totalPool) * 100 : 0;
+                            const profitPct = Number(associationConfig.settings.profit_percentage) || 100;
+                            const memberProfitShare = (sharePct * profitPct) / 100;
+                            return (
+                              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'নিট লাভ বণ্টন হার' : 'Profit Entitlement'}</p>
+                                <p className="text-lg font-black text-blue-600 font-noto mt-1.5">{memberProfitShare.toFixed(2)}%</p>
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Informational banner when values are 0 */}
+                        {(memberDeposited === 0 || totalPool === 0) && (
+                          <div className={`p-5 rounded-2xl border-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isDark ? 'bg-indigo-950/20 border-indigo-500/20 text-indigo-300' : 'bg-indigo-50/50 border-indigo-100 text-indigo-700'}`}>
+                            <div className="space-y-1">
+                              <p className="text-xs font-black font-noto">
+                                {lang === 'bn' ? '💡 শতাংশ ও লাভ বণ্টন হার ০% কেন দেখাচ্ছে?' : '💡 Why is the share ratio & profit entitlement showing 0%?'}
+                              </p>
+                              <p className="text-[11px] leading-relaxed font-bold opacity-90">
+                                {lang === 'bn' 
+                                  ? 'এই মেম্বার বা ওনার শাখার কোনো মেম্বার এখনও "চাঁদা ও হিসাব" (Accounting) পেজ থেকে কোনো ফি বা ক্যাপিটাল জমা করেননি। কোনো জমা না থাকায় পুলে ওনার অবদানের হার ০% দেখাচ্ছে।'
+                                  : 'No fees or capital deposits have been registered yet for this member or their department in the "Accounting" section. Once deposits are received, ratios will compute automatically.'}
+                              </p>
+                            </div>
+                            <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 bg-indigo-500/10 rounded-full border border-indigo-500/20">
+                              {lang === 'bn' ? 'অটো-ক্যালকুলেশন' : 'Auto-Calculated'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Management Policies Guidelines block */}
+                        <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                            {lang === 'bn' ? 'ম্যানেজমেন্ট নীতিমালা ও নিয়মাবলী' : 'Management Rules & Guidelines'}
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold text-slate-500">
+                            <div>
+                              <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide">{lang === 'bn' ? 'প্রতি শেয়ারের মূল্য' : 'Value Per Share'}</span>
+                              <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>৳{Number(associationConfig.settings.share_value || 0).toLocaleString('bn-BD')}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide">{lang === 'bn' ? 'সর্বোচ্চ শেয়ার সীমা' : 'Max Share Limit'}</span>
+                              <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>{associationConfig.settings.max_shares || 'Unlimited'} {lang === 'bn' ? 'টি' : ''}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide">{lang === 'bn' ? 'রিজার্ভ ফান্ড বরাদ্দ' : 'Reserve Percentage'}</span>
+                              <span className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>{associationConfig.settings.reserve_percentage || 0}%</span>
+                            </div>
+                          </div>
+                          {associationConfig.settings.capital_rules && (
+                            <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
+                              <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'মূলধন সংগ্রহ ও ব্যবহারের নিয়ম' : 'Capital Rules'}</span>
+                              <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                {associationConfig.settings.capital_rules}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {associationConfig.type === 'savings' && (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                          <PiggyBank size={20} />
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {lang === 'bn' ? 'সঞ্চয় সমিতি বিবরণী' : 'Savings Association Details'}
+                          </h3>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {lang === 'bn' ? 'সদস্যের সঞ্চয় ও নীতি তথ্য' : 'Member Savings & Policy Details'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-600 border border-blue-500/20 w-fit">
+                        {lang === 'bn' ? 'সঞ্চয় সমিতি' : 'Savings Association'}
+                      </span>
                     </div>
-                 </button>
+
+                    {financeLoading ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-slate-400">
+                        <Loader2 className="animate-spin text-blue-600" size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্যের মোট সঞ্চয়' : 'Total Savings'}</p>
+                            <p className="text-lg font-black text-emerald-600 font-noto mt-1.5">৳{memberDeposited.toLocaleString('bn-BD')}</p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'নির্ধারিত মাসিক সঞ্চয়' : 'Target Monthly Savings'}</p>
+                            <p className="text-lg font-black text-blue-600 font-noto mt-1.5">৳{Number(associationConfig.settings.monthly_savings_amount || 0).toLocaleString('bn-BD')}</p>
+                          </div>
+                        </div>
+
+                        <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                            {lang === 'bn' ? 'সঞ্চয় জমা ও উত্তোলনের নিয়মাবলী' : 'Savings Guidelines'}
+                          </h4>
+                          <div className="space-y-3 text-xs">
+                            {associationConfig.settings.deposit_deadline && (
+                              <div>
+                                <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide">{lang === 'bn' ? 'জমার সময়সীমা' : 'Deposit Deadline'}</span>
+                                <span className={`text-[12px] font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>{associationConfig.settings.deposit_deadline}</span>
+                              </div>
+                            )}
+                            {associationConfig.settings.savings_rules && (
+                              <div className="pt-2 border-t border-slate-100">
+                                <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'সঞ্চয়ের নিয়ম' : 'Savings Rules'}</span>
+                                <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{associationConfig.settings.savings_rules}</p>
+                              </div>
+                            )}
+                            {associationConfig.settings.withdrawal_rules && (
+                              <div className="pt-2 border-t border-slate-100">
+                                <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'উত্তোলনের নিয়ম' : 'Withdrawal Rules'}</span>
+                                <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{associationConfig.settings.withdrawal_rules}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {associationConfig.type === 'qard_hasan' && (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                          <Coins size={20} />
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {lang === 'bn' ? 'করযে হাসানা বিবরণী' : 'Qard Hasan Association Details'}
+                          </h3>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {lang === 'bn' ? 'সদস্যের লোন ও নীতি তথ্য' : 'Member Loan & Policy Details'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 w-fit">
+                        {lang === 'bn' ? 'করযে হাসানা' : 'Qard Hasan Association'}
+                      </span>
+                    </div>
+
+                    {financeLoading ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-slate-400">
+                        <Loader2 className="animate-spin text-emerald-600" size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্যের মোট জমা' : 'Total Contributions'}</p>
+                            <p className="text-lg font-black text-emerald-600 font-noto mt-1.5">৳{memberDeposited.toLocaleString('bn-BD')}</p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'ঋণের সর্বোচ্চ সীমা' : 'Maximum Loan Limit'}</p>
+                            <p className="text-lg font-black text-emerald-600 font-noto mt-1.5">৳{Number(associationConfig.settings.max_loan_limit || 0).toLocaleString('bn-BD')}</p>
+                          </div>
+                        </div>
+
+                        <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                            {lang === 'bn' ? 'ঋণ ও কিস্তি পরিশোধের নিয়মাবলী' : 'Qard Hasan Guidelines'}
+                          </h4>
+                          <div className="space-y-3 text-xs">
+                            {associationConfig.settings.eligibility_rules && (
+                              <div>
+                                <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'ঋণ পাওয়ার যোগ্যতা' : 'Eligibility Rules'}</span>
+                                <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{associationConfig.settings.eligibility_rules}</p>
+                              </div>
+                            )}
+                            {associationConfig.settings.repayment_rules && (
+                              <div className="pt-2 border-t border-slate-100">
+                                <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'পরিশোধের নিয়মাবলী' : 'Repayment Rules'}</span>
+                                <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{associationConfig.settings.repayment_rules}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
+            )}
           </div>
         )}
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from 'supabase';
-import { Institution, LedgerEntry, Language, UserRole, Department, Profile } from 'types';
+import { Institution, LedgerEntry, Language, UserRole, Department, Profile, Member } from 'types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calculator, Plus, ArrowUpCircle, ArrowDownCircle, Loader2, Save, X, DollarSign, Tag, FileText, RefreshCw, Bell, Heart, Users, BarChart3, AlertCircle, CreditCard, Calendar as CalendarIcon, Hash, BookmarkPlus, Trash2 } from 'lucide-react';
 import CommitteeFinancialAnalytics from 'components/CommitteeFinancialAnalytics';
@@ -16,9 +16,10 @@ interface AccountingProps {
   onBack: () => void;
   role: UserRole;
   profile?: Profile | null;
+  onMemberClick?: (member: Member) => void;
 }
 
-const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, role, profile }) => {
+const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, role, profile, onMemberClick }) => {
   const isTeacher = role === 'executive';
   const canManageAccounting = !isTeacher || profile?.permissions?.can_manage_accounting;
 
@@ -291,14 +292,14 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
           {(activeTab === 'fees' || activeTab === 'structures') && madrasah && (
             <>
               {feeEngine === 'school' && (
-                <FlexibleSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => setSelectedStudentForDetail(student)} role={role} profile={profile} />
+                <FlexibleSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => onMemberClick ? onMemberClick(student) : setSelectedStudentForDetail(student)} role={role} profile={profile} />
               )}
               {feeEngine === 'qawmi' && (
-                <StandardSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => setSelectedStudentForDetail(student)} role={role} profile={profile} />
+                <StandardSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => onMemberClick ? onMemberClick(student) : setSelectedStudentForDetail(student)} role={role} profile={profile} />
               )}
               {/* Default to School Engine for others for now */}
               {feeEngine !== 'school' && feeEngine !== 'qawmi' && (
-                <FlexibleSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => setSelectedStudentForDetail(student)} role={role} profile={profile} />
+                <FlexibleSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => onMemberClick ? onMemberClick(student) : setSelectedStudentForDetail(student)} role={role} profile={profile} />
               )}
             </>
           )}

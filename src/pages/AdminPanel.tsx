@@ -34,7 +34,7 @@ const ACCOUNT_TYPE_DEFAULT_MODULES = (() => {
   const mapping: Record<string, Record<string, boolean>> = {};
   UTILITY_COMMITTEE_TYPES.forEach(type => {
     const typeModules: Record<string, boolean> = {};
-    [...type.defaultModules, ...type.specializedModules].forEach(mod => {
+    type.defaultModules.forEach(mod => {
       typeModules[mod] = true;
     });
     mapping[type.id] = typeModules;

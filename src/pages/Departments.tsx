@@ -29,12 +29,14 @@ interface ClassesProps {
 }
 
 const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dataVersion, triggerRefresh, readOnly, profile }) => {
+  const parsedConfig = typeof madrasah?.config_json === 'string' ? (()=>{try{return JSON.parse(madrasah.config_json)}catch(e){return {}}})() : (madrasah?.config_json || {});
   const [departments, setClasses] = useState<(Department & { student_count?: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [newClassName, setNewClassName] = useState('');
   const [newSortOrder, setNewSortOrder] = useState<string>('');
+  const [newAssociationType, setNewAssociationType] = useState<string>('');
   const [editingClass, setEditingClass] = useState<Department | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Department | null>(null);
   const isDark = madrasah?.theme === 'dark';
@@ -82,12 +84,14 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
     if (!newClassName.trim() || !madrasah) return;
     setModalLoading(true);
     const order = newSortOrder ? parseInt(newSortOrder) : null;
+    let deptId = editingClass?.id;
     try {
       if (editingClass) {
         if (navigator.onLine) {
           const { error } = await supabase.from('departments').update({ 
             name: newClassName.trim(),
-            sort_order: order 
+            sort_order: order,
+             
           }).eq('id', editingClass.id);
           if (error) throw error;
         } else {
@@ -101,18 +105,38 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
         const payload = { 
           name: newClassName.trim(), 
           institution_id: madrasah.id,
-          sort_order: order
+          sort_order: order,
+          
         };
         if (navigator.onLine) {
-          const { error } = await supabase.from('departments').insert(payload);
+          const { data: newDept, error } = await supabase.from('departments').insert(payload).select().single();
+          if (newDept) deptId = newDept.id; else alert('newDept is null after insert');
           if (error) throw error;
         } else {
           offlineApi.queueAction('departments', 'INSERT', payload);
         }
       }
+      
+      if (deptId && newAssociationType !== undefined) {
+        const currentConfig = parsedConfig;
+        const deptConfigs = currentConfig.departments_config || {};
+        deptConfigs[deptId] = {
+          ...deptConfigs[deptId],
+          association_type: newAssociationType || null
+        };
+        const newConfig = { ...currentConfig, departments_config: deptConfigs };
+        if (navigator.onLine) {
+          const { error: configErr } = await supabase.from('institutions').update({ config_json: newConfig }).eq('id', madrasah.id);
+          if (configErr) alert('Config update error: ' + configErr.message);
+          // Mutate local state so UI reflects
+          madrasah.config_json = newConfig;
+        }
+      }
+
       setShowModal(false);
       setNewClassName('');
       setNewSortOrder('');
+      setNewAssociationType('');
       setEditingClass(null);
       triggerRefresh();
     } catch (err: any) {
@@ -176,7 +200,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
         <div className="flex items-center justify-between px-2">
           <h1 className={`text-xl font-noto font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{t('classes_title', lang, madrasah?.institution_type)}</h1>
           {!readOnly && (
-            <button onClick={() => { setNewClassName(''); setNewSortOrder(''); setEditingClass(null); setShowModal(true); }} className="bg-[#42f5e9] text-[#0fb5ab] px-5 py-3 rounded-2xl text-[12px] font-black flex items-center gap-2 active:scale-95 transition-all border border-[#42f5e9]/20 shadow-premium">
+            <button onClick={() => { setNewClassName(''); setNewSortOrder(''); setNewAssociationType(''); setEditingClass(null); setShowModal(true); }} className="bg-[#42f5e9] text-[#0fb5ab] px-5 py-3 rounded-2xl text-[12px] font-black flex items-center gap-2 active:scale-95 transition-all border border-[#42f5e9]/20 shadow-premium">
               <Plus size={16} strokeWidth={4} /> {t('new_class', lang, madrasah?.institution_type)}
             </button>
           )}
@@ -204,7 +228,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {!readOnly && (
                   <>
-                    <button onClick={(e) => { e.stopPropagation(); setNewClassName(cls.name); setNewSortOrder(cls.sort_order?.toString() || ''); setEditingClass(cls); setShowModal(true); }} 
+                    <button onClick={(e) => { e.stopPropagation(); setNewClassName(cls.name); setNewSortOrder(cls.sort_order?.toString() || ''); setNewAssociationType(parsedConfig?.departments_config?.[cls.id]?.association_type || ''); setEditingClass(cls); setShowModal(true); }} 
                       className={`w-9 h-9 sm:w-10 sm:h-10 ${isDark ? 'bg-slate-700 text-[#0fb5ab] border-slate-600' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-xl flex items-center justify-center border active:scale-90 transition-all shadow-sm`}>
                       <Edit3 size={14} className="sm:size-4" />
                     </button>
@@ -264,6 +288,24 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
                   placeholder="যেমন: ১"
                 />
               </div>
+
+              {madrasah?.institution_type === 'association' && (
+                <div className="space-y-2.5">
+                  <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">
+                    <BookOpen size={12} /> {lang === 'bn' ? 'সমিতির ধরন (ঐচ্ছিক)' : 'Association Type (Optional)'}
+                  </label>
+                  <select 
+                    className={`w-full px-6 py-5 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border-2 rounded-[1.8rem] font-black text-sm outline-none focus:border-[#42f5e9]/30 focus:bg-white transition-all shadow-inner appearance-none`}
+                    value={newAssociationType}
+                    onChange={(e) => setNewAssociationType(e.target.value)}
+                  >
+                    <option value="">{lang === 'bn' ? 'সাধারণ (কোনো ধরন নেই)' : 'General (None)'}</option>
+                    <option value="savings">{lang === 'bn' ? 'সঞ্চয় সমিতি' : 'Savings Association'}</option>
+                    <option value="qard_hasan">{lang === 'bn' ? 'করযে হাসানা সমিতি' : 'Qard Hasan Association'}</option>
+                    <option value="capital_share">{lang === 'bn' ? 'মূলধন/শেয়ার সমিতি' : 'Capital/Share Association'}</option>
+                  </select>
+                </div>
+              )}
 
               <button onClick={handleSaveClass} disabled={modalLoading || !newClassName.trim()} className="w-full py-5 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg">
                 {modalLoading ? <Loader2 className="animate-spin" size={24} /> : <><Check size={24} strokeWidth={4} /> {t('save', lang)}</>}

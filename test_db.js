@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://x.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'x';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
-async function run() {
-  const { data, error } = await supabase.from('members').select('*').limit(1);
-  console.log("Data:", data);
-  console.log("Error:", error);
+
+async function test() {
+  const { data, error } = await supabase.from('departments').select('*').limit(1);
+  console.log(error || Object.keys(data[0] || {}));
 }
-run();
+test();

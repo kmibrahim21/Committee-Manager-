@@ -12,7 +12,10 @@ import Departments from 'pages/Departments';
 import Members from 'pages/Members';
 import MemberDetails from 'pages/MemberDetails';
 import MemberForm from 'pages/MemberForm';
+import MemberAccounting from 'pages/MemberAccounting';
 import Account from 'pages/Account';
+import AssociationManagement from './pages/AssociationManagement';
+
 import SuperAccount from 'pages/SuperAccount';
 import AdminPanel from 'pages/AdminPanel';
 import WalletSMS from 'pages/WalletSMS';
@@ -32,7 +35,6 @@ import Polls from 'pages/Polls';
 import NoticeBoard from 'pages/NoticeBoard';
 import { VoiceServiceDashboard } from 'components/VoiceServiceDashboard';
 import { TutorialsManager } from 'components/TutorialsManager';
-import { SpecializedModules } from 'components/SpecializedModules';
 import { View, Department as Department, Member as Member, Language } from 'types';
 import { t } from 'translations';
 import { BookOpen, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -247,6 +249,8 @@ const App: React.FC = () => {
                 />;
       case 'member-form':
         return <MemberForm student={selectedStudent} madrasah={madrasah} defaultClassId={selectedClass?.id} isEditing={isEditing} onSuccess={() => { triggerRefresh(); setView('members'); }} onCancel={() => setView('members')} lang={lang} />;
+      case 'management':
+        return <AssociationManagement lang={lang} madrasah={madrasah} onBack={() => setView('account')} role={role} profile={profile} />;
       case 'account':
         return <Account lang={lang} setLang={(l) => { setLang(l); localStorage.setItem('app_lang', l); }} initialMadrasah={madrasah} setView={setView} onLogout={handleLogout} onProfileUpdate={refreshMadrasah} profile={profile} />;
       case 'super-account':
@@ -289,7 +293,10 @@ const App: React.FC = () => {
         return <DataManagement lang={lang} madrasah={madrasah} onBack={() => setView('account')} triggerRefresh={triggerRefresh} />;
       case 'accounting':
         if (role === 'member' && !madrasah?.member_portal_config?.permissions?.view_finances) { setView('home'); return null; }
-        return <CommitteeFinances lang={lang} madrasah={madrasah} onBack={() => setView('home')} role={role} profile={profile} />;
+        return <CommitteeFinances lang={lang} madrasah={madrasah} onBack={() => setView('home')} role={role} profile={profile} onMemberClick={(m) => { setSelectedStudent(m); setView('member-accounting'); }} />;
+      case 'member-accounting':
+        if (!selectedStudent || !madrasah) { setView('accounting'); return null; }
+        return <MemberAccounting member={selectedStudent} madrasah={madrasah} lang={lang} onBack={() => setView('accounting')} departments={[]} profile={profile} />;
       case 'subscriptions':
         if (role === 'member' && !madrasah?.member_portal_config?.permissions?.view_finances) { setView('home'); return null; }
         return <Subscriptions lang={lang} madrasah={madrasah} onBack={() => setView('account')} role={role} profile={profile} />;
@@ -304,19 +311,6 @@ const App: React.FC = () => {
       case 'minutes':
         if (role === 'member' && !madrasah?.member_portal_config?.permissions?.view_minutes) { setView('home'); return null; }
         return <Minutes lang={lang} madrasah={madrasah} onBack={() => setView('home')} role={role} profile={profile} />;
-      case 'specialized':
-      case 'savings':
-      case 'loans':
-      case 'qard_hasan':
-      case 'volunteers':
-      case 'employees':
-      case 'projects':
-      case 'donations':
-      case 'properties':
-      case 'election':
-      case 'discussions':
-      case 'board_members':
-        return <SpecializedModules lang={lang} madrasah={madrasah} profile={profile} onBack={() => setView('home')} initialTab={view === 'specialized' ? undefined : view} />;
       default:
         return <Home 
                   onMemberClick={(s) => { setSelectedStudent(s); setView('member-details'); }} 

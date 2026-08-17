@@ -202,6 +202,8 @@ export interface Department {
   institution_id: string;
   name: string;
   sort_order?: number | null;
+  association_type?: 'savings' | 'qard_hasan' | 'capital_share' | null;
+  management_settings?: any;
   created_at?: string;
 }
 
@@ -440,21 +442,10 @@ export type View =
   | 'tutorials'
   | 'admin-voice-service'
   | 'admin-tutorials'
-  | 'polls'
+  | 'polls' | 'management'
   | 'notice-board'
   | 'super-account'
-  | 'specialized'
-  | 'savings'
-  | 'loans'
-  | 'qard_hasan'
-  | 'volunteers'
-  | 'employees'
-  | 'projects'
-  | 'donations'
-  | 'properties'
-  | 'election'
-  | 'discussions'
-  | 'board_members'
+  | 'member-accounting'
   | 'subscriptions';
 
 export interface Poll {

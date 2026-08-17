@@ -866,7 +866,6 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                     <button 
                         type="button"
                         onClick={() => {
-                           setShowAddStructure(true);
                            setShowCategorySettings(true);
                         }} 
                         className={`px-3.5 h-12 rounded-2xl font-black text-xs flex items-center gap-1.5 border transition-all active:scale-95 ${isDark ? 'bg-slate-800 text-blue-400 border-slate-700 hover:bg-slate-700' : 'bg-blue-50 text-[#2563EB] border-blue-100 hover:bg-blue-100'}`}
@@ -961,77 +960,107 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
              </div>
           </div>
 
+                    {/* CATEGORY SETTINGS MODAL */}
+          {showCategorySettings && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-4 sm:p-6">
+               <div className={`w-full max-w-sm rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 space-y-4 sm:space-y-6 animate-in zoom-in-95 shadow-2xl relative ${isDark ? 'bg-slate-900 text-white border border-slate-800' : 'bg-white text-slate-800'}`}>
+                  <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-2">
+                        <div className={`p-2 rounded-xl ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}>
+                           <Settings size={20} />
+                        </div>
+                        <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>ক্যাটাগরি সেটিংস</h3>
+                     </div>
+                     <button onClick={() => setShowCategorySettings(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-50 text-slate-300 hover:text-slate-600'}`}><X size={20} /></button>
+                  </div>
+
+                  <p className="text-xs font-bold text-slate-400">
+                     নতুন ক্যাটাগরি যোগ করুন অথবা কোনো ক্যাটাগরি ডিলেট করুন।
+                  </p>
+
+                  <div className="space-y-4">
+                     <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">নতুন ক্যাটাগরি যুক্ত করুন</label>
+                        <div className="flex items-center gap-2">
+                           <input 
+                              type="text" 
+                              value={newCategoryInput} 
+                              onChange={(e) => setNewCategoryInput(e.target.value)} 
+                              placeholder="যেমন: বিশেষ অনুদান" 
+                              onKeyDown={(e) => {
+                                 if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddCustomCategory();
+                                 }
+                              }}
+                              className={`flex-1 h-11 px-3.5 border rounded-xl font-bold text-xs outline-none focus:border-[#2563EB] ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                           />
+                           <button 
+                              type="button" 
+                              onClick={handleAddCustomCategory} 
+                              className="px-4 h-11 bg-[#2563EB] text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all shrink-0 flex items-center gap-1"
+                           >
+                              <Plus size={16} />
+                              <span>যোগ</span>
+                           </button>
+                        </div>
+                     </div>
+
+                     <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">ক্যাটাগরি সমূহের তালিকা</label>
+                        <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
+                           {customCategories.length > 0 ? (
+                              customCategories.map(cat => (
+                                 <span key={cat} className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-black shadow-sm ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                                    <Tag size={12} className="text-[#2563EB]" />
+                                    <span>{cat}</span>
+                                    <button type="button" onClick={() => handleDeleteCustomCategory(cat)} className="hover:text-red-500 text-slate-400 ml-1 p-0.5 rounded-md transition-colors"><X size={14} /></button>
+                                 </span>
+                              ))
+                           ) : (
+                              <p className="text-xs text-slate-400 italic">কোনো ক্যাটাগরি নেই</p>
+                           )}
+                        </div>
+                     </div>
+
+                     <button 
+                        onClick={() => setShowCategorySettings(false)}
+                        className="w-full py-3.5 bg-[#2563EB] text-white font-black rounded-2xl shadow-md hover:bg-blue-700 active:scale-95 transition-all text-xs"
+                     >
+                        সম্পন্ন
+                     </button>
+                  </div>
+               </div>
+            </div>
+          )}
+
           {/* ADD STRUCTURE MODAL */}
           {showAddStructure && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-6">
-               <div className={`w-full max-w-sm rounded-[3rem] p-8 space-y-6 animate-in zoom-in-95 shadow-2xl relative ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-4 sm:p-6">
+               <div className={`w-full max-w-sm rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 space-y-4 sm:space-y-6 animate-in zoom-in-95 shadow-2xl relative ${isDark ? 'bg-slate-900 text-white border border-slate-800' : 'bg-white text-slate-800'}`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-xl font-black font-noto ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>নতুন সেটিং যোগ করুন</h3>
-                    <button onClick={() => setShowAddStructure(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-50 text-slate-300'}`}><X size={20} /></button>
+                    <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>নতুন সেটিং যোগ করুন</h3>
+                    <button onClick={() => setShowAddStructure(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-50 text-slate-300 hover:text-slate-600'}`}><X size={20} /></button>
                   </div>
                   <div className="space-y-4">
                      <div className="relative">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">কমিটি নির্বাচন করুন (ঐচ্ছিক)</label>
-                        <button onClick={() => setShowClassDropdown(!showClassDropdown)} className={`w-full h-14 px-6 rounded-2xl border-2 flex items-center justify-between font-black transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">কমিটি (Committee) (ঐচ্ছিক)</label>
+                        <button onClick={() => setShowClassDropdown(!showClassDropdown)} className={`w-full h-14 px-6 rounded-2xl border-2 font-black flex items-center justify-between ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
                            <span className="truncate">{departments.find(c => c.id === selectedClass)?.name || 'সব কমিটি (All Committees)'}</span>
                            <ChevronDown size={20} className="text-slate-300" />
                         </button>
                         {showClassDropdown && (
                             <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl shadow-2xl border z-[1001] p-2 max-h-48 overflow-y-auto ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black transition-colors ${isDark ? 'text-slate-100 hover:bg-slate-700' : 'text-[#1E3A8A] hover:bg-slate-50'}`}>সব কমিটি (All Committees)</button>
+                                <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black ${isDark ? 'hover:bg-slate-700 text-slate-100' : 'hover:bg-slate-50 text-[#1E3A8A]'}`}>সব কমিটি (All Committees)</button>
                                 {departments.map(c => (
-                                    <button key={c.id} onClick={() => { setSelectedClass(c.id); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black transition-colors ${isDark ? 'text-slate-100 hover:bg-slate-700' : 'text-[#1E3A8A] hover:bg-slate-50'}`}>{c.name}</button>
+                                    <button key={c.id} onClick={() => { setSelectedClass(c.id); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black ${isDark ? 'hover:bg-slate-700 text-slate-100' : 'hover:bg-slate-50 text-[#1E3A8A]'}`}>{c.name}</button>
                                 ))}
                             </div>
                         )}
                      </div>
 
-                     <div className="relative">
-                        <div className="flex items-center justify-between mb-1.5 px-2">
-                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">ক্যাটাগরি</label>
-                           <button 
-                              type="button" 
-                              onClick={() => setShowCategorySettings(!showCategorySettings)}
-                              className={`p-1 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold ${isDark ? 'text-blue-400 hover:bg-slate-800' : 'text-[#2563EB] hover:bg-blue-50'}`}
-                              title="ক্যাটাগরি সেটিং"
-                           >
-                              <Settings size={14} />
-                              <span>সেটিং</span>
-                           </button>
-                        </div>
-
-                        {showCategorySettings && (
-                           <div className={`p-3 rounded-2xl border mb-3 space-y-2 ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-blue-50/50 border-blue-100'}`}>
-                              <div className="flex items-center justify-between">
-                                 <span className="text-[10px] font-black text-[#1E3A8A] uppercase">নতুন ক্যাটাগরি যুক্ত করুন</span>
-                                 <button type="button" onClick={() => setShowCategorySettings(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                 <input 
-                                    type="text" 
-                                    value={newCategoryInput} 
-                                    onChange={(e) => setNewCategoryInput(e.target.value)} 
-                                    placeholder="ক্যাটাগরির নাম..." 
-                                    className={`flex-1 h-9 px-3 rounded-xl border font-bold text-xs outline-none ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
-                                 />
-                                 <button 
-                                    type="button" 
-                                    onClick={handleAddCustomCategory} 
-                                    className="px-3 h-9 bg-[#2563EB] text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all shrink-0"
-                                 >
-                                    যোগ
-                                 </button>
-                              </div>
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                 {customCategories.map(cat => (
-                                    <span key={cat} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black ${isDark ? 'bg-slate-900 text-slate-300 border border-slate-700' : 'bg-white text-slate-700 border border-slate-200'}`}>
-                                       {cat}
-                                       <button type="button" onClick={() => handleDeleteCustomCategory(cat)} className="hover:text-red-500 text-slate-400 ml-0.5"><X size={12} /></button>
-                                    </span>
-                                 ))}
-                              </div>
-                           </div>
-                        )}
+                     <div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">ক্যাটাগরি</label>
 
                         <div className="relative">
                            <input type="text" className={`w-full h-14 rounded-2xl pl-12 pr-4 font-black text-sm outline-none border-2 border-transparent transition-all ${isDark ? 'bg-slate-800 text-slate-100 focus:border-blue-500/20' : 'bg-slate-50 text-slate-700 focus:border-[#2563EB]/20'}`} placeholder="যেমন: মাসিক চাঁদা" value={category} onChange={(e) => setCategory(e.target.value)} />
@@ -1108,7 +1137,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                </div>
             </div>
           )}
-      </div>
+       </div>
     );
   }
 

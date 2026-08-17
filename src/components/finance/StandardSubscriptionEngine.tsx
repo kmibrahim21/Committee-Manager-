@@ -57,7 +57,7 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
       const saved = localStorage.getItem(`custom_fee_categories_${madrasah.id}`);
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return customCategories;
+    return ['মাসিক চাঁদা', 'সদস্য ফি', 'বিলবোর্ড অনুদান', 'বার্ষিক চাঁদা', 'প্রজেক্ট অনুদান'];
   });
   const [showCategorySettings, setShowCategorySettings] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState('');
@@ -841,7 +841,6 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                <button 
                   type="button"
                   onClick={() => {
-                     setShowAddStructure(true);
                      setShowCategorySettings(true);
                   }} 
                   className="px-3.5 h-12 rounded-2xl font-black text-xs flex items-center gap-1.5 border border-blue-100 bg-blue-50 text-[#2563EB] hover:bg-blue-100 active:scale-95 transition-all"
@@ -853,7 +852,6 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                <button 
                   onClick={() => {
                      setShowAddStructure(true);
-                     setShowCategorySettings(false);
                   }} 
                   className="w-12 h-12 bg-[#2563EB] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 active:scale-95 transition-all"
                   title="নতুন সেটিং যোগ করুন"
@@ -987,53 +985,11 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                        )}
                     </div>
                     <div className="relative">
-                       <div className="flex items-center justify-between mb-1.5 px-2">
-                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">ক্যাটাগরি</label>
-                           <button 
-                              type="button" 
-                              onClick={() => setShowCategorySettings(!showCategorySettings)}
-                              className="p-1 text-[#2563EB] hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold"
-                              title="ক্যাটাগরি সেটিং"
-                           >
-                              <Settings size={14} />
-                              <span>সেটিং</span>
-                           </button>
-                        </div>
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">ক্যাটাগরি</label>
 
-                        {showCategorySettings && (
-                           <div className="p-3 rounded-2xl border border-blue-100 bg-blue-50/50 mb-3 space-y-2">
-                              <div className="flex items-center justify-between">
-                                 <span className="text-[10px] font-black text-[#1E3A8A] uppercase">নতুন ক্যাটাগরি যুক্ত করুন</span>
-                                 <button type="button" onClick={() => setShowCategorySettings(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                 <input 
-                                    type="text" 
-                                    value={newCategoryInput} 
-                                    onChange={(e) => setNewCategoryInput(e.target.value)} 
-                                    placeholder="ক্যাটাগরির নাম..." 
-                                    className="flex-1 h-9 px-3 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-800 outline-none"
-                                 />
-                                 <button 
-                                    type="button" 
-                                    onClick={handleAddCustomCategory} 
-                                    className="px-3 h-9 bg-[#2563EB] text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all shrink-0"
-                                 >
-                                    যোগ
-                                 </button>
-                              </div>
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                 {customCategories.map(cat => (
-                                    <span key={cat} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg text-[9px] font-black">
-                                       {cat}
-                                       <button type="button" onClick={() => handleDeleteCustomCategory(cat)} className="hover:text-red-500 text-slate-400 ml-0.5"><X size={12} /></button>
-                                    </span>
-                                 ))}
-                              </div>
-                           </div>
-                        )}
+                        
                        <input type="text" className="w-full h-14 bg-slate-50 rounded-2xl pl-12 pr-4 font-black text-sm outline-none border-2 border-transparent focus:border-[#2563EB]/20" placeholder="যেমন: খোরাকি" value={category} onChange={(e) => setCategory(e.target.value)} />
-                       <Tag className="absolute left-4 top-[44px] text-slate-300" size={20}/>
+                       <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
                        <div className="flex flex-wrap gap-2 mt-2 px-1 max-h-24 overflow-y-auto">
                           {customCategories.map(suggestion => (
                              <button 

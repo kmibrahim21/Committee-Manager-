@@ -7,7 +7,6 @@ import { Member, Language, Institution, Profile } from 'types';
 import { t } from 'translations';
 import { isValidUUID } from 'utils/validation';
 import { GenericDashboard } from 'components/dashboards/GenericDashboard';
-import { AssociationDashboard } from 'components/dashboards/AssociationDashboard';
 import { ClubDashboard } from 'components/dashboards/ClubDashboard';
 import { OrganizationDashboard } from 'components/dashboards/OrganizationDashboard';
 

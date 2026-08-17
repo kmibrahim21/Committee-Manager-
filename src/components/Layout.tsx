@@ -65,24 +65,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
     return result;
   }, [madrasah]) as any;
 
-  const showSpecializedModulesTab = React.useMemo(() => {
-    if (!madrasah) return false;
-
-    const config = getCommitteeTypeConfig(madrasah.institution_type);
-    
-    let userConfig = madrasah?.config_json as any;
-    if (typeof userConfig === 'string') {
-      try {
-        userConfig = JSON.parse(userConfig);
-      } catch (e) {
-        userConfig = {};
-      }
-    }
-    const mods = (userConfig && typeof userConfig === 'object') ? (userConfig.modules || {}) : {};
-    
-    return config.specializedModules.some(key => mods[key] === true);
-  }, [madrasah]);
-
   const fetchDynamicNotifications = async () => {
     if (!madrasah?.id) return;
     const newNotifications: AppNotification[] = [];
@@ -97,28 +79,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
   const hasPermission = (perm: keyof NonNullable<Profile['permissions']>) => {
     if (isSuperAdmin || role === 'org_admin') return true;
     return !!profile?.permissions?.[perm];
-  };
-
-  const activeSubmodules = React.useMemo(() => {
-    if (!madrasah) return [];
-    
-    const config = getCommitteeTypeConfig(madrasah.institution_type);
-
-    let userConfig = madrasah?.config_json as any;
-    if (typeof userConfig === 'string') {
-      try {
-        userConfig = JSON.parse(userConfig);
-      } catch (e) {
-        userConfig = {};
-      }
-    }
-    const mods = (userConfig && typeof userConfig === 'object') ? (userConfig.modules || {}) : {};
-    
-    return config.specializedModules.filter(key => mods[key] === true);
-  }, [madrasah]);
-
-  const getSubmoduleMeta = (key: string) => {
-    return MODULE_META[key] || { labelBn: key.replace('_', ' ').toUpperCase(), labelEn: key.replace('_', ' ').toUpperCase(), icon: Landmark };
   };
 
   const isTabActive = (tab: string) => {
@@ -136,7 +96,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
     if (tab === 'sms-voice-menu' && currentView === 'sms-voice-menu') return true;
     if (tab === 'executives' && currentView === 'executives') return true;
     if (tab === 'departments' && (currentView === 'departments' || currentView === 'members' || currentView === 'member-details' || currentView === 'member-form')) return true;
-    if (tab === 'specialized' && currentView === 'specialized') return true;
     if (tab === currentView) return true;
     return false;
   };
@@ -251,21 +210,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                   <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'ইভেন্টসমূহ' : 'Events'}</span>
                 </button>
               )}
-              {!isSuperAdmin && activeSubmodules.map(subKey => {
-                const meta = getSubmoduleMeta(subKey);
-                const Icon = meta.icon;
-                const label = lang === 'bn' ? meta.labelBn : meta.labelEn;
-                return (
-                  <button 
-                    key={subKey}
-                    onClick={() => setView(subKey as any)} 
-                    className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive(subKey) ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}
-                  >
-                    <Icon size={22} strokeWidth={isTabActive(subKey) ? 2.5 : 2} className="text-[#0fb5ab]" />
-                    <span className="text-sm font-bold font-noto">{label}</span>
-                  </button>
-                );
-              })}
               <button onClick={() => setView('account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <User size={22} strokeWidth={isTabActive('account') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{t('account', lang)}</span>
@@ -398,25 +342,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                   <Calendar size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'ইভেন্ট' : 'Events'}</span>
                 </button>
-              )}
-              {!isSuperAdmin && activeSubmodules.length > 0 && (
-                activeSubmodules.length === 1 ? (
-                  (() => {
-                    const subKey = activeSubmodules[0];
-                    const meta = getSubmoduleMeta(subKey);
-                    return (
-                      <button onClick={() => setView(subKey as any)} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive(subKey) ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
-                        <meta.icon size={20} />
-                        <span className="text-[9px] font-black font-noto opacity-80 whitespace-nowrap">{lang === 'bn' ? meta.labelBn : meta.labelEn}</span>
-                      </button>
-                    );
-                  })()
-                ) : (
-                  <button onClick={() => setView('specialized')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('specialized') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}>
-                    <Landmark size={20} />
-                    <span className="text-[9px] font-black font-noto opacity-80 whitespace-nowrap">{lang === 'bn' ? 'ফিচার্স' : 'Features'}</span>
-                  </button>
-                )
               )}
             </>
           )}

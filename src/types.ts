@@ -13,8 +13,12 @@ export interface Institution {
   address?: string;
   phone?: string;
   logo_url?: string;
-  institution_type: 'committee' | 'association' | 'organization' | 'club' | 'foundation' | 'trust' | 'council' | 'union' | 'forum' | 'society' | 'federation' | 'governing_board' | 'ngo' | 'system' | 'madrasah' | 'school' | 'kindergarten' | 'nurani';
+  institution_type: 'committee' | 'association' | 'organization' | 'club' | 'foundation' | 'trust' | 'council' | 'union' | 'forum' | 'society' | 'federation' | 'governing_board' | 'ngo' | 'system' | 'madrasah' | 'school' | 'kindergarten' | 'nurani' | 'sangha';
   config_json: {
+    songho_activities?: string[];
+    songho_config?: Record<string, any>;
+    songho_general_policy?: Record<string, any>;
+    departments_config?: Record<string, any>;
     modules: {
       departments: boolean;
       attendance: boolean;
@@ -202,7 +206,7 @@ export interface Department {
   institution_id: string;
   name: string;
   sort_order?: number | null;
-  association_type?: 'savings' | 'qard_hasan' | 'capital_share' | null;
+  association_type?: 'savings' | 'qard_hasan' | 'capital_share' | 'mudaraba' | 'musharaka' | 'islamic_welfare' | 'hajj_savings' | 'islamic_education' | 'cooperative_business' | null;
   management_settings?: any;
   created_at?: string;
 }

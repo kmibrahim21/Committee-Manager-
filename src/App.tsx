@@ -15,6 +15,7 @@ import MemberForm from 'pages/MemberForm';
 import MemberAccounting from 'pages/MemberAccounting';
 import Account from 'pages/Account';
 import AssociationManagement from './pages/AssociationManagement';
+import SonghoManagement from './pages/SonghoManagement';
 
 import SuperAccount from 'pages/SuperAccount';
 import AdminPanel from 'pages/AdminPanel';
@@ -96,17 +97,8 @@ const App: React.FC = () => {
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#0B132B] transition-colors duration-500">
       <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-700">
-        <div className="relative flex items-center justify-center mb-10">
-          {/* Extremely elegant thin spinner without any pulsing background bubble */}
+        <div className="relative flex items-center justify-center">
           <div className="w-12 h-12 rounded-full border-[2.5px] border-[#E2E8F0]/30 dark:border-[#334155]/30 border-t-[#0fb5ab] dark:border-t-[#42f5e9] animate-spin" />
-        </div>
-        <div className="text-center space-y-3">
-          <h1 className="text-[#0F172A] dark:text-[#F1F5F9] font-black tracking-[0.3em] text-sm uppercase leading-none font-sans">
-            COMMITTEE MANAGER
-          </h1>
-          <p className="text-[#64748B] dark:text-[#94A3B8] text-[9px] font-black uppercase tracking-[0.4em] leading-none opacity-80 font-mono">
-            SECURE PORTAL
-          </p>
         </div>
       </div>
     </div>
@@ -141,20 +133,11 @@ const App: React.FC = () => {
 
   if (session && !madrasah && !authError) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center font-noto">
-        <AlertCircle size={48} className="text-amber-500 mb-6" />
-        <h2 className="text-2xl font-black text-slate-800 mb-2">{lang === 'bn' ? 'তথ্য লোড করতে সমস্যা হচ্ছে' : 'Data Loading Issue'}</h2>
-        <p className="text-slate-500 mb-8 max-w-md font-bold leading-relaxed">
-          {lang === 'bn' 
-            ? 'আপনার প্রোফাইল বা প্রতিষ্ঠানের তথ্য পাওয়া যাচ্ছে না। অনুগ্রহ করে পেজটি রিফ্রেশ করুন বা অ্যাডমিনের সাথে যোগাযোগ করুন।' 
-            : 'We couldn\'t retrieve your profile or institution data. Please try refreshing the page or contact support.'}
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#0B132B]">
+        <div className="w-12 h-12 rounded-full border-[2.5px] border-[#E2E8F0]/30 dark:border-[#334155]/30 border-t-[#0fb5ab] dark:border-t-[#42f5e9] animate-spin mb-4" />
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">
+          {lang === 'bn' ? 'তথ্য লোড হচ্ছে...' : 'Initializing Session...'}
         </p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="px-10 py-4 bg-blue-600 text-white rounded-[2rem] font-black shadow-xl hover:bg-blue-700 transition-all active:scale-95"
-        >
-          {lang === 'bn' ? 'রিফ্রেশ করুন' : 'Refresh Page'}
-        </button>
       </div>
     );
   }
@@ -246,10 +229,14 @@ const App: React.FC = () => {
                   readOnly={role !== 'org_admin' && role !== 'super_admin' && !profile?.permissions?.can_manage_members}
                   institutionId={madrasah?.id}
                   triggerRefresh={triggerRefresh}
+                  onNavigateToAccounting={() => setView('member-accounting')}
                 />;
       case 'member-form':
         return <MemberForm student={selectedStudent} madrasah={madrasah} defaultClassId={selectedClass?.id} isEditing={isEditing} onSuccess={() => { triggerRefresh(); setView('members'); }} onCancel={() => setView('members')} lang={lang} />;
       case 'management':
+        if (madrasah?.institution_type === 'sangha' || madrasah?.institution_type === 'union') {
+          return <SonghoManagement lang={lang} madrasah={madrasah} onBack={() => setView('account')} role={role} profile={profile} onUpdate={refreshMadrasah} />;
+        }
         return <AssociationManagement lang={lang} madrasah={madrasah} onBack={() => setView('account')} role={role} profile={profile} />;
       case 'account':
         return <Account lang={lang} setLang={(l) => { setLang(l); localStorage.setItem('app_lang', l); }} initialMadrasah={madrasah} setView={setView} onLogout={handleLogout} onProfileUpdate={refreshMadrasah} profile={profile} />;

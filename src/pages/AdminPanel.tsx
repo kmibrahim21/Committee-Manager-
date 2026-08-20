@@ -7,6 +7,7 @@ import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database,
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Transaction, AdminSMSStock } from 'types';
 import { COMMITTEE_TYPES as UTILITY_COMMITTEE_TYPES } from '../utils/committeeTypes';
+import { SONGHO_ACTIVITIES, getDefaultSonghoActivityIds } from '../utils/songhoActivities';
 
 interface InstitutionWithStats extends Institution {
   student_count?: number;
@@ -159,6 +160,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editInstitutionType, setEditInstitutionType] = useState<any>('madrasah');
   const [editFeeEngine, setEditFeeEngine] = useState<'school' | 'qawmi' | 'kindergarten' | 'simple'>('school');
   const [editAccountingMode, setEditAccountingMode] = useState<'qawmi_flexible' | 'school_system'>('school_system');
+  const [editSonghoActivities, setEditSonghoActivities] = useState<string[]>(getDefaultSonghoActivityIds());
 
   const [detailsTab, setDetailsTab] = useState<'basic' | 'advanced' | 'subscription' | 'settings'>('basic');
 
@@ -184,6 +186,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [newInstEmail, setNewInstEmail] = useState('');
   const [newInstPassword, setNewInstPassword] = useState('');
   const [newInstType, setNewInstType] = useState<any>('madrasah');
+  const [newInstSonghoActivities, setNewInstSonghoActivities] = useState<string[]>(getDefaultSonghoActivityIds());
   const [newInstLoginCode, setNewInstLoginCode] = useState('');
   const [isCreatingInst, setIsCreatingInst] = useState(false);
 
@@ -389,6 +392,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     setEditInstitutionType(user.institution_type || 'madrasah');
     setEditFeeEngine(userConfig?.fee_engine || 'school');
     setEditAccountingMode(userConfig?.accounting_mode || 'school_system');
+    setEditSonghoActivities(
+      Array.isArray(userConfig?.songho_activities) && userConfig.songho_activities.length > 0
+        ? userConfig.songho_activities
+        : getDefaultSonghoActivityIds()
+    );
     
     setView('details');
     
@@ -453,7 +461,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           fee_structure: editFeeStructure,
           subscription_type: editSubscriptionType,
           fee_engine: editFeeEngine,
-          accounting_mode: editAccountingMode
+          accounting_mode: editAccountingMode,
+          ...((editInstitutionType === 'sangha' || editInstitutionType === 'union') ? { songho_activities: editSonghoActivities } : {})
         }
       }).eq('id', selectedUser.id).select();
       
@@ -661,7 +670,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           phone: newInstPhone.trim(),
           login_code: newInstLoginCode.trim(),
           type: newInstType,
-          auth_token: session?.access_token
+          auth_token: session?.access_token,
+          songho_activities: newInstSonghoActivities
         })
       });
 
@@ -1250,6 +1260,44 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                                     ))}
                                   </div>
                                </div>
+
+                               {(editInstitutionType === 'sangha' || editInstitutionType === 'union') && (
+                                 <div className="space-y-3 lg:col-span-2 p-4 rounded-2xl border bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
+                                   <div className="flex items-center justify-between">
+                                     <label className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest flex items-center gap-2">
+                                       <Activity size={14} /> সংঘের কার্যক্রমসমূহ (মাল্টি-সিলেক্ট)
+                                     </label>
+                                     <span className="text-[9px] font-bold text-slate-400">{editSonghoActivities.length} টি নির্বাচিত</span>
+                                   </div>
+                                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                     {SONGHO_ACTIVITIES.map(act => {
+                                       const isSel = editSonghoActivities.includes(act.id);
+                                       const ActIcon = act.icon;
+                                       return (
+                                         <button
+                                           key={act.id}
+                                           type="button"
+                                           onClick={() => {
+                                             setEditSonghoActivities(prev => 
+                                               isSel 
+                                                 ? (prev.length > 1 ? prev.filter(x => x !== act.id) : prev) 
+                                                 : [...prev, act.id]
+                                             );
+                                           }}
+                                           className={`p-2.5 rounded-xl border text-left flex items-center gap-2 text-xs transition-all ${
+                                             isSel
+                                               ? 'bg-[#0fb5ab] text-white border-[#0fb5ab] font-black shadow-sm'
+                                               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-medium'
+                                           }`}
+                                         >
+                                           <span className="shrink-0"><ActIcon size={14} /></span>
+                                           <span className="text-[10px] font-noto truncate">{act.labelBn}</span>
+                                         </button>
+                                       );
+                                     })}
+                                   </div>
+                                 </div>
+                               )}
                             </div>
                             
                             <div className={`space-y-3 pt-4 border-t ${madrasah?.theme === 'dark' ? 'border-slate-800' : 'border-slate-100'}`}>
@@ -1458,6 +1506,44 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                   ))}
                 </div>
               </div>
+
+              {(newInstType === 'sangha' || newInstType === 'union') && (
+                <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-wider">
+                      সংঘের কার্যক্রম ({newInstSonghoActivities.length})
+                    </label>
+                    <span className="text-[8px] text-slate-400">মাল্টি-সিলেক্ট</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                    {SONGHO_ACTIVITIES.map(act => {
+                      const isSelected = newInstSonghoActivities.includes(act.id);
+                      const ActIcon = act.icon;
+                      return (
+                        <button
+                          key={act.id}
+                          type="button"
+                          onClick={() => {
+                            setNewInstSonghoActivities(prev => 
+                              isSelected 
+                                ? (prev.length > 1 ? prev.filter(x => x !== act.id) : prev) 
+                                : [...prev, act.id]
+                            );
+                          }}
+                          className={`p-1.5 rounded-lg border text-left flex items-center gap-1.5 text-xs transition-all ${
+                            isSelected 
+                              ? 'bg-[#0fb5ab] text-white border-[#0fb5ab] font-bold' 
+                              : 'bg-white border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          <span className="shrink-0"><ActIcon size={13} /></span>
+                          <span className="text-[9px] font-noto truncate">{act.labelBn}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <button 
                 onClick={handleCreateInstitution} 

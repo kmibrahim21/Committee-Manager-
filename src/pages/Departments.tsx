@@ -303,6 +303,12 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
                     <option value="savings">{lang === 'bn' ? 'সঞ্চয় সমিতি' : 'Savings Association'}</option>
                     <option value="qard_hasan">{lang === 'bn' ? 'করযে হাসানা সমিতি' : 'Qard Hasan Association'}</option>
                     <option value="capital_share">{lang === 'bn' ? 'মূলধন/শেয়ার সমিতি' : 'Capital/Share Association'}</option>
+                    <option value="mudaraba">{lang === 'bn' ? 'মুদারাবা ভিত্তিক সমিতি' : 'Mudaraba Association'}</option>
+                    <option value="musharaka">{lang === 'bn' ? 'মুশারাকা ভিত্তিক সমিতি' : 'Musharaka Association'}</option>
+                    <option value="islamic_welfare">{lang === 'bn' ? 'ইসলামিক কল্যাণ/সামাজিক সমিতি' : 'Islamic Welfare Association'}</option>
+                    <option value="hajj_savings">{lang === 'bn' ? 'ইসলামিক হজ/উমরাহ সঞ্চয় সমিতি' : 'Hajj/Umrah Savings Association'}</option>
+                    <option value="islamic_education">{lang === 'bn' ? 'ইসলামিক শিক্ষা সমিতি' : 'Islamic Education Association'}</option>
+                    <option value="cooperative_business">{lang === 'bn' ? 'সমবায়ধর্মী ইসলামিক ব্যবসায়িক সমিতি' : 'Cooperative Islamic Business'}</option>
                   </select>
                 </div>
               )}

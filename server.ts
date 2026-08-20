@@ -164,6 +164,21 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     legal_support: true,
     training: true,
   },
+  sangha: {
+    departments: true,
+    attendance: true,
+    meetings: true,
+    minutes: true,
+    events: true,
+    accounting: true,
+    voice_broadcast: true,
+    sms: true,
+    results: false,
+    polls: true,
+    notices: true,
+    volunteers: true,
+    projects: true,
+  },
   forum: {
     departments: false,
     attendance: true,
@@ -281,7 +296,7 @@ app.post("/api/gemini/generate-minutes", async (req, res) => {
 });
 
 app.post("/api/admin/create-committee", async (req, res) => {
-  const { email, password, name, phone, login_code, type, auth_token } = req.body;
+  const { email, password, name, phone, login_code, type, auth_token, songho_activities } = req.body;
   
   try {
     // 1. Verify requester is super admin
@@ -315,13 +330,19 @@ app.post("/api/admin/create-committee", async (req, res) => {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const defaultModules = ACCOUNT_TYPE_DEFAULT_MODULES[type || 'committee'] || ACCOUNT_TYPE_DEFAULT_MODULES.committee;
-    const default_config = {
+    const default_config: Record<string, any> = {
       modules: defaultModules,
       org_type: type || 'committee',
       attendance_type: 'meeting',
       fee_structure: 'monthly',
       ui_mode: 'committee'
     };
+
+    if (type === 'sangha' || type === 'union') {
+      default_config.songho_activities = (Array.isArray(songho_activities) && songho_activities.length > 0)
+        ? songho_activities
+        : ['islamic', 'youth', 'social', 'welfare'];
+    }
 
     const { error: updateError } = await supabaseAdmin.from('institutions').update({
       phone,

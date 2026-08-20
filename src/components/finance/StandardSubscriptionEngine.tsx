@@ -985,24 +985,57 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
                        )}
                     </div>
                     <div className="relative">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">ক্যাটাগরি</label>
-
-                        
-                       <input type="text" className="w-full h-14 bg-slate-50 rounded-2xl pl-12 pr-4 font-black text-sm outline-none border-2 border-transparent focus:border-[#2563EB]/20" placeholder="যেমন: খোরাকি" value={category} onChange={(e) => setCategory(e.target.value)} />
-                       <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                       <div className="flex flex-wrap gap-2 mt-2 px-1 max-h-24 overflow-y-auto">
-                          {customCategories.map(suggestion => (
-                             <button 
-                                key={suggestion}
-                                type="button"
-                                onClick={() => setCategory(suggestion)}
-                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black border transition-all ${category === suggestion ? 'bg-blue-50 text-[#2563EB] border-[#2563EB]/20' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
-                             >
-                                {suggestion}
-                             </button>
-                          ))}
-                       </div>
-                    </div>
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">ক্যাটাগরি নির্বাচন করুন</label>
+                        <div className="relative group">
+                           <button 
+                             onClick={() => setShowCategorySettings(prev => !prev)}
+                             className={`w-full h-14 rounded-2xl px-6 font-black text-sm outline-none border-2 flex items-center justify-between transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}
+                           >
+                              <div className="flex items-center gap-3">
+                                 <Tag size={18} className="text-slate-300" />
+                                 <span>{category || 'ক্যাটাগরি নির্বাচন করুন'}</span>
+                              </div>
+                              <ChevronDown size={18} className={`transition-transform ${showCategorySettings ? 'rotate-180' : ''}`} />
+                           </button>
+                           
+                           {showCategorySettings && (
+                              <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl shadow-2xl border z-[1001] p-2 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                 {customCategories.map(cat => (
+                                    <button 
+                                       key={cat}
+                                       onClick={() => { setCategory(cat); setShowCategorySettings(false); }}
+                                       className={`w-full text-left px-5 py-3 rounded-xl font-black transition-colors flex items-center justify-between group ${category === cat ? (isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-[#2563EB]') : (isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-slate-100' : 'hover:bg-slate-50 text-slate-600 hover:text-[#2563EB]')}`}
+                                    >
+                                       <span>{cat}</span>
+                                       {category === cat && <CheckCircle2 size={14} />}
+                                    </button>
+                                 ))}
+                                 <div className="p-2 border-t mt-2 border-slate-200 dark:border-slate-700">
+                                    <div className="flex gap-2">
+                                       <input 
+                                          type="text" 
+                                          placeholder="নতুন ক্যাটাগরি..." 
+                                          className={`flex-1 h-10 px-3 rounded-lg text-xs font-bold outline-none border ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'}`}
+                                          value={newCategoryInput}
+                                          onChange={(e) => setNewCategoryInput(e.target.value)}
+                                          onKeyDown={(e) => {
+                                             if (e.key === 'Enter') {
+                                                handleAddCustomCategory();
+                                             }
+                                          }}
+                                       />
+                                       <button 
+                                          onClick={handleAddCustomCategory}
+                                          className="w-10 h-10 bg-[#2563EB] text-white rounded-lg flex items-center justify-center shrink-0 active:scale-95 transition-all"
+                                       >
+                                          <Plus size={18} />
+                                       </button>
+                                    </div>
+                                 </div>
+                              </div>
+                           )}
+                        </div>
+                     </div>
                     <div className="relative">
                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">ধার্যকৃত টাকা (Optional)</label>
                        <input type="number" className="w-full h-14 bg-slate-50 rounded-2xl px-12 font-black text-lg outline-none border-2 border-transparent focus:border-[#2563EB]/20" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />

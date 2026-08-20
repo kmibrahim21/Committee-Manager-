@@ -8,6 +8,7 @@ import { t } from 'translations';
 import { MemberTypeManager } from 'components/MemberTypeManager';
 import MultiCalendar from 'components/MultiCalendar';
 import { generateMemberFormPDF } from '../utils/pdfGenerator';
+import { SONGHO_ACTIVITIES, getDefaultSonghoActivityIds } from '../utils/songhoActivities';
 
 interface AccountProps {
   lang: Language;
@@ -51,6 +52,11 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   const [newAddress, setNewAddress] = useState(initialMadrasah?.address || '');
   const [newPhone, setNewPhone] = useState(initialMadrasah?.phone || '');
   const [logoUrl, setLogoUrl] = useState(initialMadrasah?.logo_url || '');
+  const [songhoActivities, setSonghoActivities] = useState<string[]>(
+    Array.isArray(initialMadrasah?.config_json?.songho_activities) && initialMadrasah.config_json.songho_activities.length > 0
+      ? initialMadrasah.config_json.songho_activities
+      : getDefaultSonghoActivityIds()
+  );
   
   const [copiedId, setCopiedId] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +82,9 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       setNewAddress(initialMadrasah.address || '');
       setNewPhone(initialMadrasah.phone || '');
       setLogoUrl(initialMadrasah.logo_url || '');
+      if (Array.isArray(initialMadrasah?.config_json?.songho_activities)) {
+        setSonghoActivities(initialMadrasah.config_json.songho_activities);
+      }
       
       if (initialMadrasah) fetchStats();
     }
@@ -105,16 +114,24 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
     if (!madrasah) return;
     setSaving(true);
     try {
+      const updatedConfig = (madrasah.institution_type === 'sangha' || madrasah.institution_type === 'union')
+        ? {
+            ...(madrasah.config_json || {}),
+            songho_activities: songhoActivities
+          }
+        : madrasah.config_json;
+
       const { error } = await supabase.from('institutions').update({ 
         name: newName.trim(), 
         address: newAddress.trim() || null,
         phone: newPhone.trim(), 
-        logo_url: logoUrl
+        logo_url: logoUrl,
+        config_json: updatedConfig
       }).eq('id', madrasah.id);
       if (error) throw error;
       if (onProfileUpdate) onProfileUpdate();
       setIsEditingProfile(false);
-      setMadrasah(prev => prev ? { ...prev, name: newName, address: newAddress, phone: newPhone } : null);
+      setMadrasah(prev => prev ? { ...prev, name: newName, address: newAddress, phone: newPhone, config_json: updatedConfig as any } : null);
       setShowSuccessModal({ show: true, title: t('success', lang), message: lang === 'bn' ? 'প্রোফাইল সফলভাবে আপডেট হয়েছে' : 'Profile updated successfully' });
     } catch (err: any) { alert(err.message); } finally { setSaving(false); }
   };
@@ -361,6 +378,25 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             </h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
               {lang === 'bn' ? 'সমিতির ধরন ও নিয়ম' : 'Type & Rules'}
+            </p>
+          </div>
+        </button>
+        )}
+
+        {(madrasah?.institution_type === 'sangha' || madrasah?.institution_type === 'union') && (
+        <button 
+          onClick={() => setView('management')}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Sliders size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+              {lang === 'bn' ? 'ম্যানেজমেন্ট (কার্যক্রম ও নীতি)' : 'Management (Activities & Rules)'}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'কার্যক্রম ও প্রকল্প নির্ধারণ' : 'Activities & Schemes'}
             </p>
           </div>
         </button>
@@ -791,6 +827,43 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('madrasah_name', lang)}</label><input type="text" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/30'}`} value={newName || ''} onChange={(e) => setNewName(e.target.value)} /></div>
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{lang === 'bn' ? 'ঠিকানা' : 'Address'}</label><input type="text" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/30'}`} value={newAddress || ''} onChange={(e) => setNewAddress(e.target.value)} /></div>
                  <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">{t('madrasah_phone', lang)}</label><input type="tel" className={`w-full h-11 border rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/30'}`} value={newPhone || ''} onChange={(e) => setNewPhone(e.target.value)} /></div>
+
+                 {(madrasah?.institution_type === 'sangha' || madrasah?.institution_type === 'union') && (
+                   <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                     <label className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest px-1 flex items-center justify-between">
+                       <span>{lang === 'bn' ? 'সংঘের কার্যক্রমসমূহ (মাল্টি-সিলেক্ট)' : 'Sangha Activities (Multi-Select)'}</span>
+                       <span className="text-[9px] font-bold text-slate-400 lowercase">{songhoActivities.length} টি নির্বাচিত</span>
+                     </label>
+                     <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                       {SONGHO_ACTIVITIES.map(act => {
+                         const isSelected = songhoActivities.includes(act.id);
+                         const ActIcon = act.icon;
+                         return (
+                           <button
+                             type="button"
+                             key={act.id}
+                             onClick={() => {
+                               setSonghoActivities(prev => 
+                                 isSelected 
+                                   ? (prev.length > 1 ? prev.filter(x => x !== act.id) : prev)
+                                   : [...prev, act.id]
+                               );
+                             }}
+                             className={`p-2 rounded-xl border text-left flex items-center gap-2 text-xs transition-all ${
+                               isSelected
+                                 ? 'bg-[#42f5e9]/15 border-[#0fb5ab] text-[#0fb5ab] font-black shadow-xs'
+                                 : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 font-medium opacity-80'
+                             }`}
+                           >
+                             <span className="shrink-0"><ActIcon size={14} /></span>
+                             <span className="truncate text-[11px] font-noto leading-tight">{act.labelBn}</span>
+                           </button>
+                         );
+                       })}
+                     </div>
+                   </div>
+                 )}
+
                  <div className="space-y-1 opacity-70 cursor-not-allowed">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex items-center justify-between">
                       Gmail / Email

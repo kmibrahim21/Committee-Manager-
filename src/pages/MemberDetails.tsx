@@ -6,7 +6,8 @@ import {
   UserCheck, MessageCircle, Hash, BookOpen, Phone, Trash2, 
   AlertTriangle, Loader2, X, MapPin, Calendar, Briefcase, 
   Dna, CreditCard, Share2, MoreHorizontal, GraduationCap, Camera,
-  PiggyBank, Coins
+  PiggyBank, Coins, Scale, Handshake, HeartPulse, History, 
+  TrendingUp, Wallet, ShieldCheck, ShoppingBag, School, ChevronRight
 } from 'lucide-react';
 import { Member, Language, Institution } from 'types';
 import { supabase } from 'supabase';
@@ -22,9 +23,10 @@ interface StudentDetailsProps {
   readOnly?: boolean;
   institutionId?: string;
   triggerRefresh?: () => void;
+  onNavigateToAccounting?: () => void;
 }
 
-const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEdit, onBack, lang, readOnly, institutionId, triggerRefresh }) => {
+const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEdit, onBack, lang, readOnly, institutionId, triggerRefresh, onNavigateToAccounting }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -393,6 +395,19 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
                         <span className="truncate">{student.email || (lang === 'bn' ? 'ইমেইল নেই' : 'No Email')}</span>
                       </div>
                    </button>
+
+                   {onNavigateToAccounting && (
+                     <button 
+                       onClick={onNavigateToAccounting}
+                       className="w-full h-12 px-5 rounded-xl bg-indigo-600 text-white font-black text-[12px] flex items-center justify-between shadow-lg shadow-indigo-600/10 active:scale-95 transition-all mt-2"
+                     >
+                        <div className="flex items-center gap-2">
+                          <Wallet size={16} fill="currentColor" />
+                          <span>{lang === 'bn' ? 'পাসবুক ও লেনদেন' : 'Passbook & Ledger'}</span>
+                        </div>
+                        <ChevronRight size={16} strokeWidth={3} />
+                     </button>
+                   )}
                 </div>
               </div>
             </div>
@@ -659,6 +674,320 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
                               </div>
                             )}
                           </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {(associationConfig.type === 'mudaraba' || associationConfig.type === 'musharaka') && (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                          <Handshake size={20} />
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {associationConfig.type === 'mudaraba' 
+                              ? (lang === 'bn' ? 'মুদারাবা বিনিয়োগ বিবরণী' : 'Mudaraba Investment Details')
+                              : (lang === 'bn' ? 'মুশারাকা বিনিয়োগ বিবরণী' : 'Musharaka Investment Details')}
+                          </h3>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {lang === 'bn' ? 'মূলধন ও লাভ-ক্ষতি বণ্টন বিশ্লেষণ' : 'Capital & Profit-Loss Analysis'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 w-fit">
+                        {associationConfig.type === 'mudaraba' ? (lang === 'bn' ? 'মুদারাবা' : 'Mudaraba') : (lang === 'bn' ? 'মুশারাকা' : 'Musharaka')}
+                      </span>
+                    </div>
+
+                    {financeLoading ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-slate-400">
+                        <Loader2 className="animate-spin text-indigo-600" size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্যের মূলধন' : 'Member Capital'}</p>
+                            <p className="text-lg font-black text-emerald-600 font-noto mt-1.5">৳{memberDeposited.toLocaleString('bn-BD')}</p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'মালিকানার হার' : 'Ownership Ratio'}</p>
+                            <p className="text-lg font-black text-indigo-600 font-noto mt-1.5">
+                              {totalPool > 0 ? ((memberDeposited / totalPool) * 100).toFixed(2) : '0.00'}%
+                            </p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'নির্ধারিত লাভ হার' : 'Agreed Profit %'}</p>
+                            <p className="text-lg font-black text-purple-600 font-noto mt-1.5">
+                              {associationConfig.type === 'mudaraba' 
+                                ? (associationConfig.settings.investor_profit_ratio || 0)
+                                : (associationConfig.settings.partner_a_profit_ratio || 0)}%
+                            </p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'ক্ষতি বহন হার' : 'Loss Bearing %'}</p>
+                            <p className="text-lg font-black text-red-600 font-noto mt-1.5">
+                              {associationConfig.type === 'mudaraba' ? '100%' : (associationConfig.settings.partner_a_loss_ratio || 0) + '%'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                            {lang === 'bn' ? 'চুক্তি ও শরীয়াহ নীতিমালা' : 'Contract & Shariah Guidelines'}
+                          </h4>
+                          <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {associationConfig.settings.profit_distribution_rules || (lang === 'bn' ? 'কোনো নীতিমালা সেট করা হয়নি।' : 'No policy defined.')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {associationConfig.type === 'islamic_welfare' && (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                          <HeartPulse size={20} />
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {lang === 'bn' ? 'ইসলামিক কল্যাণ তহবিল' : 'Islamic Welfare Fund'}
+                          </h3>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {lang === 'bn' ? 'সদস্যের অবদান ও সুবিধা প্রাপ্তি' : 'Member Contribution & Benefits'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 border border-rose-500/20 w-fit">
+                        {lang === 'bn' ? 'কল্যাণ তহবিল' : 'Welfare Fund'}
+                      </span>
+                    </div>
+
+                    {financeLoading ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-slate-400">
+                        <Loader2 className="animate-spin text-rose-600" size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'আপনার মোট অবদান' : 'Total Contribution'}</p>
+                            <p className="text-lg font-black text-emerald-600 font-noto mt-1.5">৳{memberDeposited.toLocaleString('bn-BD')}</p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'তহবিলের স্ট্যাটাস' : 'Fund Status'}</p>
+                            <p className="text-lg font-black text-rose-600 font-noto mt-1.5">
+                              {memberDeposited >= (Number(associationConfig.settings.min_contribution) || 0) 
+                                ? (lang === 'bn' ? 'সক্রিয় ও যোগ্য' : 'Active & Eligible')
+                                : (lang === 'bn' ? 'অপ্রতুল জমা' : 'Insufficient Deposit')}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                            {lang === 'bn' ? 'সহায়তা ও কল্যাণ নীতিমালা' : 'Welfare Policies'}
+                          </h4>
+                          <div className="space-y-4">
+                            <div>
+                              <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'মৃত্যু পরবর্তী সহায়তা' : 'Death Benefit Support'}</span>
+                              <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                {associationConfig.settings.death_benefit_rules}
+                              </p>
+                            </div>
+                            <div className="pt-3 border-t border-dashed border-slate-200">
+                              <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'অসুস্থতা ও চিকিৎসা সহায়তা' : 'Medical Support Rules'}</span>
+                              <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                {associationConfig.settings.medical_support_rules}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {(associationConfig.type === 'hajj_savings' || associationConfig.type === 'islamic_education') && (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                          {associationConfig.type === 'hajj_savings' ? <School size={20} /> : <GraduationCap size={20} />}
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {associationConfig.type === 'hajj_savings' 
+                              ? (lang === 'bn' ? 'হজ্জ সঞ্চয় স্কিম' : 'Hajj Savings Scheme')
+                              : (lang === 'bn' ? 'শিক্ষা সঞ্চয় স্কিম' : 'Education Savings Scheme')}
+                          </h3>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {lang === 'bn' ? 'লক্ষ্যমাত্রা ও বর্তমান অগ্রগতি' : 'Target & Current Progress'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-600 border border-amber-500/20 w-fit">
+                        {associationConfig.type === 'hajj_savings' ? (lang === 'bn' ? 'হজ্জ ফান্ড' : 'Hajj Fund') : (lang === 'bn' ? 'শিক্ষা ফান্ড' : 'Education Fund')}
+                      </span>
+                    </div>
+
+                    {financeLoading ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-slate-400">
+                        <Loader2 className="animate-spin text-amber-600" size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'মোট জমাকৃত' : 'Total Saved'}</p>
+                            <p className="text-lg font-black text-emerald-600 font-noto mt-1.5">৳{memberDeposited.toLocaleString('bn-BD')}</p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'লক্ষ্যমাত্রা' : 'Target Amount'}</p>
+                            <p className="text-lg font-black text-amber-600 font-noto mt-1.5">
+                              ৳{Number(associationConfig.settings.target_amount || 0).toLocaleString('bn-BD')}
+                            </p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'অর্জিত অগ্রগতি' : 'Progress'}</p>
+                            <p className="text-lg font-black text-indigo-600 font-noto mt-1.5">
+                              {associationConfig.settings.target_amount > 0 
+                                ? ((memberDeposited / associationConfig.settings.target_amount) * 100).toFixed(1)
+                                : '0.0'}%
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                            {lang === 'bn' ? 'সঞ্চয় ও স্কিম নীতিমালা' : 'Scheme Guidelines'}
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'মাসিক জমার পরিমাণ' : 'Monthly Savings'}</span>
+                              <span className={`text-[12px] font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>৳{Number(associationConfig.settings.monthly_savings || 0).toLocaleString('bn-BD')}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wide mb-1">{lang === 'bn' ? 'মেয়াদকাল' : 'Duration'}</span>
+                              <span className={`text-[12px] font-black ${isDark ? 'text-white' : 'text-slate-700'}`}>{associationConfig.settings.duration_years || 0} {lang === 'bn' ? 'বছর' : 'Years'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {associationConfig.type === 'cooperative_business' && (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                          <ShoppingBag size={20} />
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {lang === 'bn' ? 'যৌথ ব্যবসা ও সমবায় বিবরণী' : 'Cooperative Business Summary'}
+                          </h3>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            {lang === 'bn' ? 'ব্যবসায় অংশীদারিত্ব ও শেয়ার তথ্য' : 'Business Partnership & Share Info'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-teal-500/10 text-teal-600 border border-teal-500/20 w-fit">
+                        {lang === 'bn' ? 'সমবায় ব্যবসা' : 'Cooperative'}
+                      </span>
+                    </div>
+
+                    {financeLoading ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-slate-400">
+                        <Loader2 className="animate-spin text-teal-600" size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'আপনার শেয়ার মূলধন' : 'Share Capital'}</p>
+                            <p className="text-lg font-black text-emerald-600 font-noto mt-1.5">৳{memberDeposited.toLocaleString('bn-BD')}</p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'শেয়ার সংখ্যা' : 'Shares'}</p>
+                            <p className="text-lg font-black text-teal-600 font-noto mt-1.5">
+                              {associationConfig.settings.share_value > 0 ? (memberDeposited / associationConfig.settings.share_value).toFixed(1) : '0.0'}
+                            </p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'লভ্যাংশ প্রাপ্যতা' : 'Agreed Dividend'}</p>
+                            <p className="text-lg font-black text-indigo-600 font-noto mt-1.5">{associationConfig.settings.dividend_percentage || 0}%</p>
+                          </div>
+
+                          <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}>
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'রিজার্ভ বরাদ্দ' : 'Reserve Allocation'}</p>
+                            <p className="text-lg font-black text-purple-600 font-noto mt-1.5">{associationConfig.settings.reserve_fund_ratio || 0}%</p>
+                          </div>
+                        </div>
+
+                        <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-800/30 border-slate-700/50' : 'bg-slate-50/50 border-slate-100'}`}>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                            {lang === 'bn' ? 'ব্যবসায়িক নীতিমালা ও লভ্যাংশ নীতি' : 'Business & Dividend Policy'}
+                          </h4>
+                          <p className={`text-[11px] font-black font-noto leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {associationConfig.settings.business_rules}
+                          </p>
+                        </div>
+
+                        {/* Settlement Estimator Block */}
+                        <div className={`p-6 rounded-3xl border-2 overflow-hidden relative ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-gradient-to-br from-[#0fb5ab]/5 to-[#42f5e9]/5 border-[#0fb5ab]/10'}`}>
+                           <div className="absolute top-0 right-0 p-4 opacity-10">
+                              <ShieldCheck size={80} strokeWidth={1} />
+                           </div>
+                           <div className="relative z-10">
+                              <div className="flex items-center gap-2 mb-4">
+                                 <ShieldCheck size={18} className="text-[#0fb5ab]" />
+                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {lang === 'bn' ? 'নিস্পত্তি ও ফেরতযোগ্যতা বিশ্লেষণ' : 'Settlement & Exit Analysis'}
+                                 </h4>
+                              </div>
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                 <div className="space-y-1">
+                                    <p className={`text-xl font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                       ৳{memberDeposited.toLocaleString('bn-BD')}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                       {lang === 'bn' ? 'অনুমানকৃত মোট নিস্পত্তি মূল্য' : 'Estimated Total Settlement Value'}
+                                    </p>
+                                 </div>
+                                 <div className="flex flex-col items-end gap-1">
+                                    <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 bg-[#0fb5ab]/10 text-[#0fb5ab] rounded-full border border-[#0fb5ab]/20">
+                                       {lang === 'bn' ? 'অটো-হিসাব' : 'Auto-Calculated'}
+                                    </span>
+                                    <p className="text-[9px] font-bold text-slate-400 max-w-[200px] text-right italic">
+                                       {lang === 'bn' 
+                                          ? '* এটি একটি অনুমানকৃত হিসাব। চূড়ান্ত নিস্পত্তি অডিট ও লাভ-ক্ষতি চূড়ান্তকরণের পর নির্ধারিত হবে।'
+                                          : '* This is an estimation. Final settlement will be determined after audit and profit/loss finalization.'}
+                                    </p>
+                                 </div>
+                              </div>
+                           </div>
                         </div>
                       </div>
                     )}

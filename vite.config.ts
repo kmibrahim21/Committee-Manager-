@@ -125,21 +125,21 @@ export default defineConfig(({ mode }) => {
             start_url: '/',
             icons: [
               {
-                src: 'https://img.icons8.com/ios-filled/192/0F172A/organization.png',
+                src: '/icon-192.jpg',
                 sizes: '192x192',
-                type: 'image/png',
+                type: 'image/jpeg',
                 purpose: 'any'
               },
               {
-                src: 'https://img.icons8.com/ios-filled/512/0F172A/organization.png',
+                src: '/icon-512.jpg',
                 sizes: '512x512',
-                type: 'image/png',
+                type: 'image/jpeg',
                 purpose: 'any'
               },
               {
-                src: 'https://img.icons8.com/ios-filled/512/0F172A/organization.png',
+                src: '/icon-512.jpg',
                 sizes: '512x512',
-                type: 'image/png',
+                type: 'image/jpeg',
                 purpose: 'maskable'
               }
             ]

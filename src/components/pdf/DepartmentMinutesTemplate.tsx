@@ -12,13 +12,13 @@ interface DepartmentMinutesProps {
 export const DepartmentMinutesTemplate: React.FC<DepartmentMinutesProps> = ({ exam, subjects, students, marksData, madrasah, lang }) => {
   const isBangla = lang === 'bn';
   const t = {
-    title: isBangla ? 'শ্রেণি ভিত্তিক ফলাফল বিবরণী' : 'Department Result Summary',
-    roll: isBangla ? 'রোল' : 'Roll',
-    name: isBangla ? 'শিক্ষার্থীর নাম' : 'Member Name',
-    total: isBangla ? 'মোট' : 'Total',
-    gpa: isBangla ? 'জিপিএ' : 'GPA',
-    grade: isBangla ? 'গ্রেড' : 'Grade',
-    exam: isBangla ? 'পরীক্ষা' : 'Meeting',
+    title: isBangla ? 'কমিটি ভিত্তিক সভার সারসংক্ষেপ' : 'Committee Meeting Summary',
+    roll: isBangla ? 'সদস্য নং' : 'Member No',
+    name: isBangla ? 'সদস্যের নাম' : 'Member Name',
+    total: isBangla ? 'সর্বমোট' : 'Total',
+    gpa: isBangla ? 'গড়' : 'Avg',
+    grade: isBangla ? 'অবস্থান' : 'Status',
+    exam: isBangla ? 'সভা/ইভেন্ট' : 'Meeting',
     date: isBangla ? 'তারিখ' : 'Date'
   };
 
@@ -125,7 +125,7 @@ export const DepartmentMinutesTemplate: React.FC<DepartmentMinutesProps> = ({ ex
         <div className="flex flex-col items-center gap-2">
             <div className="h-[1px] w-48 bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
             <div className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">
-                Deenora Management System
+                Committee Manager System
             </div>
         </div>
         <div className="flex gap-16">
@@ -133,13 +133,13 @@ export const DepartmentMinutesTemplate: React.FC<DepartmentMinutesProps> = ({ ex
             <div className="w-40 h-16 mb-2 flex items-end justify-center">
                 <div className="w-32 h-[1px] bg-slate-200"></div>
             </div>
-            <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Meeting Controller</div>
+            <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Secretary</div>
           </div>
           <div className="text-center">
             <div className="w-40 h-16 mb-2 flex items-end justify-center">
                 <div className="w-32 h-[1px] bg-slate-200"></div>
             </div>
-            <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Principal</div>
+            <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">President</div>
           </div>
         </div>
       </div>

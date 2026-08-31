@@ -12,13 +12,13 @@ interface FinalMinutesProps {
 export const FinalMinutesTemplate: React.FC<FinalMinutesProps> = ({ title, className, subjects, students, madrasah, lang }) => {
   const isBangla = lang === 'bn';
   const t = {
-    class: isBangla ? 'শ্রেণি' : 'Department',
-    rank: isBangla ? 'মেধা' : 'Rank',
-    roll: isBangla ? 'রোল' : 'Roll',
-    name: isBangla ? 'শিক্ষার্থীর নাম' : 'Member Name',
-    total: isBangla ? 'মোট' : 'Total',
-    gpa: isBangla ? 'জিপিএ' : 'GPA',
-    grade: isBangla ? 'গ্রেড' : 'Grade',
+    class: isBangla ? 'বিভাগ/কমিটি' : 'Department/Committee',
+    rank: isBangla ? 'সিরিয়াল' : 'Serial',
+    roll: isBangla ? 'সদস্য নং' : 'Member ID',
+    name: isBangla ? 'সদস্যের নাম' : 'Member Name',
+    total: isBangla ? 'সর্বমোট' : 'Total',
+    gpa: isBangla ? 'অবস্থান' : 'Status',
+    grade: isBangla ? 'মন্তব্য' : 'Remarks',
     date: isBangla ? 'তারিখ' : 'Date'
   };
 
@@ -77,14 +77,14 @@ export const FinalMinutesTemplate: React.FC<FinalMinutesProps> = ({ title, class
       {/* Footer */}
       <div className="mt-12 flex justify-between items-end px-4">
         <div className="text-[10px] font-medium text-slate-300 uppercase tracking-widest">
-          Deenora Management System
+          Committee Manager System
         </div>
         <div className="flex gap-12">
           <div className="text-center">
-            <div className="w-32 border-t border-slate-200 pt-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Meeting Controller</div>
+            <div className="w-32 border-t border-slate-200 pt-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Secretary</div>
           </div>
           <div className="text-center">
-            <div className="w-32 border-t border-slate-200 pt-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Principal</div>
+            <div className="w-32 border-t border-slate-200 pt-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">President</div>
           </div>
         </div>
       </div>

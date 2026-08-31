@@ -32,8 +32,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
           </div>
           <div className="text-right">
             <div className="px-4 py-2 rounded-xl backdrop-blur-sm border" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', borderColor: 'rgba(255, 255, 255, 0.3)' }}>
-              <h2 className="text-xl font-black tracking-widest uppercase">Admit Card</h2>
-              <p className="text-xs mt-1" style={{ color: '#dbeafe' }}>{isBangla ? 'প্রবেশপত্র' : 'Entry Pass'}</p>
+              <h2 className="text-xl font-black tracking-widest uppercase">Entry Pass</h2>
+              <p className="text-xs mt-1" style={{ color: '#dbeafe' }}>{isBangla ? 'প্রবেশপত্র' : 'Entry Card'}</p>
             </div>
           </div>
         </div>
@@ -43,19 +43,19 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
           <div className="flex-1 space-y-6">
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'শিক্ষার্থীর নাম' : 'Member Name'}</p>
+                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'সদস্যের নাম' : 'Member Name'}</p>
                 <p className="text-xl font-black border-b-2 pb-2" style={{ color: '#1e293b', borderColor: '#f1f5f9' }}>{student.name}</p>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'শ্রেণী' : 'Department'}</p>
+                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'বিভাগ/শাখা' : 'Department/Committee'}</p>
                 <p className="text-xl font-black border-b-2 pb-2" style={{ color: '#1e293b', borderColor: '#f1f5f9' }}>{student.departments?.name || '-'}</p>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'রোল নম্বর' : 'Roll Number'}</p>
+                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'সদস্য নং' : 'Member ID'}</p>
                 <p className="text-xl font-black border-b-2 pb-2" style={{ color: '#1e293b', borderColor: '#f1f5f9' }}>{student.roll || '-'}</p>
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'পরীক্ষার তারিখ' : 'Meeting Date'}</p>
+                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'সভার তারিখ' : 'Meeting Date'}</p>
                 <p className="text-xl font-black border-b-2 pb-2" style={{ color: '#1e293b', borderColor: '#f1f5f9' }}>{exam.date ? new Date(exam.date).toLocaleDateString() : exam.exam_year}</p>
               </div>
             </div>
@@ -72,8 +72,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
         <div className="p-4 border-t flex justify-between items-end px-8" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
           <div className="text-xs font-bold max-w-md" style={{ color: '#64748b' }}>
             <p className="mb-1" style={{ color: '#ef4444' }}>{isBangla ? 'নির্দেশনা:' : 'Instructions:'}</p>
-            <p>{isBangla ? '১. পরীক্ষার হলে অবশ্যই প্রবেশপত্র সাথে আনতে হবে।' : '1. Must bring this admit card to the exam hall.'}</p>
-            <p>{isBangla ? '২. মোবাইল ফোন বা কোনো ইলেকট্রনিক ডিভাইস আনা সম্পূর্ণ নিষেধ।' : '2. Mobile phones or electronic devices are strictly prohibited.'}</p>
+            <p>{isBangla ? '১. সভার হলে অবশ্যই প্রবেশপত্র সাথে আনতে হবে।' : '1. Must bring this entry pass to the meeting hall.'}</p>
+            <p>{isBangla ? '২. সভার শিষ্টাচার বজায় রাখুন।' : '2. Please maintain meeting decorum.'}</p>
           </div>
           <div className="text-center">
             <div className="w-32 border-b-2 mb-2" style={{ borderColor: '#1e293b' }}></div>
@@ -101,7 +101,7 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
 
         <div className="flex justify-between items-start mb-8">
           <div className="px-6 py-2" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
-            <h2 className="text-lg font-black tracking-widest uppercase">Admit Card</h2>
+            <h2 className="text-lg font-black tracking-widest uppercase">Entry Pass</h2>
           </div>
           <div className="text-right">
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>{isBangla ? 'তারিখ' : 'Date'}</p>
@@ -116,11 +116,11 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
               <span className="font-black" style={{ color: '#1e293b' }}>{student.name}</span>
             </div>
             <div className="flex border-b pb-2" style={{ borderColor: '#e2e8f0' }}>
-              <span className="w-32 text-xs font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>{isBangla ? 'শ্রেণী' : 'Department'}</span>
+              <span className="w-32 text-xs font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>{isBangla ? 'বিভাগ' : 'Dept'}</span>
               <span className="font-black" style={{ color: '#1e293b' }}>{student.departments?.name || '-'}</span>
             </div>
             <div className="flex border-b pb-2" style={{ borderColor: '#e2e8f0' }}>
-              <span className="w-32 text-xs font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>{isBangla ? 'রোল' : 'Roll'}</span>
+              <span className="w-32 text-xs font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>{isBangla ? 'সদস্য নং' : 'Member ID'}</span>
               <span className="font-black" style={{ color: '#1e293b' }}>{student.roll || '-'}</span>
             </div>
           </div>
@@ -169,8 +169,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
           </div>
           <div className="text-right">
             <div className="px-6 py-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-inner">
-              <h2 className="text-2xl font-black tracking-widest uppercase leading-none">Admit Card</h2>
-              <p className="text-xs mt-1 font-bold text-blue-200 tracking-widest">{isBangla ? 'প্রবেশপত্র' : 'Entry Pass'}</p>
+              <h2 className="text-2xl font-black tracking-widest uppercase leading-none">Entry Pass</h2>
+              <p className="text-xs mt-1 font-bold text-blue-200 tracking-widest">{isBangla ? 'প্রবেশপত্র' : 'Entry Card'}</p>
             </div>
           </div>
         </div>
@@ -179,19 +179,19 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
         <div className="flex-1 p-10 flex gap-12 relative z-10">
           <div className="flex-1 grid grid-cols-2 gap-x-12 gap-y-8">
             <div className="relative group">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'শিক্ষার্থীর নাম' : 'Member Name'}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'সদস্যের নাম' : 'Member Name'}</p>
               <p className="text-2xl font-black text-slate-800 border-b-2 border-slate-100 pb-2 group-hover:border-blue-200 transition-colors">{student.name}</p>
             </div>
             <div className="relative group">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'শ্রেণী' : 'Department'}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'বিভাগ/শাখা' : 'Department/Committee'}</p>
               <p className="text-2xl font-black text-slate-800 border-b-2 border-slate-100 pb-2 group-hover:border-blue-200 transition-colors">{student.departments?.name || '-'}</p>
             </div>
             <div className="relative group">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'রোল নম্বর' : 'Roll Number'}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'সদস্য নং' : 'Member ID'}</p>
               <p className="text-2xl font-black text-slate-800 border-b-2 border-slate-100 pb-2 group-hover:border-blue-200 transition-colors">{student.roll || '-'}</p>
             </div>
             <div className="relative group">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'পরীক্ষার তারিখ' : 'Meeting Date'}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'সভার তারিখ' : 'Meeting Date'}</p>
               <p className="text-2xl font-black text-slate-800 border-b-2 border-slate-100 pb-2 group-hover:border-blue-200 transition-colors">{exam.date ? new Date(exam.date).toLocaleDateString() : exam.exam_year}</p>
             </div>
           </div>
@@ -241,30 +241,30 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
           </div>
         </div>
         <div className="text-center border-4 p-4 bg-slate-50" style={{ borderColor: '#1e293b' }}>
-          <h2 className="text-2xl font-black uppercase tracking-[0.2em]">Admit Card</h2>
-          <p className="text-sm font-bold mt-1 tracking-widest">{isBangla ? 'প্রবেশপত্র' : 'Entry Pass'}</p>
+          <h2 className="text-2xl font-black uppercase tracking-[0.2em]">Entry Pass</h2>
+          <p className="text-sm font-bold mt-1 tracking-widest">{isBangla ? 'প্রবেশপত্র' : 'Entry Card'}</p>
         </div>
       </div>
 
       <div className="flex-1 flex gap-12">
         <div className="flex-1 space-y-8">
           <div className="flex items-end gap-4">
-            <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'শিক্ষার্থীর নাম :' : 'Member Name :'}</span>
+            <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'সদস্যের নাম :' : 'Member Name :'}</span>
             <span className="flex-1 border-b-4 border-dotted text-2xl font-black px-4 pb-1 uppercase" style={{ borderColor: '#cbd5e1', color: '#1e293b' }}>{student.name}</span>
           </div>
           <div className="flex gap-12">
             <div className="flex items-end gap-4 flex-1">
-              <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'শ্রেণী :' : 'Department :'}</span>
+              <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'বিভাগ/শাখা :' : 'Department :'}</span>
               <span className="flex-1 border-b-4 border-dotted text-2xl font-black px-4 pb-1 uppercase" style={{ borderColor: '#cbd5e1', color: '#1e293b' }}>{student.departments?.name || '-'}</span>
             </div>
             <div className="flex items-end gap-4 flex-1">
-              <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'রোল নম্বর :' : 'Roll No :'}</span>
+              <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'সদস্য নম্বর :' : 'Member ID :'}</span>
               <span className="flex-1 border-b-4 border-dotted text-2xl font-black px-4 pb-1 uppercase" style={{ borderColor: '#cbd5e1', color: '#1e293b' }}>{student.roll || '-'}</span>
             </div>
           </div>
           <div className="flex gap-12">
             <div className="flex items-end gap-4 flex-1">
-              <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'পরীক্ষার তারিখ :' : 'Meeting Date :'}</span>
+              <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'সভার তারিখ :' : 'Meeting Date :'}</span>
               <span className="flex-1 border-b-4 border-dotted text-2xl font-black px-4 pb-1 uppercase" style={{ borderColor: '#cbd5e1', color: '#1e293b' }}>{exam.date ? new Date(exam.date).toLocaleDateString() : exam.exam_year}</span>
             </div>
             <div className="flex items-end gap-4 flex-1">
@@ -287,7 +287,7 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
         </div>
         <div className="text-center">
           <div className="w-56 border-b-4 mb-3" style={{ borderColor: '#1e293b' }}></div>
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-800">{isBangla ? 'অধ্যক্ষের স্বাক্ষর' : 'Principal Signature'}</p>
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-800">{isBangla ? 'কর্তৃপক্ষের স্বাক্ষর' : 'Authority Signature'}</p>
         </div>
       </div>
     </div>

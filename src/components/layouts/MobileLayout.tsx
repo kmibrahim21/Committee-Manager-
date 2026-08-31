@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Menu, UserCheck } from 'lucide-react';
+import { handleHardRefresh } from '../../utils/hardRefresh';
 import { View, Language, Institution, Transaction, Profile } from 'types';
 import { t } from 'translations';
 import { supabase } from 'supabase';
@@ -122,6 +123,9 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
           <button onClick={() => setShowNotifications(true)} className={`relative p-2 rounded-xl transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-blue-400 border-slate-700' : 'bg-white text-slate-600 border-slate-200'}`}>
             <Bell size={20} />
             {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+          </button>
+          <button onClick={handleHardRefresh} className={`p-2 rounded-xl transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-white text-slate-400 border-slate-200'}`}>
+            <RefreshCw size={20} />
           </button>
         </div>
       </header>

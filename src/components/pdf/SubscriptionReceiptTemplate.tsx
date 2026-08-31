@@ -10,26 +10,26 @@ interface SubscriptionReceiptProps {
 export const SubscriptionReceiptTemplate: React.FC<SubscriptionReceiptProps> = ({ student, month, madrasah, lang }) => {
   const isBangla = lang === 'bn';
   const t = {
-    title: isBangla ? 'ফি পেমেন্ট রিসিট' : 'FEE PAYMENT RECEIPT',
+    title: isBangla ? 'চাঁদা পেমেন্ট রিসিট' : 'SUBSCRIPTION RECEIPT',
     receiptNo: isBangla ? 'রিসিট নং' : 'Receipt No',
     date: isBangla ? 'তারিখ' : 'Date',
-    studentDetails: isBangla ? 'ছাত্রের বিবরণ:' : 'Member Details:',
+    studentDetails: isBangla ? 'সদস্যের বিবরণ:' : 'Member Details:',
     name: isBangla ? 'নাম' : 'Name',
-    class: isBangla ? 'শ্রেণি' : 'Department',
-    roll: isBangla ? 'রোল' : 'Roll',
+    class: isBangla ? 'বিভাগ/কমিটি' : 'Department/Committee',
+    roll: isBangla ? 'সদস্য নং' : 'Member ID',
     month: isBangla ? 'মাস' : 'Month',
     description: isBangla ? 'বিবরণ' : 'Description',
     amount: isBangla ? 'পরিমাণ' : 'Amount',
-    monthlyFees: isBangla ? 'মাসিক ফি ও অন্যান্য চার্জ' : 'Monthly Fees & Other Charges',
-    discount: isBangla ? 'ডিসকাউন্ট' : 'Discount Applied',
+    monthlyFees: isBangla ? 'মাসিক চাঁদা ও অন্যান্য' : 'Monthly Subscription & Others',
+    discount: isBangla ? 'ছাড়' : 'Discount Applied',
     totalPaid: isBangla ? 'মোট জমা (এই মাসে)' : 'Total Paid (This Month)',
     balanceDue: isBangla ? 'বকেয়া' : 'Balance Due',
-    studentSignature: isBangla ? 'ছাত্র/অভিভাবকের স্বাক্ষর' : 'Member/Guardian Signature',
+    studentSignature: isBangla ? 'সদস্যের স্বাক্ষর' : 'Member Signature',
     authSignature: isBangla ? 'কর্তৃপক্ষের স্বাক্ষর' : 'Authorized Signature',
     computerGenerated: isBangla ? 'এটি একটি কম্পিউটার জেনারেটেড রিসিট।' : 'This is a computer-generated receipt.',
     currency: isBangla ? '৳' : 'BDT',
     officeCopy: isBangla ? 'অফিস কপি' : 'Office Copy',
-    studentCopy: isBangla ? 'ছাত্র কপি' : 'Member Copy'
+    studentCopy: isBangla ? 'সদস্য কপি' : 'Member Copy'
   };
 
   const ReceiptContent = ({ copyType }: { copyType: string }) => (

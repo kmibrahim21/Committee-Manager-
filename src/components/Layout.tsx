@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Play, UserCheck, LayoutDashboard, Calendar, Landmark, PiggyBank, Briefcase, Gift, Building2, Vote, HelpCircle } from 'lucide-react';
-import { handleHardRefresh } from '../utils/hardRefresh';
 import { View, Language, Institution, Transaction, Profile } from 'types';
 import { t } from 'translations';
 import { supabase } from 'supabase';
@@ -16,6 +15,7 @@ interface LayoutProps {
   lang: Language;
   madrasah: Institution | null;
   profile?: Profile | null;
+  triggerRefresh?: () => void;
 }
 
 interface AppNotification {
@@ -26,7 +26,7 @@ interface AppNotification {
   time: string;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, madrasah, profile }) => {
+const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, madrasah, profile, triggerRefresh }) => {
   const isOnline = useOfflineStatus();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -244,7 +244,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               <Bell size={18} />
               {notifications.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
             </button>
-            <button onClick={handleHardRefresh} className={`p-2.5 rounded-[1rem] active:scale-95 transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+            <button onClick={triggerRefresh} className={`p-2.5 rounded-[1rem] active:scale-95 transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
               <RefreshCw size={18} />
             </button>
           </div>

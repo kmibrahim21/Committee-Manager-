@@ -334,7 +334,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout currentView={view} setView={setView} lang={lang} madrasah={madrasah} profile={profile}>
+    <Layout currentView={view} setView={setView} lang={lang} madrasah={madrasah} profile={profile} triggerRefresh={triggerRefresh}>
       <OfflineIndicator />
       {isVercel && missingVars && (
         <div className="bg-red-600 text-white p-2 text-[10px] font-black text-center sticky top-0 z-[100] uppercase tracking-widest px-10">

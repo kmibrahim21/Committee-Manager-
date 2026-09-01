@@ -94,6 +94,8 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const missingVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#0B132B] transition-colors duration-500">
       <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-700">
@@ -103,8 +105,6 @@ const App: React.FC = () => {
       </div>
     </div>
   );
-
-  const missingVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   if (missingVars) {
     return (

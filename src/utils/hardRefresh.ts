@@ -20,9 +20,23 @@ export const handleHardRefresh = async () => {
       }
     }
 
-    // 3. Clear sessionStorage and optionally localStorage (decided to keep localStorage for user settings)
+    // 3. Clear sessionStorage and specific localStorage caches
     sessionStorage.clear();
     
+    // Clear OfflineService caches to force fresh data fetch
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('cache_')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+    
+    // Also remove specific auth session data to ensure a clean slate without fully logging out
+    // Actually, don't remove session/auth tokens so the user stays logged in, 
+    // but clearing cache_ profile data is enough.
+
     // 4. Reload with a cache-busting timestamp
     const url = new URL(window.location.href);
     url.searchParams.set('t', Date.now().toString());

@@ -289,10 +289,17 @@ export const useAuth = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
     localStorage.removeItem('executive_session');
     localStorage.removeItem('member_session');
+    localStorage.removeItem('demo_session');
+    OfflineService.removeCache('user_profile');
     OfflineService.removeCache('profile');
+    setSession(null);
+    setProfile(null);
+    setMadrasah(null);
     window.location.reload();
   };
 
@@ -347,6 +354,15 @@ export const useAuth = () => {
   };
 
   useEffect(() => {
+    let isSubscribed = true;
+
+    // Safety timeout: ensure loading finishes within 2 seconds even if network hangs
+    const safetyTimer = setTimeout(() => {
+      if (isSubscribed) {
+        setLoading(false);
+      }
+    }, 2000);
+
     const initializeAuth = async () => {
       try {
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
@@ -391,6 +407,28 @@ export const useAuth = () => {
                 });
                 setMadrasah(memberDataObj.institution);
                 setLoading(false);
+                
+                // Fetch latest data in background
+                try {
+                  const { data: latestMember } = await supabase
+                    .from('members')
+                    .select('*, institutions(*)')
+                    .eq('id', memberDataObj.member.id)
+                    .maybeSingle();
+                    
+                  if (latestMember) {
+                    if (latestMember.institutions) {
+                      setMadrasah(latestMember.institutions);
+                    }
+                    localStorage.setItem('member_session', JSON.stringify({
+                      member: latestMember,
+                      institution: latestMember.institutions || memberDataObj.institution
+                    }));
+                  }
+                } catch (bgErr) {
+                  console.warn("Background refresh of member data failed:", bgErr);
+                }
+                
                 return;
               }
             } catch (e) {
@@ -499,6 +537,7 @@ export const useAuth = () => {
             try {
               const memberDataObj = JSON.parse(memberSessionStr);
               if (memberDataObj && memberDataObj.member) {
+                // Set initial state from cache for fast load
                 setSession({ user: { id: memberDataObj.member.id, role: 'member' } });
                 setProfile({
                   id: memberDataObj.member.id,
@@ -510,6 +549,27 @@ export const useAuth = () => {
                 });
                 setMadrasah(memberDataObj.institution);
                 setLoading(false);
+                
+                // Fetch latest data in background to ensure freshness on reload/refresh
+                try {
+                  const { data: latestMember } = await supabase
+                    .from('members')
+                    .select('*, institutions(*)')
+                    .eq('id', memberDataObj.member.id)
+                    .maybeSingle();
+                    
+                  if (latestMember) {
+                    if (latestMember.institutions) {
+                      setMadrasah(latestMember.institutions);
+                    }
+                    localStorage.setItem('member_session', JSON.stringify({
+                      member: latestMember,
+                      institution: latestMember.institutions || memberDataObj.institution
+                    }));
+                  }
+                } catch (bgErr) {
+                  console.warn("Background refresh of member data failed:", bgErr);
+                }
                 return;
               }
             } catch (e) {
@@ -679,6 +739,8 @@ export const useAuth = () => {
     }
 
     return () => {
+      isSubscribed = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
       if (channel) supabase.removeChannel(channel);
     };

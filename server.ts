@@ -5,11 +5,6 @@ import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
-// Import API handlers
-import awajHandler from "./api/awaj";
-import executivesHandler from "./api/executives";
-import healthHandler from "./api/health";
-
 dotenv.config();
 
 const app = express();
@@ -37,22 +32,6 @@ const ai = new GoogleGenAI({
     }
   }
 });
-
-// Helper to wrap Vercel-style handlers for Express
-const vercelToExpress = (handler: any) => async (req: any, res: any) => {
-  try {
-    await handler(req, res);
-  } catch (error) {
-    console.error("API Error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-// Mount API Routes
-app.all("/api/awaj*", vercelToExpress(awajHandler));
-app.all("/api/executives*", vercelToExpress(executivesHandler));
-app.all("/api/teachers*", vercelToExpress(executivesHandler));
-app.all("/api/health", vercelToExpress(healthHandler));
 
 const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
   committee: {
@@ -305,7 +284,7 @@ app.post("/api/gemini/generate-minutes", async (req, res) => {
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+      model: "gemini-3.5-flash",
       contents: prompt,
     });
 

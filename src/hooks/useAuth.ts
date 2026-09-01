@@ -420,6 +420,14 @@ export const useAuth = () => {
                     if (latestMember.institutions) {
                       setMadrasah(latestMember.institutions);
                     }
+                    setProfile({
+                      id: latestMember.id,
+                      institution_id: latestMember.institution_id,
+                      full_name: latestMember.name,
+                      role: 'member',
+                      is_active: true,
+                      created_at: latestMember.created_at
+                    });
                     localStorage.setItem('member_session', JSON.stringify({
                       member: latestMember,
                       institution: latestMember.institutions || memberDataObj.institution
@@ -562,6 +570,14 @@ export const useAuth = () => {
                     if (latestMember.institutions) {
                       setMadrasah(latestMember.institutions);
                     }
+                    setProfile({
+                      id: latestMember.id,
+                      institution_id: latestMember.institution_id,
+                      full_name: latestMember.name,
+                      role: 'member',
+                      is_active: true,
+                      created_at: latestMember.created_at
+                    });
                     localStorage.setItem('member_session', JSON.stringify({
                       member: latestMember,
                       institution: latestMember.institutions || memberDataObj.institution

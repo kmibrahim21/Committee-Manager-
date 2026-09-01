@@ -4,10 +4,13 @@
  */
 export const handleHardRefresh = async () => {
   try {
-    // 1. Unregister all service workers
+    // 1. Unregister all service workers and force update
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       for (const registration of registrations) {
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
         await registration.unregister();
       }
     }
@@ -34,8 +37,9 @@ export const handleHardRefresh = async () => {
     keysToRemove.forEach(k => localStorage.removeItem(k));
     
     // Also remove specific auth session data to ensure a clean slate without fully logging out
-    // Actually, don't remove session/auth tokens so the user stays logged in, 
-    // but clearing cache_ profile data is enough.
+    // Keep the main auth token but remove derived cached sessions
+    localStorage.removeItem('executive_session');
+    localStorage.removeItem('member_session');
 
     // 4. Reload with a cache-busting timestamp
     const url = new URL(window.location.href);

@@ -164,7 +164,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
             .delete()
             .eq('category', 'Member Fee')
             .like('description', `%(${showDeleteConfirm.name} |%`);
-          await supabase.from('fees').delete().in('student_id', memberIds);
+          await supabase.from('fees').delete().in('member_id', memberIds);
           await supabase.from('attendance').delete().in('member_id', memberIds);
           // Delete the members
           await supabase.from('members').delete().in('id', memberIds);

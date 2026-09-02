@@ -157,7 +157,7 @@ const StudentDetails: React.FC<StudentDetailsProps> = ({ student, madrasah, onEd
           .delete()
           .eq('category', 'Member Fee')
           .like('description', `%${student.name}%Roll: ${student.roll}%`);
-        await supabase.from('fees').delete().eq('student_id', student.id);
+        await supabase.from('fees').delete().eq('member_id', student.id);
         await supabase.from('attendance').delete().eq('member_id', student.id);
       }
 

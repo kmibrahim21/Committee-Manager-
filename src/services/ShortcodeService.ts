@@ -62,9 +62,9 @@ export const ShortcodeService = {
     // 2. Fetch Subscriptions (Current Month)
     const { data: fees } = await supabase
       .from('subscriptions')
-      .select('student_id, amount_due, amount_paid')
+      .select('member_id, amount_due, amount_paid')
       .eq('period', currentMonth)
-      .in('student_id', studentIds);
+      .in('member_id', studentIds);
 
     // 3. Fetch Latest Meeting
     const { data: latestMeeting } = await supabase
@@ -100,7 +100,7 @@ export const ShortcodeService = {
 
     // Combine all data
     return students.map(s => {
-      const studentFees = fees?.find(f => f.student_id === s.id);
+      const studentFees = fees?.find(f => f.member_id === s.id);
       
       const mType = s.member_type || 'general';
       const mTypeLabel = memberTypeLabels[mType.toLowerCase()] || mType;

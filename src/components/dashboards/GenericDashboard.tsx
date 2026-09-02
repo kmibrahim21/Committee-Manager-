@@ -148,7 +148,7 @@ export const GenericDashboard: React.FC<DashboardProps> = ({
         {canUseVoice && modules.modules.voice_broadcast && (
           <button onClick={onNavigateToVoiceBroadcast} className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-5 lg:p-6 rounded-[2rem] shadow-bubble flex flex-col items-center text-center active:scale-95 transition-all border`}>
             <div className="w-10 h-10 lg:w-12 lg:h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center mb-2 lg:mb-4 shadow-inner"><Mic size={20} className="lg:w-6 lg:h-6" /></div>
-            <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{loadingStats ? '...' : stats.voiceBalance.toFixed(2)}</h4>
+            <h4 className={`text-xl lg:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{loadingStats ? '...' : Number(stats.voiceBalance || 0).toFixed(2)}</h4>
             <p className="text-[10px] lg:text-[12px] font-black text-slate-400 uppercase tracking-widest mt-1 lg:mt-2">{t('voice_call', lang)}</p>
           </button>
         )}

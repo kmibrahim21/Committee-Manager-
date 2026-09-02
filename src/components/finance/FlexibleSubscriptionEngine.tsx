@@ -163,7 +163,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
             .eq('institution_id', madrasah.id);
 
         const { data: feesData } = await supabase.from('fees')
-            .select('student_id, amount_paid, discount')
+            .select('member_id, amount_paid, discount')
             .eq('institution_id', madrasah.id)
             .eq('month', selectedMonth);
 
@@ -192,7 +192,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
             if (membersError) throw membersError;
             
             filteredData = (membersData || []).map((m: any) => ({
-              student_id: m.id,
+              member_id: m.id,
               student_name: m.name,
               student_roll: m.roll,
               department_id: m.department_id,
@@ -214,7 +214,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
           if (membersError) throw membersError;
           
           filteredData = (membersData || []).map((m: any) => ({
-            student_id: m.id,
+            member_id: m.id,
             student_name: m.name,
             student_roll: m.roll,
             department_id: m.department_id,
@@ -230,7 +230,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
             const studentFeeStructures = feeStructures?.filter(fs => fs.department_id === student.department_id || fs.department_id === null) || [];
             const totalPayable = studentFeeStructures.reduce((sum, fs) => sum + Number(fs.amount), 0);
             
-            const studentFees = feesData?.filter(f => f.student_id === student.student_id) || [];
+            const studentFees = feesData?.filter(f => f.member_id === student.member_id) || [];
             const totalPaid = studentFees.reduce((sum, f) => sum + Number(f.amount_paid) + Number(f.discount || 0), 0);
             
             const balanceDue = Math.max(0, totalPayable - totalPaid);
@@ -242,7 +242,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
 
             return {
                 ...student,
-                id: student.student_id,
+                id: student.member_id,
                 name: student.student_name,
                 roll: student.student_roll,
                 total_payable: totalPayable,
@@ -336,7 +336,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
       
       const feeData = {
         institution_id: madrasah.id,
-        student_id: selectedStudent.student_id,
+        member_id: selectedStudent.member_id,
         department_id: selectedStudent.department_id,
         amount_paid: totalAmt,
         month: selectedMonth,
@@ -386,20 +386,20 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
   const handleShowHistory = async (student: any) => {
     setHistoryStudent(student);
     setShowHistoryModal(true);
-    fetchStudentHistory(student.student_id, historyYear);
+    fetchStudentHistory(student.member_id, historyYear);
   };
 
   const fetchStudentHistory = async (studentId: string, year: string) => {
     const { data } = await supabase.from('fees')
       .select('*')
-      .eq('student_id', studentId)
+      .eq('member_id', studentId)
       .like('month', `${year}-%`);
     setStudentFeeHistory(data || []);
   };
 
   useEffect(() => {
       if (historyStudent) {
-          fetchStudentHistory(historyStudent.student_id, historyYear);
+          fetchStudentHistory(historyStudent.member_id, historyYear);
       }
   }, [historyYear]);
 
@@ -568,7 +568,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                   const hasBalance = balance > 0;
 
                   return (
-                  <div key={item.student_id} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between group active:scale-[0.98] transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                  <div key={item.member_id} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between group active:scale-[0.98] transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
                      <div className="flex items-center gap-3.5 min-w-0">
                         <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center font-black shrink-0 ${isFullyPaid ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-500') : hasBalance ? (isDark ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-50 text-orange-500') : (isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-[#2563EB]')}`}>
                            {item.roll || '-'}

@@ -49,27 +49,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
         const body = req.body || {};
-        const { name, file_url } = body;
-        let bodyStr: any = JSON.stringify(body);
-        let headers: any = { ...getAwajHeaders() };
-        if (file_url) {
+        const { name, file_url, file_base64, filename, content_type } = body;
+        let fileBuffer: Buffer | null = null;
+        let contentType = content_type || 'audio/mpeg';
+        let fName = filename || 'voice.mp3';
+
+        if (file_base64) {
+          fileBuffer = Buffer.from(file_base64, 'base64');
+        } else if (file_url) {
           const fileRes = await fetch(file_url);
           if (!fileRes.ok) throw new Error(`Failed to download file: ${fileRes.statusText}`);
-          const fileBuffer = await fileRes.arrayBuffer();
-          const contentType = fileRes.headers.get('content-type') || 'audio/mpeg';
-          const extension = file_url.split('.').pop()?.split('?')[0] || 'mp3';
-          const filename = `voice.${extension}`;
+          const ab = await fileRes.arrayBuffer();
+          fileBuffer = Buffer.from(new Uint8Array(ab));
+          contentType = fileRes.headers.get('content-type') || contentType;
+          const ext = file_url.split('.').pop()?.split('?')[0] || 'mp3';
+          fName = `voice.${ext}`;
+        }
+
+        if (fileBuffer) {
           const formData = new FormData();
           formData.append('name', name || 'Voice Upload');
-          formData.append('audio', Buffer.from(new Uint8Array(fileBuffer)), { filename, contentType });
-          formData.append('file', Buffer.from(new Uint8Array(fileBuffer)), { filename, contentType });
-          bodyStr = formData;
-          headers = { 'Authorization': `Bearer ${process.env.AWAJ_API_TOKEN}`, 'Accept': 'application/json', ...formData.getHeaders() };
+          formData.append('audio', fileBuffer, { filename: fName, contentType });
+          formData.append('file', fileBuffer, { filename: fName, contentType });
+          const response = await fetch(`${AWAJ_BASE_URL}/voices/upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${process.env.AWAJ_API_TOKEN}`, 'Accept': 'application/json', ...formData.getHeaders() },
+            body: formData
+          });
+          const data = await response.json();
+          if (!response.ok) return res.status(response.status).json(data);
+          return res.status(200).json(data);
+        } else {
+          return res.status(400).json({ error: "Missing audio file or file_url" });
         }
-        const response = await fetch(`${AWAJ_BASE_URL}/voices/upload`, { method: 'POST', headers, body: bodyStr });
-        const data = await response.json();
-        if (!response.ok) return res.status(response.status).json(data);
-        return res.status(200).json(data);
       }
       if (req.method === 'DELETE' && subAction) {
         const response = await fetch(`${AWAJ_BASE_URL}/voices/${subAction}`, { method: 'DELETE', headers: getAwajHeaders() as any });
@@ -82,6 +94,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // BROADCAST
     if (action === 'broadcast' || action === 'broadcasts') {
+      if (req.method === 'POST' && subAction === 'direct') {
+        const response = await fetch(`${AWAJ_BASE_URL}/broadcasts/direct`, { method: 'POST', headers: getAwajHeaders(), body: JSON.stringify(req.body) });
+        const data = await response.json();
+        if (!response.ok) return res.status(response.status).json(data);
+        return res.status(200).json(data);
+      }
+      if (req.method === 'POST' && subAction === 'otp') {
+        const response = await fetch(`${AWAJ_BASE_URL}/broadcasts/otp`, { method: 'POST', headers: getAwajHeaders(), body: JSON.stringify(req.body) });
+        const data = await response.json();
+        if (!response.ok) return res.status(response.status).json(data);
+        return res.status(200).json(data);
+      }
       if (req.method === 'POST') {
         const response = await fetch(`${AWAJ_BASE_URL}/broadcasts`, { method: 'POST', headers: getAwajHeaders(), body: JSON.stringify(req.body) });
         const data = await response.json();
@@ -96,7 +120,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const data = await response.json();
           return res.status(200).json(data);
         } else {
-          const response = await fetch(`${AWAJ_BASE_URL}/broadcasts`, { headers: getAwajHeaders() });
+          const searchParams = url.searchParams.toString();
+          const targetUrl = searchParams ? `${AWAJ_BASE_URL}/broadcasts?${searchParams}` : `${AWAJ_BASE_URL}/broadcasts`;
+          const response = await fetch(targetUrl, { headers: getAwajHeaders() });
           if (!response.ok) throw new Error(`Awaj API Error: ${response.statusText}`);
           const data = await response.json();
           return res.status(200).json(data);
@@ -121,6 +147,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!response.ok) throw new Error(`Awaj API Error: ${response.statusText}`);
       const data = await response.json();
       return res.status(200).json(data);
+    }
+
+    // BALANCE / ACCOUNT / USER
+    if (action === 'balance' || action === 'account' || action === 'user' || action === 'me') {
+      try {
+        let response = await fetch(`${AWAJ_BASE_URL}/balance`, { headers: getAwajHeaders() });
+        if (!response.ok) {
+          response = await fetch(`${AWAJ_BASE_URL}/user`, { headers: getAwajHeaders() });
+        }
+        if (!response.ok) {
+          response = await fetch(`${AWAJ_BASE_URL}/account`, { headers: getAwajHeaders() });
+        }
+        if (!response.ok) {
+          return res.status(200).json({ balance: 0, currency: 'BDT' });
+        }
+        const data = await response.json();
+        return res.status(200).json(data);
+      } catch (e: any) {
+        return res.status(200).json({ balance: 0, currency: 'BDT' });
+      }
     }
 
     // SURVEYS

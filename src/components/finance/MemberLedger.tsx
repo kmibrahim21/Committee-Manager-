@@ -31,7 +31,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
       const { data: feesData } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('student_id', member.id)
+        .eq('member_id', member.id)
         .like('period', `${selectedYear}-%`);
       
       if (feesData) setFees(feesData);

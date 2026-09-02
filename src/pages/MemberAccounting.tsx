@@ -43,7 +43,7 @@ const MemberAccounting: React.FC<MemberAccountingProps> = ({ member, madrasah, l
       const { data: feesData } = await supabase
         .from('fees')
         .select('*')
-        .eq('student_id', member.id)
+        .eq('member_id', member.id)
         .like('month', `${selectedYear}-%`);
       
       if (feesData) setFees(feesData);
@@ -90,7 +90,7 @@ const MemberAccounting: React.FC<MemberAccountingProps> = ({ member, madrasah, l
       const feePromises = selectedMonths.map(month => {
         return supabase.from('fees').insert({
           institution_id: madrasah.id,
-          student_id: member.id,
+          member_id: member.id,
           department_id: member.department_id,
           amount_paid: perMonthAmount,
           month: month,

@@ -4,7 +4,7 @@ import { supabase, smsApi } from 'supabase';
 import { Language, Department, SMSTemplate, Institution, UserRole, Profile } from 'types';
 import { t } from 'translations';
 import { ShortcodeService } from 'services/ShortcodeService';
-import { TrendingUp, DollarSign, BarChart3, AlertCircle, Send, Loader2, CheckCircle2, MessageSquare, Smartphone, PieChart, Users, Filter, Calendar, Wallet, BookOpen, ChevronDown, Info } from 'lucide-react';
+import { TrendingUp, DollarSign, BarChart3, AlertCircle, Send, Loader2, CheckCircle2, MessageSquare, Smartphone, PieChart, Users, Filter, Calendar, Wallet, BookOpen, ChevronDown, Info, Phone } from 'lucide-react';
 import { isValidUUID } from 'utils/validation';
 
 interface CommitteeFinancialAnalyticsProps {
@@ -671,8 +671,37 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
                 </div>
               )}
             </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
+                        {lang === 'bn' ? 'কমিটি নির্বাচন' : 'Select Committee'}
+                    </label>
+                    <select 
+                        value={selectedClassId}
+                        onChange={(e) => setSelectedClassId(e.target.value)}
+                        className={`w-full h-11 px-4 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                    >
+                        <option value="all">{localT.allClasses[lang]}</option>
+                        {localClasses.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
+                        {lang === 'bn' ? 'মাস নির্বাচন' : 'Select Month'}
+                    </label>
+                    <input 
+                        type="month" 
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className={`w-full h-11 px-4 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                    />
+                </div>
+            </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <button 
                 onClick={() => sendBulkReminder('system')}
                 disabled={sending}
@@ -681,9 +710,15 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
                 {sending ? <Loader2 className="animate-spin" size={16} /> : <MessageSquare size={16} fill="currentColor" />} {t('system_sms', lang)}
             </button>
             <button 
+                onClick={() => { if(reminders.length > 0) window.location.href = `tel:${reminders[0].phone}`; }}
+                className={`h-14 rounded-2xl font-black text-[10px] uppercase border flex items-center justify-center gap-2 active:scale-95 transition-all ${madrasah?.theme === 'dark' ? 'bg-orange-500/20 border-orange-500/30 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-600'}`}
+            >
+                <Phone size={16} fill="currentColor" /> {lang === 'bn' ? 'ভয়েস কল' : 'Voice Call'}
+            </button>
+            <button 
                 onClick={() => sendBulkReminder('native')}
                 disabled={sending}
-                className={`h-14 rounded-2xl font-black text-[10px] uppercase border flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                className={`h-14 rounded-2xl font-black text-[10px] uppercase border flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 col-span-2 sm:col-span-1 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
             >
                 <Smartphone size={16} fill="currentColor" /> {t('native_sms', lang)}
             </button>

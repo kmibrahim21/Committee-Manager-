@@ -25,6 +25,7 @@ const parseMeetingWithMeta = (meeting: any) => {
     let notify_members = true;
     let send_sms = false;
     let send_voice = false;
+    let meeting_link = '';
     let require_attendance = true;
     let agenda = '';
     let cleanDescription = meeting.description || '';
@@ -39,6 +40,7 @@ const parseMeetingWithMeta = (meeting: any) => {
                 notify_members = meta.notify_members !== undefined ? meta.notify_members : true;
                 send_sms = meta.send_sms !== undefined ? meta.send_sms : false;
                 send_voice = meta.send_voice !== undefined ? meta.send_voice : false;
+                meeting_link = meta.meeting_link || '';
                 require_attendance = meta.require_attendance !== undefined ? meta.require_attendance : true;
                 agenda = meta.agenda || '';
                 cleanDescription = parts.slice(2).join('---METADATA---').trim();
@@ -51,6 +53,7 @@ const parseMeetingWithMeta = (meeting: any) => {
         if (meeting.notify_members !== undefined) notify_members = meeting.notify_members;
         if (meeting.send_sms !== undefined) send_sms = meeting.send_sms;
         if (meeting.send_voice !== undefined) send_voice = meeting.send_voice;
+        if (meeting.meeting_link) meeting_link = meeting.meeting_link;
         if (meeting.require_attendance !== undefined) require_attendance = meeting.require_attendance;
         if (meeting.agenda) agenda = meeting.agenda;
     }
@@ -61,6 +64,7 @@ const parseMeetingWithMeta = (meeting: any) => {
         notify_members,
         send_sms,
         send_voice,
+        meeting_link,
         require_attendance,
         agenda,
         description: cleanDescription
@@ -94,6 +98,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
         notify_members: true,
         send_sms: false,
         send_voice: false,
+        meeting_link: '',
         require_attendance: true
     });
 
@@ -235,18 +240,23 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
         try {
             const targetInstitutionId = madrasah.id === 'super_admin' ? profile.institution_id : madrasah.id;
 
+            const metadata = {
+                type: newMeeting.type,
+                notify_members: newMeeting.notify_members,
+                send_sms: newMeeting.send_sms,
+                send_voice: newMeeting.send_voice,
+                meeting_link: newMeeting.meeting_link,
+                require_attendance: newMeeting.require_attendance,
+                agenda: newMeeting.agenda
+            };
+
             const payload: any = {
                 title: newMeeting.title,
                 type: newMeeting.type,
                 date: newMeeting.date,
                 time: newMeeting.time,
                 venue: newMeeting.venue,
-                description: newMeeting.description,
-                agenda: newMeeting.agenda,
-                notify_members: newMeeting.notify_members,
-                send_sms: newMeeting.send_sms,
-                send_voice: newMeeting.send_voice,
-                require_attendance: newMeeting.require_attendance,
+                description: `---METADATA---\n${JSON.stringify(metadata)}\n---METADATA---\n${newMeeting.description}`,
                 institution_id: targetInstitutionId,
                 status: 'planned'
             };
@@ -276,6 +286,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                 notify_members: true,
                 send_sms: false,
                 send_voice: false,
+                meeting_link: '',
                 require_attendance: true
             });
         } catch (e: any) {
@@ -326,18 +337,23 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
         if (!editingMeeting || !editingMeeting.title) return;
         setLoading(true);
         try {
+            const metadata = {
+                type: editingMeeting.type,
+                notify_members: editingMeeting.notify_members,
+                send_sms: editingMeeting.send_sms,
+                send_voice: editingMeeting.send_voice,
+                meeting_link: editingMeeting.meeting_link,
+                require_attendance: editingMeeting.require_attendance,
+                agenda: editingMeeting.agenda
+            };
+
             const { error } = await supabase.from('meetings').update({
                 title: editingMeeting.title,
                 type: editingMeeting.type,
                 date: editingMeeting.date,
                 time: editingMeeting.time,
                 venue: editingMeeting.venue,
-                description: editingMeeting.description,
-                agenda: editingMeeting.agenda,
-                notify_members: editingMeeting.notify_members,
-                send_sms: editingMeeting.send_sms,
-                send_voice: editingMeeting.send_voice,
-                require_attendance: editingMeeting.require_attendance,
+                description: `---METADATA---\n${JSON.stringify(metadata)}\n---METADATA---\n${editingMeeting.description}`,
                 department_id: editingMeeting.department_id || null
             }).eq('id', editingMeeting.id);
             
@@ -705,6 +721,16 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                             </div>
 
                             <div className="space-y-2 px-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Meeting Link</label>
+                                <input 
+                                    className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#2563EB] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm"
+                                    placeholder="https://zoom.us/j/..."
+                                    value={newMeeting.meeting_link}
+                                    onChange={(e) => setNewMeeting({...newMeeting, meeting_link: e.target.value})}
+                                />
+                            </div>
+
+                            <div className="space-y-2 px-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-noto">
                                     {lang === 'bn' ? 'কমিটি নির্বাচন' : 'Select Committee'}
                                 </label>
@@ -806,6 +832,16 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                                         onChange={(e) => setEditingMeeting({...editingMeeting, venue: e.target.value})}
                                     />
                                 </div>
+                            </div>
+
+                            <div className="space-y-2 px-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Meeting Link</label>
+                                <input 
+                                    className="w-full h-12 bg-slate-50 rounded-2xl px-5 font-black text-[#2563EB] outline-none border border-slate-100 focus:border-blue-200 transition-all focus:bg-white text-sm"
+                                    placeholder="https://zoom.us/j/..."
+                                    value={editingMeeting.meeting_link}
+                                    onChange={(e) => setEditingMeeting({...editingMeeting, meeting_link: e.target.value})}
+                                />
                             </div>
 
                             <div className="space-y-2 px-1">

@@ -396,6 +396,12 @@ const MeetingDetailView: React.FC<MeetingDetailViewProps> = ({
                                                         <span className="text-slate-400 font-noto">{lang === 'bn' ? 'সময়:' : 'Time:'} </span>
                                                         <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">{formatElapsed(elapsedSeconds)}</span>
                                                     </div>
+                                                    {meeting.meeting_link && (
+                                                        <div className="truncate col-span-2">
+                                                            <span className="text-slate-400 font-noto">{lang === 'bn' ? 'লিংক:' : 'Link:'} </span>
+                                                            <a href={meeting.meeting_link} target="_blank" rel="noreferrer" className="font-bold text-blue-500 hover:underline font-mono truncate">{meeting.meeting_link}</a>
+                                                        </div>
+                                                    )}
                                                     <div>
                                                         <span className="text-slate-400 font-noto">{lang === 'bn' ? 'সভা শুরু:' : 'Start:'} </span>
                                                         <span className="font-bold text-slate-700 dark:text-slate-300">{meeting.time || '10:00 AM'}</span>

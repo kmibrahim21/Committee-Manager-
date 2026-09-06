@@ -5,6 +5,7 @@ import { View, Language, Institution, Transaction, Profile } from 'types';
 import { t } from 'translations';
 import { supabase } from 'supabase';
 import { useOfflineStatus } from '../hooks/useOffline';
+import { OfflineService } from '../services/OfflineService';
 import MultiCalendarHeader from './MultiCalendarHeader';
 import { getCommitteeTypeConfig, MODULE_META } from '../utils/committeeTypes';
 
@@ -30,8 +31,45 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
   const isOnline = useOfflineStatus();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const isSuperAdmin = profile?.role === 'super_admin';
   const role = profile?.role || 'executive';
+
+  const handleRefreshClick = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      // 1. Clear offline query caches to force fresh data from server
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('cache_')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      sessionStorage.clear();
+
+      // 2. Process offline queue if online
+      if (navigator.onLine) {
+        await OfflineService.processQueue();
+      }
+
+      // 3. Trigger app-wide data refresh
+      if (triggerRefresh) {
+        await triggerRefresh();
+      }
+
+      // 4. Refresh notifications
+      await fetchDynamicNotifications();
+    } catch (e) {
+      console.error('Refresh error:', e);
+    } finally {
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 750);
+    }
+  };
   
   const canAccess = (module: string) => {
     if (profile?.role === 'super_admin') return true;
@@ -244,8 +282,37 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               <Bell size={18} />
               {notifications.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
             </button>
-            <button onClick={triggerRefresh} className={`p-2.5 rounded-[1rem] active:scale-95 transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-              <RefreshCw size={18} />
+            <button 
+              onClick={handleRefreshClick} 
+              disabled={isRefreshing}
+              title={lang === 'bn' ? 'রিফ্রেশ করুন' : 'Refresh'}
+              className={`p-2.5 rounded-[1rem] active:scale-95 transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white' : 'bg-slate-50 text-slate-400 border-slate-100 hover:text-slate-600'}`}
+            >
+              <RefreshCw size={18} className={isRefreshing ? 'animate-spin text-[#0fb5ab]' : ''} />
+            </button>
+          </div>
+        </header>
+
+        {/* Desktop Header */}
+        <header className={`hidden md:flex flex-none h-16 px-8 items-center justify-between border-b relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-brand-lavender/20'}`}>
+          <div className="flex-1 min-w-0">
+            <h2 className={`text-base font-black font-noto truncate ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+              {isSuperAdmin ? (lang === 'bn' ? 'সুপার অ্যাডমিন পোর্টাল' : 'Super Admin Portal') : (madrasah?.name || 'Committee Manager')}
+            </h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setShowNotifications(true)} className={`relative p-2.5 rounded-xl transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9] border-slate-700 hover:bg-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20 hover:bg-[#42f5e9]/20'}`}>
+              <Bell size={18} />
+              {notifications.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+            </button>
+            <button 
+              onClick={handleRefreshClick} 
+              disabled={isRefreshing}
+              title={lang === 'bn' ? 'রিফ্রেশ করুন' : 'Refresh'}
+              className={`px-3 py-2 rounded-xl transition-all border shadow-sm flex items-center gap-2 active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+            >
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-[#0fb5ab]' : ''} />
+              <span className="text-xs font-bold font-noto">{lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}</span>
             </button>
           </div>
         </header>

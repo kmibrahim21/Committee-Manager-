@@ -22,7 +22,7 @@ export const isLeapYear = (year: number) => {
 export const toBnDigit = (num: string | number) => 
   num.toString().replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[parseInt(d)]);
 
-export const getBengaliDate = (date: Date, offset: number = 2) => {
+export const getBengaliDate = (date: Date, offset: number = 1) => {
   const adjustedDate = new Date(date);
   adjustedDate.setDate(date.getDate() + offset);
 
@@ -80,7 +80,7 @@ const HIJRI_MONTHS_BN = [
   'রমজান', 'শাওয়াল', 'জিলকদ', 'জিলহজ'
 ];
 
-export const getHijriDate = (date: Date, offset: number = -1) => {
+export const getHijriDate = (date: Date, offset: number = -2) => {
   try {
     const adjustedDate = new Date(date);
     adjustedDate.setDate(date.getDate() + offset);

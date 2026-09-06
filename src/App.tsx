@@ -280,7 +280,7 @@ const App: React.FC = () => {
         return <DataManagement lang={lang} madrasah={madrasah} onBack={() => setView('account')} triggerRefresh={triggerRefresh} />;
       case 'accounting':
         if (role === 'member' && !madrasah?.member_portal_config?.permissions?.view_finances) { setView('home'); return null; }
-        return <CommitteeFinances lang={lang} madrasah={madrasah} onBack={() => setView('home')} role={role} profile={profile} onMemberClick={(m) => { setSelectedStudent(m); setView('member-accounting'); }} />;
+        return <CommitteeFinances lang={lang} madrasah={madrasah} onBack={() => setView('home')} role={role} profile={profile} dataVersion={dataVersion} onMemberClick={(m) => { setSelectedStudent(m); setView('member-accounting'); }} />;
       case 'member-accounting':
         if (!selectedStudent || !madrasah) { setView('accounting'); return null; }
         return <MemberAccounting member={selectedStudent} madrasah={madrasah} lang={lang} onBack={() => setView('accounting')} departments={[]} profile={profile} />;

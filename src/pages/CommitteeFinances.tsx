@@ -17,9 +17,10 @@ interface AccountingProps {
   role: UserRole;
   profile?: Profile | null;
   onMemberClick?: (member: Member) => void;
+  dataVersion?: number;
 }
 
-const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, role, profile, onMemberClick }) => {
+const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, role, profile, onMemberClick, dataVersion }) => {
   const isTeacher = role === 'executive';
   const canManageAccounting = !isTeacher || profile?.permissions?.can_manage_accounting;
 
@@ -130,7 +131,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
       fetchData();
       fetchClasses();
     }
-  }, [madrasah?.id, activeTab]);
+  }, [madrasah?.id, activeTab, dataVersion]);
 
   const fetchClasses = async () => {
     if (!madrasah?.id) return;
@@ -173,32 +174,6 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
     if (!madrasah || !amount || !category) return;
     setIsSaving(true);
     try {
-      if (selectedQardLoanId && category === "করজে হাসানা কিস্তি আদায়") {
-        const stored = localStorage.getItem(`special_qard_hasan_${madrasah.id}`);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            const updated = parsed.map((app: any) => {
-              if (app.id === selectedQardLoanId) {
-                const reps = app.repayments || [];
-                const receipt = qardReceiptNo.trim() || `RECP-${Date.now().toString().slice(-6)}`;
-                return {
-                  ...app,
-                  repayments: [
-                    ...reps,
-                    { id: `r-${Date.now()}`, date: transactionDate, amount: parseFloat(amount), receiptNo: receipt }
-                  ]
-                };
-              }
-              return app;
-            });
-            localStorage.setItem(`special_qard_hasan_${madrasah.id}`, JSON.stringify(updated));
-          } catch (err) {
-            console.error("Qard Hasan Sync Error:", err);
-          }
-        }
-      }
-
       const { error } = await supabase.from('ledger').insert({
         institution_id: madrasah.id,
         type: type,
@@ -354,14 +329,6 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
               >
                 ব্যয়
               </button>
-              {madrasah?.institution_type === 'association' && (
-                <button 
-                  onClick={() => setLedgerFilter('qard')}
-                  className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'qard' ? (isDark ? 'bg-slate-900 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
-                >
-                  করজে হাসানা
-                </button>
-              )}
             </div>
           </div>
           
@@ -392,10 +359,6 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                         displayName = namePart;
                       }
                     }
-                  } else if (entry.category === 'করজে হাসানা কিস্তি আদায়') {
-                    displayName = 'করজে হাসানা কিস্তি আদায়';
-                    feeType = 'কিস্তি আদায়';
-                    details = entry.description;
                   }
 
                   const isConfirming = confirmDeleteId === entry.id;
@@ -463,7 +426,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                           <div className="space-y-3">
                             <div>
                               <h5 className={`font-black font-noto text-base leading-tight ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>{displayName}</h5>
-                              {entry.category === 'Member Fee' || entry.category === 'করজে হাসানা কিস্তি আদায়' ? (
+                              {entry.category === 'Member Fee' ? (
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className="text-[10px] text-slate-400 font-bold">{details}</span>
                                   <span className="w-1 h-1 rounded-full bg-slate-300" />
@@ -522,38 +485,6 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                 </div>
              </div>
 
-             {madrasah?.institution_type === 'association' && (
-               <div className={`flex p-1.5 sm:p-2 rounded-2xl sm:rounded-[2rem] border shadow-inner ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setTxType('general');
-                      setCategory('');
-                      setAmount('');
-                      setDesc('');
-                      setSelectedQardLoanId('');
-                    }}
-                    className={`flex-1 py-3 sm:py-4 rounded-xl sm:rounded-[1.6rem] text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${txType === 'general' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-lg border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-md border border-blue-100') : 'text-slate-400 hover:text-slate-600'}`}
-                  >
-                    সাধারণ লেনদেন
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setTxType('qard');
-                      setType('income');
-                      setCategory('করজে হাসানা কিস্তি আদায়');
-                      setAmount('');
-                      setDesc('');
-                    }}
-                    className={`flex-1 py-3 sm:py-4 rounded-xl sm:rounded-[1.6rem] text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${txType === 'qard' ? (isDark ? 'bg-slate-900 text-emerald-400 shadow-lg border border-slate-700/50' : 'bg-white text-emerald-600 shadow-md border border-emerald-100') : 'text-slate-400 hover:text-slate-600'}`}
-                  >
-                    করজে হাসানা কিস্তি আদায়
-                  </button>
-               </div>
-             )}
-
-             {txType === 'general' && (
              <div className={`flex p-1.5 sm:p-2 rounded-2xl sm:rounded-[2rem] border shadow-inner ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                 <button 
                   onClick={() => setType('income')} 
@@ -570,7 +501,6 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                   ব্যয়
                 </button>
              </div>
-             )}
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                 <div className="space-y-6">

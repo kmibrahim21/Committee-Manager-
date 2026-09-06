@@ -6,6 +6,7 @@ import { t } from 'translations';
 import { supabase } from 'supabase';
 import { useOfflineStatus } from '../hooks/useOffline';
 import { OfflineService } from '../services/OfflineService';
+import { handleHardRefresh } from '../utils/hardRefresh';
 import MultiCalendarHeader from './MultiCalendarHeader';
 import { getCommitteeTypeConfig, MODULE_META } from '../utils/committeeTypes';
 
@@ -38,37 +39,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
   const handleRefreshClick = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    try {
-      // 1. Clear offline query caches to force fresh data from server
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('cache_')) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(k => localStorage.removeItem(k));
-      sessionStorage.clear();
-
-      // 2. Process offline queue if online
-      if (navigator.onLine) {
-        await OfflineService.processQueue();
-      }
-
-      // 3. Trigger app-wide data refresh
-      if (triggerRefresh) {
-        await triggerRefresh();
-      }
-
-      // 4. Refresh notifications
-      await fetchDynamicNotifications();
-    } catch (e) {
-      console.error('Refresh error:', e);
-    } finally {
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 750);
-    }
+    await handleHardRefresh();
   };
   
   const canAccess = (module: string) => {

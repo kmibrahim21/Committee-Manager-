@@ -32,8 +32,6 @@ export interface Institution {
       results?: boolean;
       polls?: boolean;
       notices?: boolean;
-      admit_card?: boolean;
-      seat_plan?: boolean;
       subscriptions?: boolean;
       // Association Submodules
       savings?: boolean;

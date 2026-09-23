@@ -50,12 +50,12 @@ const DataManagement: React.FC<DataManagementProps> = ({ lang, madrasah, onBack,
   const handleDownloadSample = () => {
     const sampleData = [
       {
-        'Department': 'Department 1',
-        'Roll': 1,
-        'Member Name': 'Abdur Rahman',
-        'Guardian Name': 'Abdullah',
+        'Department': 'সাধারণ শাখা',
+        'Member ID': 101,
+        'Member Name': 'মুহাম্মদ আব্দুর রহমান',
+        'Designation / Father': 'মুহাম্মদ আব্দুল্লাহ',
         'Phone 1': '01700000000',
-        'Phone 2': ''
+        'Phone 2': '01800000000'
       }
     ];
     
@@ -65,11 +65,11 @@ const DataManagement: React.FC<DataManagementProps> = ({ lang, madrasah, onBack,
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     
-    downloadFileNative(blob, 'madrasah_sample_template.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    downloadFileNative(blob, 'member_sample_template.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     
     setStatus({
       type: 'success',
-      message: lang === 'bn' ? 'স্যাম্পল ফাইল ডাউনলোড হয়েছে' : 'Sample file downloaded'
+      message: lang === 'bn' ? 'মেম্বার স্যাম্পল ফাইল ডাউনলোড হয়েছে' : 'Member sample file downloaded'
     });
     setTimeout(() => setStatus({ type: 'idle', message: '' }), 3000);
   };
@@ -87,24 +87,24 @@ const DataManagement: React.FC<DataManagementProps> = ({ lang, madrasah, onBack,
         
       if (fetchError) throw fetchError;
       if (!students || students.length === 0) {
-        throw new Error(lang === 'bn' ? "কোনো ছাত্রের তথ্য পাওয়া যায়নি" : "No student data found");
+        throw new Error(lang === 'bn' ? "কোনো সদস্যের তথ্য পাওয়া যায়নি" : "No member data found");
       }
       
       const excelData = students.map(s => ({ 
         'Department': (s as any).departments?.name || 'N/A', 
-        'Roll': s.roll || '', 
+        'Member ID': s.roll || '', 
         'Member Name': s.name, 
-        'Guardian Name': s.guardian_name || '',
-        'Guardian Phone': s.phone,
-        'Guardian Phone 2': s.guardian_phone_2 || ''
+        'Designation / Father': s.guardian_name || '',
+        'Phone 1': s.phone || '',
+        'Phone 2': s.guardian_phone_2 || ''
       }));
       
       const ws = XLSX.utils.json_to_sheet(excelData);
       const wb = XLSX.utils.book_new(); 
-      XLSX.utils.book_append_sheet(wb, ws, "Students");
+      XLSX.utils.book_append_sheet(wb, ws, "Members");
       
       const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      const fileName = `${madrasah.name.replace(/\s+/g, '_')}_students.xlsx`;
+      const fileName = `${madrasah.name.replace(/\s+/g, '_')}_members.xlsx`;
       const mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       const blob = new Blob([excelBuffer], { type: mimeType });
 
@@ -185,7 +185,7 @@ const DataManagement: React.FC<DataManagementProps> = ({ lang, madrasah, onBack,
               classId = newClass.id;
             }
 
-            // Check if student already exists in this class with same name and roll
+            // Check if member already exists in this department with same name and roll/id
             let studentQuery = supabase
               .from('members')
               .select('id')
@@ -228,8 +228,8 @@ const DataManagement: React.FC<DataManagementProps> = ({ lang, madrasah, onBack,
           }
 
           const msg = lang === 'bn' 
-            ? `${successCount} জন ছাত্র আপলোড হয়েছে, ${skippedCount} জন ইতিমধ্যে ছিল বা ত্রুটির কারণে বাদ পড়েছে।` 
-            : `${successCount} students imported, ${skippedCount} skipped (already exists or error).`;
+            ? `${successCount} জন সদস্য আপলোড হয়েছে, ${skippedCount} জন ইতিমধ্যে ছিল বা ত্রুটির কারণে বাদ পড়েছে।` 
+            : `${successCount} members imported, ${skippedCount} skipped (already exists or error).`;
 
           setStatus({ 
             type: 'success', 
@@ -256,7 +256,14 @@ const DataManagement: React.FC<DataManagementProps> = ({ lang, madrasah, onBack,
         <button onClick={onBack} className={`w-14 h-14 ${isDark ? 'bg-slate-800 border-slate-700 text-blue-400' : 'bg-blue-50 border-blue-100 text-[#2563EB]'} rounded-2xl flex items-center justify-center active:scale-90 transition-all border shadow-sm`}>
           <ArrowLeft size={28} strokeWidth={3} />
         </button>
-        <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} font-noto`}>ডাটা ম্যানেজমেন্ট</h1>
+        <div>
+          <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} font-noto`}>
+            {lang === 'bn' ? 'ব্যাকআপ ও রিস্টোর' : 'Backup & Restore'}
+          </h1>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+            {lang === 'bn' ? 'এক্সেল ইমপোর্ট ও এক্সপোর্ট টুলস' : 'Excel Import & Export Tools'}
+          </p>
+        </div>
       </div>
 
       {status.message && (
@@ -335,14 +342,42 @@ const DataManagement: React.FC<DataManagementProps> = ({ lang, madrasah, onBack,
             <FileSpreadsheet size={16} /> স্যাম্পল ফাইল
           </button>
         </div>
-        <p className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-400'} leading-relaxed px-1`}>আপনার এক্সেল ফাইলটি নিচের ৬টি কলামের ফরম্যাটে হতে হবে (অথবা স্যাম্পল ফাইলটি ডাউনলোড করুন):</p>
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-           <div className={`${isDark ? 'bg-slate-700' : 'bg-slate-50'} p-4 rounded-2xl text-center`}><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col A</p><p className={`font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Department</p></div>
-           <div className={`${isDark ? 'bg-slate-700' : 'bg-slate-50'} p-4 rounded-2xl text-center`}><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col B</p><p className={`font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Roll</p></div>
-           <div className={`${isDark ? 'bg-slate-700' : 'bg-slate-50'} p-4 rounded-2xl text-center`}><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col C</p><p className={`font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Member Name</p></div>
-           <div className={`${isDark ? 'bg-slate-700' : 'bg-slate-50'} p-4 rounded-2xl text-center`}><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col D</p><p className={`font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Guardian Name</p></div>
-           <div className={`${isDark ? 'bg-slate-700' : 'bg-slate-50'} p-4 rounded-2xl text-center`}><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col E</p><p className={`font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Phone 1</p></div>
-           <div className={`${isDark ? 'bg-slate-700' : 'bg-slate-50'} p-4 rounded-2xl text-center`}><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col F</p><p className={`font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Phone 2</p></div>
+        <p className={`text-xs font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'} leading-relaxed px-1`}>
+          {lang === 'bn' 
+            ? 'আপনার এক্সেল ফাইলটি নিচের ৬টি কলাম ফরম্যাটে সাজাতে হবে (অথবা উপরের স্যাম্পল ফাইল ডাউনলোড করে পূরণ করতে পারেন):'
+            : 'Your Excel file must follow the 6-column format below (or download the sample file above):'}
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+           <div className={`${isDark ? 'bg-slate-700/60 border-slate-600' : 'bg-slate-50 border-slate-100'} p-4 rounded-2xl text-center border`}>
+             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col A</p>
+             <p className={`font-black text-sm ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Department</p>
+             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{lang === 'bn' ? 'শাখা / বিভাগ' : 'Branch / Unit'}</p>
+           </div>
+           <div className={`${isDark ? 'bg-slate-700/60 border-slate-600' : 'bg-slate-50 border-slate-100'} p-4 rounded-2xl text-center border`}>
+             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col B</p>
+             <p className={`font-black text-sm ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Member ID</p>
+             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{lang === 'bn' ? 'মেম্বার আইডি / রোল' : 'Member ID / Roll'}</p>
+           </div>
+           <div className={`${isDark ? 'bg-slate-700/60 border-slate-600' : 'bg-slate-50 border-slate-100'} p-4 rounded-2xl text-center border`}>
+             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col C</p>
+             <p className={`font-black text-sm ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Member Name</p>
+             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{lang === 'bn' ? 'সদস্যের নাম' : 'Full Name'}</p>
+           </div>
+           <div className={`${isDark ? 'bg-slate-700/60 border-slate-600' : 'bg-slate-50 border-slate-100'} p-4 rounded-2xl text-center border`}>
+             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col D</p>
+             <p className={`font-black text-sm ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Designation</p>
+             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{lang === 'bn' ? 'পদবী / অভিভাবক' : 'Designation / Father'}</p>
+           </div>
+           <div className={`${isDark ? 'bg-slate-700/60 border-slate-600' : 'bg-slate-50 border-slate-100'} p-4 rounded-2xl text-center border`}>
+             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col E</p>
+             <p className={`font-black text-sm ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Phone 1</p>
+             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{lang === 'bn' ? 'প্রধান মোবাইল' : 'Primary Phone'}</p>
+           </div>
+           <div className={`${isDark ? 'bg-slate-700/60 border-slate-600' : 'bg-slate-50 border-slate-100'} p-4 rounded-2xl text-center border`}>
+             <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Col F</p>
+             <p className={`font-black text-sm ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>Phone 2</p>
+             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{lang === 'bn' ? 'বিকল্প মোবাইল' : 'Secondary Phone'}</p>
+           </div>
         </div>
       </div>
     </div>

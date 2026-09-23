@@ -4,7 +4,7 @@ import { supabase, smsApi } from 'supabase';
 import { Language, Department, SMSTemplate, Institution, UserRole, Profile } from 'types';
 import { t } from 'translations';
 import { ShortcodeService } from 'services/ShortcodeService';
-import { TrendingUp, DollarSign, BarChart3, AlertCircle, Send, Loader2, CheckCircle2, MessageSquare, Smartphone, PieChart, Users, Filter, Calendar, Wallet, BookOpen, ChevronDown, Info, Phone } from 'lucide-react';
+import { TrendingUp, DollarSign, BarChart3, AlertCircle, Send, Loader2, CheckCircle2, MessageSquare, Smartphone, PieChart, Users, Filter, Calendar, Wallet, BookOpen, ChevronDown, Info, Phone, Mic, Volume2, Radio, PhoneCall, X } from 'lucide-react';
 import { isValidUUID } from 'utils/validation';
 
 interface CommitteeFinancialAnalyticsProps {
@@ -56,6 +56,16 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
   const [selectedTemplate, setSelectedTemplate] = useState<SMSTemplate | null>(null);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [showShortcodes, setShowShortcodes] = useState(false);
+
+  // Voice Broadcast States
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceTemplates, setVoiceTemplates] = useState<any[]>([]);
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string>('');
+  const [loadingVoices, setLoadingVoices] = useState(false);
+  const [isVoiceSending, setIsVoiceSending] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [voiceRate, setVoiceRate] = useState<number>(0.60);
+  const [voiceStatusModal, setVoiceStatusModal] = useState<{ show: boolean; type: 'success' | 'error'; title: string; message: string } | null>(null);
 
   const availableShortcodes = [
     { code: '{name}', label: lang === 'bn' ? 'মেম্বারের নাম' : 'Member Name' },
@@ -300,23 +310,99 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
         fee_collected: totalCollected
       });
 
-      // Fetch reminders only for monthly view (current dues)
+      // Fetch reminders for monthly view (current dues)
       if (viewMode === 'monthly') {
-        const { data: remindersData, error: remError } = await supabase.rpc('get_fee_reminder_list', { p_institution_id: institutionId, p_month: selectedMonth });
-        console.log("Reminders:", remindersData, "Error:", remError);
+        let membersWithDues: any[] = [];
         
-        if (remindersData) {
-            // Filter reminders by class if selected
-            const filteredReminders = selectedClassId !== 'all' 
-                ? remindersData.filter((r: any) => {
-                    const selectedClass = localClasses.find(c => c.id === selectedClassId);
-                    return r.name === selectedClass?.name;
-                })
-                : remindersData;
-            setReminders(filteredReminders || []);
-        } else {
-            setReminders([]);
+        try {
+          // 1. First attempt via RPC
+          const { data: remindersData, error: remError } = await supabase.rpc('get_fee_reminder_list', { 
+            p_institution_id: institutionId, 
+            p_month: selectedMonth 
+          });
+
+          if (!remError && remindersData && Array.isArray(remindersData) && remindersData.length > 0) {
+            membersWithDues = remindersData.map((r: any) => ({
+              id: r.student_id || r.id,
+              student_id: r.student_id || r.id,
+              name: r.name || r.student_name,
+              phone: r.phone || r.guardian_phone || '',
+              department_id: r.department_id || r.class_id,
+              department_name: r.department_name || r.class_name || '',
+              balance_due: Number(r.balance_due) || 0,
+              reminder_type: r.reminder_type || (Number(r.balance_due) > 1000 ? 'final' : Number(r.balance_due) > 500 ? 'strong' : 'soft')
+            }));
+          } else {
+            throw new Error("RPC not returned or empty");
+          }
+        } catch (rpcErr) {
+          // 2. Direct client query calculation from members, fee_structures, and fees/subscriptions
+          let memQuery = supabase
+            .from('members')
+            .select('id, name, phone, roll, department_id, departments(id, name)')
+            .eq('institution_id', institutionId);
+          
+          if (selectedClassId !== 'all') {
+            memQuery = memQuery.eq('department_id', selectedClassId);
+          }
+
+          const { data: memList } = await memQuery;
+
+          // Fetch collected fees for the selected month
+          const { data: feesData } = await supabase
+            .from('fees')
+            .select('member_id, amount_paid, discount, month')
+            .eq('institution_id', institutionId)
+            .eq('month', selectedMonth);
+
+          // Also check subscriptions table if fees is empty
+          const { data: subsData } = await supabase
+            .from('subscriptions')
+            .select('member_id, amount_paid, discount, period')
+            .eq('institution_id', institutionId)
+            .eq('period', selectedMonth);
+
+          const allMembers = memList || [];
+          
+          membersWithDues = allMembers.map((m: any) => {
+            const studentFeeStructures = (structures || []).filter((fs: any) => 
+              fs.department_id === m.department_id || fs.department_id === null
+            );
+            const totalPayable = studentFeeStructures.reduce((sum: number, fs: any) => sum + Number(fs.amount || 0), 0);
+
+            // Match paid amount from fees or subscriptions
+            const paidInFees = (feesData || [])
+              .filter((f: any) => f.member_id === m.id)
+              .reduce((sum: number, f: any) => sum + Number(f.amount_paid || 0) + Number(f.discount || 0), 0);
+            
+            const paidInSubs = (subsData || [])
+              .filter((s: any) => s.member_id === m.id)
+              .reduce((sum: number, s: any) => sum + Number(s.amount_paid || 0) + Number(s.discount || 0), 0);
+
+            const totalPaid = Math.max(paidInFees, paidInSubs);
+            const balanceDue = Math.max(0, totalPayable - totalPaid);
+
+            const deptName = m.departments?.name || (Array.isArray(m.departments) ? m.departments[0]?.name : '') || '';
+
+            return {
+              id: m.id,
+              student_id: m.id,
+              name: m.name,
+              phone: m.phone || '',
+              department_id: m.department_id,
+              department_name: deptName,
+              balance_due: balanceDue,
+              reminder_type: balanceDue > 1000 ? 'final' : balanceDue > 500 ? 'strong' : 'soft'
+            };
+          }).filter((m: any) => m.balance_due > 0);
         }
+
+        // Filter reminders by selected department if needed
+        const filteredReminders = selectedClassId !== 'all'
+          ? membersWithDues.filter((r: any) => r.department_id === selectedClassId)
+          : membersWithDues;
+        
+        setReminders(filteredReminders);
       } else {
         setReminders([]);
       }
@@ -384,6 +470,161 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
       } finally {
         setSending(false);
       }
+    }
+  };
+
+  const handleOpenVoiceModal = async () => {
+    if (reminders.length === 0) {
+      alert(lang === 'bn' ? 'বকেয়া তালিকা খালি, কোনো সদস্য পাওয়া যায়নি' : 'Due reminder list is empty');
+      return;
+    }
+
+    setShowVoiceModal(true);
+    setLoadingVoices(true);
+    try {
+      // 1. Fetch institution balance & rates
+      const { data: instData } = await supabase
+        .from('institutions')
+        .select('balance, voice_rate')
+        .eq('id', institutionId)
+        .single();
+
+      if (instData) {
+        setWalletBalance(Number(instData.balance) || 0);
+        if (instData.voice_rate) setVoiceRate(Number(instData.voice_rate));
+      }
+
+      // 2. Fetch local voice templates
+      const { data: localVoices } = await supabase
+        .from('voice_templates')
+        .select('*')
+        .eq('institution_id', institutionId)
+        .order('created_at', { ascending: false });
+
+      setVoiceTemplates(localVoices || []);
+      if (localVoices && localVoices.length > 0) {
+        setSelectedVoiceId(localVoices[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to load voice templates:', err);
+    } finally {
+      setLoadingVoices(false);
+    }
+  };
+
+  const handleSendVoiceBroadcast = async () => {
+    if (!selectedVoiceId) {
+      setVoiceStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'ভয়েস নির্বাচন করুন' : 'Select Voice Template',
+        message: lang === 'bn' ? 'অনুগ্রহ করে একটি অনুমোদিত ভয়েস টেমপ্লেট নির্বাচন করুন।' : 'Please select an approved voice template.'
+      });
+      return;
+    }
+
+    const validPhones = reminders
+      .map(r => r.phone?.toString().trim().replace(/[^0-9]/g, ''))
+      .filter(p => p && p.length >= 10);
+
+    if (validPhones.length === 0) {
+      setVoiceStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'ফোন নম্বর নেই' : 'No Phone Numbers',
+        message: lang === 'bn' ? 'বকেয়া তালিকার সদস্যদের কোনো বৈধ ফোন নম্বর পাওয়া যায়নি।' : 'No valid phone numbers found for pending members.'
+      });
+      return;
+    }
+
+    const estimatedCost = validPhones.length * voiceRate;
+    if (walletBalance < estimatedCost) {
+      setVoiceStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'অপর্যাপ্ত ব্যালেন্স' : 'Insufficient Balance',
+        message: lang === 'bn' 
+          ? `ভয়েস কল পাঠানোর জন্য ৳${estimatedCost.toFixed(2)} প্রয়োজন, কিন্তু আপনার বর্তমান ব্যালেন্স ৳${walletBalance.toFixed(2)}। অনুগ্রহ করে ওয়ালেট রিচার্জ করুন।` 
+          : `Required balance ৳${estimatedCost.toFixed(2)}, current balance is ৳${walletBalance.toFixed(2)}. Please recharge wallet.`
+      });
+      return;
+    }
+
+    const selectedVoice = voiceTemplates.find(v => v.id === selectedVoiceId);
+    if (!selectedVoice) return;
+
+    setIsVoiceSending(true);
+    try {
+      const voiceName = selectedVoice.provider_voice_name || selectedVoice.title;
+      const sNumber = selectedVoice.sender_number || selectedVoice.sender || 'default';
+      const requestId = `due_reminder_${institutionId.slice(0, 6)}_${Date.now()}`;
+
+      const payload = {
+        request_id: requestId,
+        voice: voiceName,
+        sender: sNumber,
+        phone_numbers: validPhones,
+        retry: 1,
+        retry_count: 1,
+        retries: 1
+      };
+
+      const response = await fetch('/api/awaj/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        let errMessage = 'Failed to send voice broadcast via Awaj API';
+        try {
+          const errData = await response.json();
+          errMessage = errData.error || errData.message || errMessage;
+        } catch (_) {}
+        throw new Error(errMessage);
+      }
+
+      const result = await response.json();
+      const campaignId = result.broadcast?.id || result.campaign_id || result.id || result.data?.id || requestId;
+
+      // Save to Supabase
+      const { error: insertError } = await supabase.from('voice_broadcasts').insert({
+        institution_id: institutionId,
+        voice_template_id: selectedVoiceId,
+        target_type: 'due_reminders',
+        total_numbers: validPhones.length,
+        estimated_cost: estimatedCost,
+        provider_campaign_id: campaignId,
+        status: 'sending'
+      });
+
+      if (insertError) throw insertError;
+
+      // Deduct balance
+      const newBalance = walletBalance - estimatedCost;
+      await supabase.from('institutions').update({ balance: newBalance }).eq('id', institutionId);
+      setWalletBalance(newBalance);
+
+      setVoiceStatusModal({
+        show: true,
+        type: 'success',
+        title: lang === 'bn' ? 'ভয়েস কল সফল' : 'Voice Broadcast Initiated',
+        message: lang === 'bn' 
+          ? `${validPhones.length} জন বকেয়াদার সদস্যের কাছে ভয়েস কল ব্রডকাস্ট শুরু হয়েছে!` 
+          : `Voice call broadcast initiated for ${validPhones.length} members with dues!`
+      });
+
+      setShowVoiceModal(false);
+    } catch (err: any) {
+      console.error('Voice broadcast error:', err);
+      setVoiceStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Broadcast Failed',
+        message: err.message || 'Failed to send voice broadcast'
+      });
+    } finally {
+      setIsVoiceSending(false);
     }
   };
 
@@ -704,20 +945,21 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <button 
                 onClick={() => sendBulkReminder('system')}
-                disabled={sending}
+                disabled={sending || isVoiceSending}
                 className="h-14 bg-[#2563EB] text-white rounded-2xl font-black text-[10px] uppercase shadow-premium flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
             >
                 {sending ? <Loader2 className="animate-spin" size={16} /> : <MessageSquare size={16} fill="currentColor" />} {t('system_sms', lang)}
             </button>
             <button 
-                onClick={() => { if(reminders.length > 0) window.location.href = `tel:${reminders[0].phone}`; }}
-                className={`h-14 rounded-2xl font-black text-[10px] uppercase border flex items-center justify-center gap-2 active:scale-95 transition-all ${madrasah?.theme === 'dark' ? 'bg-orange-500/20 border-orange-500/30 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-600'}`}
+                onClick={handleOpenVoiceModal}
+                disabled={sending || isVoiceSending}
+                className={`h-14 rounded-2xl font-black text-[10px] uppercase border flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 ${madrasah?.theme === 'dark' ? 'bg-orange-500/20 border-orange-500/30 text-orange-400 hover:bg-orange-500/30' : 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100/80'}`}
             >
-                <Phone size={16} fill="currentColor" /> {lang === 'bn' ? 'ভয়েস কল' : 'Voice Call'}
+                <PhoneCall size={16} /> {lang === 'bn' ? 'ভয়েস কল ব্রডকাস্ট' : 'Voice Broadcast'}
             </button>
             <button 
                 onClick={() => sendBulkReminder('native')}
-                disabled={sending}
+                disabled={sending || isVoiceSending}
                 className={`h-14 rounded-2xl font-black text-[10px] uppercase border flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 col-span-2 sm:col-span-1 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
             >
                 <Smartphone size={16} fill="currentColor" /> {t('native_sms', lang)}
@@ -726,16 +968,29 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
             {reminders.map((r, idx) => (
-                <div key={idx} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 hover:bg-slate-800' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-sm'}`}>
-                <div className="min-w-0">
+                <div key={idx} className={`p-4 rounded-2xl border flex items-center justify-between gap-3 group transition-all ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 hover:bg-slate-800' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-sm'}`}>
+                <div className="min-w-0 flex-1">
                     <h4 className={`font-black text-sm font-noto truncate ${madrasah?.theme === 'dark' ? 'text-slate-200' : 'text-[#1E3A8A]'}`}>{r.name}</h4>
-                    <p className="text-[9px] font-bold opacity-60 uppercase">{r.name || localT.noClass[lang]} • {localT.due[lang]}: ৳{Math.max(0, Number(r.balance_due))}</p>
+                    <p className="text-[9px] font-bold opacity-70 uppercase tracking-tight truncate">
+                      {r.department_name || localT.noClass[lang]} • <span className="text-red-500 font-black">{localT.due[lang]}: ৳{Math.max(0, Number(r.balance_due)).toLocaleString()}</span>
+                    </p>
                 </div>
-                <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase shrink-0 ${
-                    r.reminder_type === 'final' ? 'bg-red-500 text-white' : r.reminder_type === 'strong' ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
-                }`}>
-                    {r.reminder_type === 'final' ? t('final_warning', lang) : r.reminder_type === 'strong' ? t('strong_reminder', lang) : t('soft_reminder', lang)}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {r.phone && (
+                    <a 
+                      href={`tel:${r.phone}`}
+                      className={`p-2 rounded-xl border transition-all active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white' : 'bg-white border-slate-200 text-slate-600 hover:text-[#0fb5ab]'}`}
+                      title={lang === 'bn' ? 'সরাসরি কল' : 'Direct Call'}
+                    >
+                      <Phone size={13} />
+                    </a>
+                  )}
+                  <span className={`px-2.5 py-1 rounded-xl text-[8px] font-black uppercase shrink-0 ${
+                      r.reminder_type === 'final' ? 'bg-red-500 text-white' : r.reminder_type === 'strong' ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
+                  }`}>
+                      {r.reminder_type === 'final' ? t('final_warning', lang) : r.reminder_type === 'strong' ? t('strong_reminder', lang) : t('soft_reminder', lang)}
+                  </span>
+                </div>
                 </div>
             ))}
             {reminders.length === 0 && (
@@ -745,6 +1000,166 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
                 </div>
             )}
             </div>
+        </div>
+      )}
+
+      {/* Voice Broadcast Modal */}
+      {showVoiceModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className={`w-full max-w-lg rounded-[2.5rem] border shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-900'}`}>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-500 border border-orange-500/20 flex items-center justify-center">
+                  <PhoneCall size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black font-noto">
+                    {lang === 'bn' ? 'বকেয়া আদায়ের ভয়েস কল ব্রডকাস্ট' : 'Due Reminder Voice Broadcast'}
+                  </h3>
+                  <p className="text-[11px] font-bold text-slate-400">
+                    {lang === 'bn' ? 'সকল বকেয়াদার সদস্যের নম্বরে স্বয়ংক্রিয় ভয়েস কল পাঠান' : 'Send automated voice calls to all pending members'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowVoiceModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 active:scale-95 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Recipients Summary */}
+            <div className={`p-4 rounded-2xl border grid grid-cols-2 gap-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800/60 border-slate-700' : 'bg-orange-50/50 border-orange-100/60'}`}>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'প্রাপক সংখ্যা' : 'Recipients'}</p>
+                <p className="text-lg font-black text-orange-500 mt-0.5">{reminders.length} {lang === 'bn' ? 'জন সদস্য' : 'Members'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'মোট বকেয়া' : 'Total Dues'}</p>
+                <p className="text-lg font-black text-red-500 mt-0.5">৳{reminders.reduce((sum, r) => sum + Number(r.balance_due || 0), 0).toLocaleString()}</p>
+              </div>
+            </div>
+
+            {/* Voice Template Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-wider px-1">
+                {lang === 'bn' ? 'ভয়েস টেমপ্লেট নির্বাচন করুন' : 'Select Voice Template'}
+              </label>
+
+              {loadingVoices ? (
+                <div className="py-6 flex items-center justify-center gap-2 text-slate-400 text-xs font-bold">
+                  <Loader2 size={16} className="animate-spin" /> {lang === 'bn' ? 'ভয়েস লোড হচ্ছে...' : 'Loading voices...'}
+                </div>
+              ) : voiceTemplates.length === 0 ? (
+                <div className={`p-5 rounded-2xl border text-center space-y-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <Mic size={24} className="mx-auto text-slate-400" />
+                  <p className="text-xs font-bold text-slate-400">
+                    {lang === 'bn' ? 'কোনো ভয়েস টেমপ্লেট পাওয়া যায়নি।' : 'No voice templates found.'}
+                  </p>
+                  <p className="text-[10px] font-semibold text-slate-400">
+                    {lang === 'bn' ? 'ভয়েস ব্রডকাস্ট পেজ থেকে আপনার অডিও ভয়েস রেকর্ড বা আপলোড করুন।' : 'Upload or record your voice in the Voice Broadcast module.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                  {voiceTemplates.map((v) => (
+                    <div
+                      key={v.id}
+                      onClick={() => setSelectedVoiceId(v.id)}
+                      className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                        selectedVoiceId === v.id
+                          ? 'border-orange-500 bg-orange-500/10 shadow-sm'
+                          : madrasah?.theme === 'dark'
+                          ? 'border-slate-800 bg-slate-800/40 hover:bg-slate-800'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${selectedVoiceId === v.id ? 'bg-orange-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                          <Volume2 size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-black truncate">{v.title}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{v.provider_voice_name || 'Standard Voice'}</p>
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${
+                          v.provider_status === 'approved' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
+                        }`}>
+                          {v.provider_status || 'Ready'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Cost & Balance */}
+            <div className={`p-4 rounded-2xl border flex items-center justify-between ${madrasah?.theme === 'dark' ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
+              <div className="flex items-center gap-2">
+                <Wallet size={16} className="text-emerald-500" />
+                <span className="text-xs font-bold text-slate-400">{lang === 'bn' ? 'বর্তমান ব্যালেন্স:' : 'Current Balance:'}</span>
+                <span className="text-xs font-black text-emerald-500">৳{walletBalance.toFixed(2)}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-slate-400">{lang === 'bn' ? 'আনুমানিক খরচ:' : 'Estimated Cost:'}</span>{' '}
+                <span className="text-xs font-black text-orange-500">৳{(reminders.length * voiceRate).toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => setShowVoiceModal(false)}
+                className={`flex-1 h-12 rounded-2xl font-bold text-xs border active:scale-95 transition-all ${
+                  madrasah?.theme === 'dark' ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+              </button>
+              <button
+                onClick={handleSendVoiceBroadcast}
+                disabled={isVoiceSending || loadingVoices || voiceTemplates.length === 0}
+                className="flex-1 h-12 rounded-2xl font-black text-xs bg-orange-500 hover:bg-orange-600 text-white shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isVoiceSending ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>{lang === 'bn' ? 'কল যাচ্ছে...' : 'Calling...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <PhoneCall size={16} />
+                    <span>{lang === 'bn' ? 'ভয়েস কল শুরু করুন' : 'Start Voice Call'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voice Status Modal */}
+      {voiceStatusModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className={`w-full max-w-sm rounded-[2.5rem] border shadow-2xl p-6 text-center space-y-4 animate-in zoom-in-95 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-900'}`}>
+            <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center ${voiceStatusModal.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+              {voiceStatusModal.type === 'success' ? <CheckCircle2 size={28} /> : <AlertCircle size={28} />}
+            </div>
+            <div>
+              <h4 className="text-base font-black font-noto">{voiceStatusModal.title}</h4>
+              <p className="text-xs font-bold text-slate-400 mt-1 leading-relaxed">{voiceStatusModal.message}</p>
+            </div>
+            <button
+              onClick={() => setVoiceStatusModal(null)}
+              className="w-full h-11 bg-[#2563EB] text-white rounded-xl font-bold text-xs active:scale-95 transition-all"
+            >
+              {lang === 'bn' ? 'ঠিক আছে' : 'OK'}
+            </button>
+          </div>
         </div>
       )}
     </div>

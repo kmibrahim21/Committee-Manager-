@@ -118,7 +118,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
         <div className="p-6 flex items-center gap-4 border-b border-inherit">
           <div className="relative shrink-0">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-              {isSuperAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <LayoutDashboard size={24} className="text-[#0fb5ab]" />)}
+              {isSuperAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
             </div>
             <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 ${madrasah?.theme === 'dark' ? 'border-slate-900' : 'border-white'} ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
           </div>
@@ -235,7 +235,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <div className="relative shrink-0">
               <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                {isSuperAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <LayoutDashboard size={22} className="text-[#0fb5ab]" />)}
+                {isSuperAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
               </div>
               <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${madrasah?.theme === 'dark' ? 'border-slate-900' : 'border-white'} ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
             </div>

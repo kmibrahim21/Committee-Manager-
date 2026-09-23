@@ -46,8 +46,6 @@ const AppLayout: React.FC<LayoutProps> = ({ children, currentView, setView, lang
       modules: {
         attendance: configObj.modules?.attendance ?? true,
         results: configObj.modules?.results ?? true,
-        admit_card: configObj.modules?.admit_card ?? true,
-        seat_plan: configObj.modules?.seat_plan ?? true,
         accounting: configObj.modules?.accounting ?? true,
         subscriptions: configObj.modules?.subscriptions ?? true,
         voice_broadcast: configObj.modules?.voice_broadcast ?? true,
@@ -94,7 +92,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children, currentView, setView, lang
       <header className={`flex-none px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 flex items-center justify-between relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-100'} backdrop-blur-md border-b`}>
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-sm border shrink-0 overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-blue-50 border-blue-100'}`}>
-            {isSuperAdmin ? <ShieldCheck size={24} className="text-[#2563EB]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <BookOpen size={22} className="text-[#2563EB]" />)}
+            {isSuperAdmin ? <ShieldCheck size={24} className="text-[#2563EB]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
           </div>
           <div className="min-w-0 flex-1">
             <h1 className={`text-[16px] font-black leading-[1.2] tracking-tight font-noto line-clamp-2 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'}`}>

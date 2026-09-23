@@ -41,8 +41,6 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
       modules: {
         attendance: configObj.modules?.attendance ?? true,
         results: configObj.modules?.results ?? true,
-        admit_card: configObj.modules?.admit_card ?? true,
-        seat_plan: configObj.modules?.seat_plan ?? true,
         accounting: configObj.modules?.accounting ?? true,
         subscriptions: configObj.modules?.subscriptions ?? true,
         voice_broadcast: configObj.modules?.voice_broadcast ?? true,
@@ -108,7 +106,7 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
             <Menu size={24} />
           </button>
           <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm border shrink-0 overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-blue-50 border-blue-100'}`}>
-            {isSuperAdmin ? <ShieldCheck size={22} className="text-[#2563EB]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <BookOpen size={20} className="text-[#2563EB]" />)}
+            {isSuperAdmin ? <ShieldCheck size={22} className="text-[#2563EB]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
           </div>
           <div className="min-w-0 flex-1">
             <h1 className={`text-[15px] font-black leading-tight tracking-tight font-noto truncate ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'}`}>

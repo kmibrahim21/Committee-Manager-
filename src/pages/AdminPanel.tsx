@@ -3,11 +3,27 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 // Fix: Import icons from lucide-react instead of ../supabase
-import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2, PlusCircle } from 'lucide-react';
+import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2, PlusCircle, BookOpen, Vote, Landmark, ClipboardList } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Transaction, AdminSMSStock } from 'types';
 import { COMMITTEE_TYPES as UTILITY_COMMITTEE_TYPES } from '../utils/committeeTypes';
 import { SONGHO_ACTIVITIES, getDefaultSonghoActivityIds } from '../utils/songhoActivities';
+
+const ALL_MODULE_META: Record<string, { labelBn: string; labelEn: string; icon: any }> = {
+  departments: { labelBn: 'শাখা ও বিভাগ', labelEn: 'Departments / Branches', icon: BookOpen },
+  attendance: { labelBn: 'উপস্থিতি ট্র্যাকিং', labelEn: 'Attendance Tracking', icon: ClipboardList },
+  meetings: { labelBn: 'মিটিং ও এজেন্ডা', labelEn: 'Meetings & Agendas', icon: Calendar },
+  results: { labelBn: 'রেজুলেশন ও সিদ্ধান্ত', labelEn: 'Resolutions & Decisions', icon: GraduationCap },
+  minutes: { labelBn: 'কার্যবিবরণী (মিনিটস)', labelEn: 'Meeting Minutes', icon: ClipboardList },
+  accounting: { labelBn: 'হিসাব-নিকাশ ও তহবিল', labelEn: 'Accounting & Funds', icon: Banknote },
+  subscriptions: { labelBn: 'সদস্য চাঁদা ও বকেয়া', labelEn: 'Member Dues & Fees', icon: CreditCard },
+  sms: { labelBn: 'এসএমএস ব্রডকাস্ট', labelEn: 'SMS Broadcast', icon: MessageSquare },
+  voice_broadcast: { labelBn: 'ভয়েস কল ব্রডকাস্ট', labelEn: 'Voice Call Broadcast', icon: Mic },
+  polls: { labelBn: 'ভোট ও মতামত (পোলস)', labelEn: 'Voting & Polls', icon: Vote },
+  events: { labelBn: 'ইভেন্ট ও কর্মসূচি', labelEn: 'Events & Programs', icon: Calendar },
+  notices: { labelBn: 'নোটিশ বোর্ড', labelEn: 'Notice Board', icon: AlertTriangle },
+  qard_hasan: { labelBn: 'করযে হাসানা', labelEn: 'Qard Hasan', icon: Landmark },
+};
 
 interface InstitutionWithStats extends Institution {
   student_count?: number;
@@ -143,8 +159,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     departments: true,
     attendance: true,
     results: true,
-    admit_card: true,
-    seat_plan: true,
     accounting: true,
     subscriptions: true,
     voice_broadcast: false,
@@ -363,13 +377,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
     const userModules = { ...(userConfig?.modules || {}) };
     delete userModules.fees;
+    delete userModules.admit_card;
+    delete userModules.seat_plan;
 
     setEditModules({
       departments: true,
       attendance: true,
       results: true,
-      admit_card: true,
-      seat_plan: true,
       accounting: true,
       subscriptions: true,
       voice_broadcast: true,
@@ -1301,22 +1315,68 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                             </div>
                             
                             <div className={`space-y-3 pt-4 border-t ${madrasah?.theme === 'dark' ? 'border-slate-800' : 'border-slate-100'}`}>
-                               <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Enabled Modules</h5>
-                               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                                  {Object.entries(editModules || {}).map(([key, value]) => (
-                                    <button 
-                                      type="button"
-                                      key={key}
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        setEditModules({...editModules, [key]: !value});
-                                      }}
-                                      className={`p-3 rounded-xl border flex items-center justify-between transition-all ${value ? (madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 border-[#42f5e9]/20 text-[#42f5e9]' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-600' : 'bg-slate-50 border-slate-100 text-slate-400')}`}
-                                    >
-                                      <span className="text-[10px] font-black uppercase tracking-wider">{key.replace('_', ' ')}</span>
-                                      {value ? <CheckCircle2 size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> : <XCircle size={14} />}
-                                    </button>
-                                  ))}
+                               <div className="flex items-center justify-between px-1">
+                                 <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                   <Layers size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
+                                   {lang === 'bn' ? 'সক্রিয় মডিউলসমূহ (Enabled Modules)' : 'Enabled Modules'}
+                                 </h5>
+                                 <span className="text-[10px] font-bold text-slate-400 font-noto">
+                                   {Object.values(editModules || {}).filter(Boolean).length} {lang === 'bn' ? 'টি সক্রিয়' : 'Active'}
+                                 </span>
+                               </div>
+                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                  {Object.entries(editModules || {}).map(([key, value]) => {
+                                    const meta = ALL_MODULE_META[key] || {
+                                      labelBn: key.replace(/_/g, ' '),
+                                      labelEn: key.replace(/_/g, ' '),
+                                      icon: Layers
+                                    };
+                                    const ModIcon = meta.icon;
+                                    return (
+                                      <button 
+                                        type="button"
+                                        key={key}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          setEditModules({...editModules, [key]: !value});
+                                        }}
+                                        className={`p-3 rounded-2xl border flex items-center justify-between gap-2.5 text-left transition-all active:scale-95 ${
+                                          value 
+                                            ? (madrasah?.theme === 'dark' 
+                                                ? 'bg-[#42f5e9]/10 border-[#42f5e9]/30 text-[#42f5e9] shadow-sm' 
+                                                : 'bg-[#42f5e9]/10 border-[#0fb5ab]/30 text-[#0fb5ab] shadow-sm') 
+                                            : (madrasah?.theme === 'dark' 
+                                                ? 'bg-slate-900 border-slate-800 text-slate-500 opacity-60' 
+                                                : 'bg-slate-50 border-slate-200/60 text-slate-400 opacity-70')
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                                            value 
+                                              ? (madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#42f5e9]' : 'bg-[#0fb5ab]/15 text-[#0fb5ab]') 
+                                              : 'bg-slate-200/50 dark:bg-slate-800 text-slate-400'
+                                          }`}>
+                                            <ModIcon size={15} />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <span className="text-xs font-black font-noto truncate block">
+                                              {lang === 'bn' ? meta.labelBn : meta.labelEn}
+                                            </span>
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight truncate block">
+                                              {meta.labelEn}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="shrink-0">
+                                          {value ? (
+                                            <CheckCircle2 size={18} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
+                                          ) : (
+                                            <XCircle size={18} className="text-slate-300 dark:text-slate-600" />
+                                          )}
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
                                </div>
                             </div>
                          </div>

@@ -9,6 +9,7 @@ import { MemberTypeManager } from 'components/MemberTypeManager';
 import MultiCalendar from 'components/MultiCalendar';
 import { generateMemberFormPDF } from '../utils/pdfGenerator';
 import { SONGHO_ACTIVITIES, getDefaultSonghoActivityIds } from '../utils/songhoActivities';
+import { uploadOptimizedImage } from '../utils/imageOptimizer';
 
 interface AccountProps {
   lang: Language;
@@ -143,48 +144,34 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
     try {
       const fileName = `logo_${madrasah.id}_${Date.now()}`;
       
-      // Try to create bucket if it doesn't exist
-      try {
-        await supabase.storage.createBucket('madrasah-assets', { public: true });
-      } catch (bucketError) {}
-
-      let uploadError;
-      let publicUrl;
-
-      // Try madrasah-assets first
-      const { error: err1 } = await supabase.storage.from('madrasah-assets').upload(`logos/${fileName}`, file, {
-        cacheControl: '3600',
-        upsert: false
+      const uploadResult = await uploadOptimizedImage(file, {
+        primaryBucket: 'madrasah-assets',
+        fallbackBuckets: ['voice-templates', 'member_photo'],
+        filePath: `logos/${fileName}`,
+        maxWidthOrHeight: 400,
+        maxSizeMB: 0.12, // Max ~120KB compressed
+        preserveTransparency: true
       });
 
-      if (err1) {
-        // Fallback to voice-templates bucket which we know exists and is often pre-configured
-        const { error: err2 } = await supabase.storage.from('voice-templates').upload(`logos/${fileName}`, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-        uploadError = err2;
-        if (!err2) {
-          const { data } = supabase.storage.from('voice-templates').getPublicUrl(`logos/${fileName}`);
-          publicUrl = data.publicUrl;
-        }
-      } else {
-        const { data } = supabase.storage.from('madrasah-assets').getPublicUrl(`logos/${fileName}`);
-        publicUrl = data.publicUrl;
-      }
-
-      if (uploadError && uploadError.message !== 'Bucket not found') throw uploadError;
-      
-      // If both failed due to bucket issues, we might need to inform the user or use a different strategy
-      if (!publicUrl) throw new Error('Could not upload logo. Please ensure storage buckets are configured.');
-
+      const publicUrl = uploadResult.url;
       const { error: updateErr } = await supabase.from('institutions').update({ logo_url: publicUrl }).eq('id', madrasah.id);
       if (updateErr) throw updateErr;
 
       setLogoUrl(publicUrl);
       setMadrasah(prev => prev ? { ...prev, logo_url: publicUrl } : null);
       if (onProfileUpdate) onProfileUpdate();
-      setShowSuccessModal({ show: true, title: 'সফল', message: 'লোগো আপডেট হয়েছে।' });
+
+      const savingsMsg = uploadResult.savedPercent > 0 
+        ? ` (${uploadResult.originalSizeKB}KB থেকে ${uploadResult.compressedSizeKB}KB - ${uploadResult.savedPercent}% সাশ্রয়)`
+        : '';
+
+      setShowSuccessModal({ 
+        show: true, 
+        title: lang === 'bn' ? 'লোগো অপটিমাইজ ও সংরক্ষিত' : 'Logo Optimized & Saved', 
+        message: lang === 'bn' 
+          ? `লোগোটি সফলভাবে অপটিমাইজ করে আপডেট করা হয়েছে${savingsMsg}।` 
+          : `Logo successfully optimized and updated${savingsMsg}.` 
+      });
     } catch (e: any) { 
       console.error('Upload error:', e);
       alert((lang === 'bn' ? 'লোগো আপলোডে সমস্যা: ' : 'Logo upload failed: ') + e.message); 

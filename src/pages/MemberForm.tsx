@@ -8,6 +8,7 @@ import { Member, Department, Language, Institution } from 'types';
 import { t } from 'translations';
 import { bdDivisions, bdDistricts, bdThanas } from '../utils/bdData';
 import { sortMadrasahClasses } from 'pages/Departments';
+import { uploadOptimizedImage } from '../utils/imageOptimizer';
 
 interface StudentFormProps {
   student?: Member | null;
@@ -27,6 +28,10 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
   const [classId, setClassId] = useState(student?.department_id || defaultClassId || '');
   const [memberType, setMemberType] = useState<string>(student?.member_type || 'general');
   const [customMemberTypes, setCustomMemberTypes] = useState<any[]>([]);
+  const [photoUrl, setPhotoUrl] = useState<string>(student?.photo_url || '');
+  const [uploadingPhoto, setUploadingPhoto] = useState<boolean>(false);
+  const [photoSavings, setPhotoSavings] = useState<string>('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
   
   // Personal Info
   const [fatherName, setFatherName] = useState(student?.father_name || '');
@@ -131,6 +136,34 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
     return g?.charAt(0).toUpperCase() + g?.slice(1) || 'Male';
   };
 
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !madrasah) return;
+    setUploadingPhoto(true);
+    setPhotoSavings('');
+    try {
+      const fileName = `member_${Date.now()}.jpg`;
+      const uploadResult = await uploadOptimizedImage(file, {
+        primaryBucket: 'member_photo',
+        fallbackBuckets: ['madrasah-assets', 'voice-templates'],
+        filePath: `${madrasah.id}/${fileName}`,
+        maxWidthOrHeight: 500,
+        maxSizeMB: 0.15,
+        preserveTransparency: false
+      });
+
+      setPhotoUrl(uploadResult.url);
+      if (uploadResult.savedPercent > 0) {
+        setPhotoSavings(`${uploadResult.originalSizeKB}KB ➔ ${uploadResult.compressedSizeKB}KB (${uploadResult.savedPercent}% সাশ্রয়)`);
+      }
+    } catch (err: any) {
+      console.error('Member photo optimization/upload failed:', err);
+      setErrorModal({ show: true, message: lang === 'bn' ? 'ছবি অপটিমাইজ ও আপলোডে সমস্যা হয়েছে' : 'Photo upload failed' });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const isDepartmentsEnabled = madrasah?.config_json?.modules?.departments !== false;
@@ -149,7 +182,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
 
     setLoading(true);
     try {
-      let finalPhotoUrl = student?.photo_url || null;
+      let finalPhotoUrl = photoUrl.trim() || student?.photo_url || null;
 
       let addressPayload = student?.address || null;
       if (madrasah?.institution_type === 'union') {
@@ -240,9 +273,70 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Section 1: Basic Info */}
         <div className={`${isDark ? 'bg-slate-800 border-slate-700 shadow-none' : 'bg-white border-slate-100 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.08)]'} p-6 rounded-[2.5rem] border space-y-6`}>
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
-            <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'প্রাথমিক তথ্য' : 'Basic Information'}</h3>
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-5 bg-[#2563EB] rounded-full" />
+              <h3 className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'} uppercase tracking-widest`}>{lang === 'bn' ? 'প্রাথমিক তথ্য ও ছবি' : 'Basic Information & Photo'}</h3>
+            </div>
+          </div>
+
+          {/* Photo Upload with Instant Compression */}
+          <div className={`p-4 rounded-2xl border flex items-center gap-4 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-blue-50/50 border-blue-100/60'}`}>
+            <input 
+              type="file" 
+              ref={photoInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handlePhotoSelect} 
+            />
+            <div className="relative group shrink-0">
+              <div 
+                onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
+                className={`w-16 h-16 rounded-2xl overflow-hidden border-2 cursor-pointer flex items-center justify-center transition-transform active:scale-95 shadow-md ${photoUrl ? (isDark ? 'border-blue-500' : 'border-[#2563EB]') : (isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-blue-200')}`}
+              >
+                {uploadingPhoto ? (
+                  <Loader2 size={24} className="text-[#2563EB] animate-spin" />
+                ) : photoUrl ? (
+                  <img src={photoUrl} alt="Member" className="w-full h-full object-cover" />
+                ) : (
+                  <UserIcon size={28} className={isDark ? 'text-slate-500' : 'text-blue-300'} />
+                )}
+              </div>
+              <button 
+                type="button"
+                onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors"
+                title={lang === 'bn' ? 'ছবি আপলোড' : 'Upload photo'}
+              >
+                <Camera size={12} />
+              </button>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  {lang === 'bn' ? 'সদস্যের ছবি (ঐচ্ছিক)' : 'Member Photo (Optional)'}
+                </span>
+                {photoSavings && (
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/40">
+                    ⚡ {photoSavings}
+                  </span>
+                )}
+              </div>
+              <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                {uploadingPhoto 
+                  ? (lang === 'bn' ? 'ছবি অপটিমাইজ ও আপলোড হচ্ছে...' : 'Optimizing & uploading...') 
+                  : (lang === 'bn' ? 'আপলোড করার সাথে সাথে স্বয়ংক্রিয় অপটিমাইজ ও কম্প্রেস হবে।' : 'Auto-compressed & optimized instantly.')}
+              </p>
+              {photoUrl && (
+                <button 
+                  type="button" 
+                  onClick={() => { setPhotoUrl(''); setPhotoSavings(''); }} 
+                  className="text-[11px] font-bold text-red-500 hover:underline mt-1 inline-block"
+                >
+                  {lang === 'bn' ? 'ছবি মুছুন' : 'Remove photo'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

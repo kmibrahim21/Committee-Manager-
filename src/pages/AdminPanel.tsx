@@ -673,38 +673,112 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     setIsCreatingInst(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch('/api/admin/create-committee', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: newInstEmail.trim(),
-          password: newInstPassword.trim(),
-          name: newInstName.trim(),
-          phone: newInstPhone.trim(),
-          login_code: newInstLoginCode.trim(),
-          type: newInstType,
-          auth_token: session?.access_token,
-          songho_activities: newInstSonghoActivities
-        })
-      });
+      let isSuccess = false;
+      let apiErrorMessage = '';
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create committee');
+      // 1. Try serverless endpoint /api/admin/create-committee
+      try {
+        const response = await fetch('/api/admin/create-committee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: newInstEmail.trim(),
+            password: newInstPassword.trim(),
+            name: newInstName.trim(),
+            phone: newInstPhone.trim(),
+            login_code: newInstLoginCode.trim(),
+            type: newInstType,
+            auth_token: session?.access_token,
+            songho_activities: newInstSonghoActivities
+          })
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const resData = await response.json();
+          if (response.ok && resData.success) {
+            isSuccess = true;
+          } else {
+            apiErrorMessage = resData.error || 'Failed to create committee';
+          }
+        } else {
+          console.warn('API returned non-JSON response status:', response.status);
+        }
+      } catch (apiErr: any) {
+        console.warn('API request failed, trying Supabase RPC fallback:', apiErr);
       }
-      
-      setStatusModal({ show: true, type: 'success', title: 'সফল', message: 'নতুন কমিটি এবং ইউজার তৈরি করা হয়েছে।' });
-      setShowCreateModal(false);
-      setNewInstName('');
-      setNewInstPhone('');
-      setNewInstEmail('');
-      setNewInstPassword('');
-      setNewInstLoginCode('');
-      initData(true);
+
+      // 2. Direct Supabase RPC Fallback if API was unavailable
+      if (!isSuccess) {
+        const defaultMods = ACCOUNT_TYPE_DEFAULT_MODULES[newInstType || 'committee'] || ACCOUNT_TYPE_DEFAULT_MODULES.committee;
+        const default_config: Record<string, any> = {
+          modules: defaultMods,
+          org_type: newInstType || 'committee',
+          attendance_type: 'meeting',
+          fee_structure: 'monthly',
+          ui_mode: 'committee',
+          ...((newInstType === 'sangha' || newInstType === 'union') ? {
+            songho_activities: (Array.isArray(newInstSonghoActivities) && newInstSonghoActivities.length > 0)
+              ? newInstSonghoActivities
+              : ['islamic', 'youth', 'social', 'welfare']
+          } : {})
+        };
+
+        const { data: rpcUserId, error: rpcError } = await supabase.rpc('create_user_by_admin', {
+          p_email: newInstEmail.trim(),
+          p_password: newInstPassword.trim(),
+          p_user_data: { name: newInstName.trim(), madrasah_name: newInstName.trim() }
+        });
+
+        if (rpcError) {
+          throw new Error(apiErrorMessage || rpcError.message);
+        }
+
+        if (rpcUserId) {
+          await supabase.from('institutions').upsert({
+            id: rpcUserId,
+            name: newInstName.trim(),
+            email: newInstEmail.trim(),
+            phone: newInstPhone.trim(),
+            institution_type: newInstType || 'committee',
+            login_code: newInstLoginCode.trim() || null,
+            is_active: true,
+            is_super_admin: false,
+            balance: 0,
+            sms_balance: 0,
+            status: 'active',
+            config_json: default_config
+          });
+
+          await supabase.from('profiles').upsert({
+            id: rpcUserId,
+            institution_id: rpcUserId,
+            full_name: newInstName.trim(),
+            role: 'org_admin',
+            is_active: true
+          });
+
+          isSuccess = true;
+        } else if (apiErrorMessage) {
+          throw new Error(apiErrorMessage);
+        }
+      }
+
+      if (isSuccess) {
+        setStatusModal({ show: true, type: 'success', title: 'সফল', message: 'নতুন কমিটি এবং ইউজার সফলভাবে তৈরি করা হয়েছে।' });
+        setShowCreateModal(false);
+        setNewInstName('');
+        setNewInstPhone('');
+        setNewInstEmail('');
+        setNewInstPassword('');
+        setNewInstLoginCode('');
+        initData(true);
+      } else {
+        throw new Error(apiErrorMessage || 'Failed to create committee');
+      }
     } catch (err: any) {
       console.error("Create Error:", err);
-      setStatusModal({ show: true, type: 'error', title: 'ব্যর্থ', message: err.message });
+      setStatusModal({ show: true, type: 'error', title: 'ব্যর্থ', message: err.message || 'কমিটি তৈরি করা যায়নি' });
     } finally {
       setIsCreatingInst(false);
     }

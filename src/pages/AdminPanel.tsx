@@ -724,19 +724,56 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           } : {})
         };
 
-        const { data: rpcUserId, error: rpcError } = await supabase.rpc('create_user_by_admin', {
-          p_email: newInstEmail.trim(),
-          p_password: newInstPassword.trim(),
-          p_user_data: { name: newInstName.trim(), madrasah_name: newInstName.trim() }
-        });
+        let createdUserId: string | null = null;
 
-        if (rpcError) {
-          throw new Error(apiErrorMessage || rpcError.message);
+        // Try RPC create_user_by_admin
+        try {
+          const { data: rpcUserId, error: rpcError } = await supabase.rpc('create_user_by_admin', {
+            p_email: newInstEmail.trim(),
+            p_password: newInstPassword.trim(),
+            p_user_data: { name: newInstName.trim(), madrasah_name: newInstName.trim() }
+          });
+          if (!rpcError && rpcUserId) {
+            createdUserId = rpcUserId;
+          }
+        } catch (rpcErr) {
+          console.warn('RPC create_user_by_admin failed, attempting isolated signup:', rpcErr);
         }
 
-        if (rpcUserId) {
+        // 3. Isolated client signup fallback
+        if (!createdUserId) {
+          try {
+            const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+            const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+            if (supabaseUrl && supabaseAnonKey) {
+              const isolatedAuth = createClient(supabaseUrl, supabaseAnonKey, {
+                auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+              });
+              const { data: signUpData, error: signUpErr } = await isolatedAuth.auth.signUp({
+                email: newInstEmail.trim(),
+                password: newInstPassword.trim(),
+                options: {
+                  data: {
+                    name: newInstName.trim(),
+                    madrasah_name: newInstName.trim()
+                  }
+                }
+              });
+              if (!signUpErr && signUpData?.user?.id) {
+                createdUserId = signUpData.user.id;
+              } else if (signUpErr) {
+                console.warn('Isolated signup failed:', signUpErr);
+                apiErrorMessage = signUpErr.message;
+              }
+            }
+          } catch (signUpException: any) {
+            console.warn('Signup exception:', signUpException);
+          }
+        }
+
+        if (createdUserId) {
           await supabase.from('institutions').upsert({
-            id: rpcUserId,
+            id: createdUserId,
             name: newInstName.trim(),
             email: newInstEmail.trim(),
             phone: newInstPhone.trim(),
@@ -751,16 +788,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           });
 
           await supabase.from('profiles').upsert({
-            id: rpcUserId,
-            institution_id: rpcUserId,
+            id: createdUserId,
+            institution_id: createdUserId,
             full_name: newInstName.trim(),
             role: 'org_admin',
             is_active: true
           });
 
           isSuccess = true;
-        } else if (apiErrorMessage) {
-          throw new Error(apiErrorMessage);
         }
       }
 

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-label="Blue connected logo">
+  <rect width="192" height="192" fill="#f3f4f6"/>
+
+  <!-- Blue lobes -->
+  <g fill="#0d5ee8">
+    <circle cx="96" cy="31" r="38"/>
+    <circle cx="96" cy="161" r="38"/>
+    <circle cx="31" cy="96" r="38"/>
+    <circle cx="161" cy="96" r="38"/>
+  </g>
+
+  <!-- White inner cutout -->
+  <circle cx="96" cy="96" r="58" fill="#f3f4f6"/>
+
+  <!-- Dark center core -->
+  <circle cx="96" cy="96" r="24" fill="#0d1f36"/>
+</svg>

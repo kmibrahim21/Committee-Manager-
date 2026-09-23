@@ -5,7 +5,7 @@ import {
   ChevronLeft, Loader2, CheckCircle2, AlertCircle,
   Smartphone, User, Briefcase, Lock, X, Save,
   Check, BookOpen, GraduationCap, Settings, 
-  MessageSquare, Calendar, ClipboardCheck, Layout, TrendingUp, UserCheck
+  MessageSquare, Calendar, ClipboardCheck, Layout, TrendingUp, UserCheck, Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Executive as Teacher, ExecutivePermissions as TeacherPermissions, Language, Institution, Department as Department } from 'types';
@@ -22,26 +22,8 @@ interface CommitteeManagementProps {
 
 const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organization: madrasah, onBack, role, profile }) => {
   const isExecutive = role === 'executive';
-  const canManageExecutives = !isExecutive || profile?.permissions?.can_manage_executives;
+  const canManageExecutives = role === 'org_admin' || role === 'super_admin' || !!profile?.permissions?.can_manage_executives;
 
-  if (!canManageExecutives) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6">
-        <AlertCircle size={60} className="text-red-500 mb-4" />
-        <h2 className="text-xl font-black text-slate-800 mb-2">
-          {lang === 'bn' ? 'আপনার অনুমতি নেই' : 'Access Denied'}
-        </h2>
-        <p className="text-slate-500 mb-6">
-          {lang === 'bn' 
-            ? 'আপনার এই মডিউলটি ব্যবহার করার অনুমতি নেই। অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।' 
-            : 'You do not have permission to access this module. Please contact your administrator.'}
-        </p>
-        <button onClick={onBack} className="px-8 py-3 bg-slate-800 text-white rounded-full font-black">
-          {lang === 'bn' ? 'ফিরে যান' : 'Go Back'}
-        </button>
-      </div>
-    );
-  }
   const [executives, setExecutives] = useState<Teacher[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,16 +80,45 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
     if (!madrasah?.id) return;
     setLoading(true);
     try {
+      // 1. First attempt via Supabase query
       const { data, error } = await supabase
         .from('executives')
         .select('*')
         .eq('institution_id', madrasah.id)
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
+      if (!error && data && data.length > 0) {
+        setExecutives(data);
+        return;
+      }
+
+      // 2. Fallback via API route
+      try {
+        const res = await fetch(`/api/executives?action=list&institute_id=${madrasah.id}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.executives && Array.isArray(json.executives)) {
+            setExecutives(json.executives);
+            return;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('API fallback fetch executives error:', apiErr);
+      }
+
       setExecutives(data || []);
     } catch (err: any) {
       console.error('Fetch executives error:', err);
+      try {
+        const res = await fetch(`/api/executives?action=list&institute_id=${madrasah.id}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.executives && Array.isArray(json.executives)) {
+            setExecutives(json.executives);
+            return;
+          }
+        }
+      } catch (e) {}
       setError(err.message || 'Failed to fetch executives');
     } finally {
       setLoading(false);
@@ -256,13 +267,15 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
               </p>
             </div>
           </div>
-          <button 
-            onClick={() => { resetForm(); setShowAddModal(true); }}
-            className="bg-slate-900 dark:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
-          >
-            <UserPlus size={18} />
-            <span className="hidden sm:inline">{t('add_executive', lang)}</span>
-          </button>
+          {canManageExecutives && (
+            <button 
+              onClick={() => { resetForm(); setShowAddModal(true); }}
+              className="bg-slate-900 dark:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+            >
+              <UserPlus size={18} />
+              <span className="hidden sm:inline">{t('add_executive', lang)}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -307,18 +320,31 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => openEditModal(executive)}
-                      className={`p-2 rounded-lg font-black text-[9px] uppercase tracking-widest flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600'}`}
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteExecutive(executive.id)}
-                      className={`p-2 rounded-lg flex items-center justify-center hover:bg-red-500 hover:text-white transition-all ${isDark ? 'bg-red-900/20 text-red-400' : 'bg-red-50 text-red-600'}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {executive.phone && (
+                      <a 
+                        href={`tel:${executive.phone}`}
+                        className={`p-2 rounded-lg flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-600 transition-all ${isDark ? 'bg-emerald-900/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}
+                        title="Call"
+                      >
+                        <Phone size={14} />
+                      </a>
+                    )}
+                    {canManageExecutives && (
+                      <>
+                        <button 
+                          onClick={() => openEditModal(executive)}
+                          className={`p-2 rounded-lg font-black text-[9px] uppercase tracking-widest flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600'}`}
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteExecutive(executive.id)}
+                          className={`p-2 rounded-lg flex items-center justify-center hover:bg-red-500 hover:text-white transition-all ${isDark ? 'bg-red-900/20 text-red-400' : 'bg-red-50 text-red-600'}`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 

@@ -42,12 +42,20 @@ const CommitteeLogin: React.FC<CommitteeLoginProps> = ({ lang, madrasah, onBack,
       }
 
       // Store session
-      localStorage.setItem('committee_session', JSON.stringify({
+      const userObj = data.user || data;
+      const normalizedSession = {
         ...data,
+        id: userObj.id || data.id,
+        institution_id: userObj.institute_id || userObj.institution_id || data.institution_id || data.institute_id,
+        name: userObj.name || userObj.teacher_name || data.name,
+        permissions: userObj.permissions || data.permissions || {},
+        role: 'executive',
         login_at: new Date().toISOString()
-      }));
+      };
+      localStorage.setItem('executive_session', JSON.stringify(normalizedSession));
+      localStorage.setItem('committee_session', JSON.stringify(normalizedSession));
 
-      onLoginSuccess(data);
+      onLoginSuccess(normalizedSession);
     } catch (err: any) {
       setError(err.message === 'Login failed' ? (lang === 'bn' ? 'ভুল মোবাইল নম্বর অথবা পাসওয়ার্ড!' : 'Invalid mobile or password!') : err.message);
     } finally {

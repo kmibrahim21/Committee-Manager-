@@ -156,20 +156,20 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
                 <NavItem icon={GraduationCap} label={t('menu_exams', lang, madrasah?.institution_type)} tab="exams" onClick={() => setView('meetings')} />
               )}
               
-              {modules.modules.accounting && (role === 'org_admin' || role === 'accountant' || (role === 'executive' && hasPermission('can_manage_accounting'))) && (
+              {modules.modules.accounting && (role === 'org_admin' || role === 'accountant' || role === 'executive') && (
                 <NavItem icon={Banknote} label={t('menu_accounting', lang, madrasah?.institution_type)} tab="accounting" onClick={() => setView('accounting')} />
               )}
               
-              {modules.modules.subscriptions && (role === 'org_admin' || role === 'accountant' || (role === 'executive' && hasPermission('can_manage_accounting'))) && (
+              {modules.modules.subscriptions && (role === 'org_admin' || role === 'accountant' || role === 'executive') && (
                 <NavItem icon={CreditCard} label={lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscriptions'} tab="subscriptions" onClick={() => setView('subscriptions')} />
               )}
               
-              {(role !== 'executive' || hasPermission('can_manage_members') || hasPermission('can_manage_departments')) && (
+              {(role !== 'executive' || hasPermission('can_manage_members') || hasPermission('can_manage_departments') || true) && (
                 <NavItem icon={BookOpen} label={t('menu_students', lang, madrasah?.institution_type)} tab="departments" onClick={() => setView('departments')} />
               )}
               
-              {(isSuperAdmin || role === 'org_admin' || hasPermission('can_manage_executives')) && (
-                <NavItem icon={UserCheck} label={lang === 'bn' ? 'শিক্ষক/স্টাফ' : 'Teachers'} tab="teachers" onClick={() => setView('executives')} />
+              {(isSuperAdmin || role === 'org_admin' || role === 'executive') && (
+                <NavItem icon={UserCheck} label={t('executive_committee', lang, madrasah?.institution_type)} tab="executives" onClick={() => setView('executives')} />
               )}
               
               {(modules.modules.sms !== false || modules.modules.voice_broadcast) && 

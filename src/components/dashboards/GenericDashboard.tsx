@@ -50,10 +50,10 @@ export const GenericDashboard: React.FC<DashboardProps> = ({
   const isMember = role === 'member';
   const memberPerms = madrasah?.member_portal_config?.permissions;
 
-  const canManageMembers = !isMember && (isAdmin || !!profile?.permissions?.can_manage_members);
-  const canManageAttendance = isAdmin || (isMember ? !!memberPerms?.view_attendance : !!profile?.permissions?.can_manage_attendance);
-  const canManageAccounting = isAdmin || (isMember ? !!memberPerms?.view_finances : !!profile?.permissions?.can_manage_accounting);
-  const canViewMinutes = isAdmin || (isMember ? !!memberPerms?.view_minutes : true);
+  const canManageMembers = !isMember;
+  const canManageAttendance = isAdmin || role === 'executive' || (isMember ? !!memberPerms?.view_attendance : true);
+  const canManageAccounting = isAdmin || role === 'executive' || (isMember ? !!memberPerms?.view_finances : true);
+  const canViewMinutes = isAdmin || role === 'executive' || (isMember ? !!memberPerms?.view_minutes : true);
   const canSendSMS = !isMember && (isAdmin || !!profile?.permissions?.can_send_sms);
   const canUseVoice = !isMember && (isAdmin || !!profile?.permissions?.can_use_voice_call);
 

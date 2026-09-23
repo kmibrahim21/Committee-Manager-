@@ -22,26 +22,7 @@ interface AccountingProps {
 
 const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, role, profile, onMemberClick, dataVersion }) => {
   const isTeacher = role === 'executive';
-  const canManageAccounting = !isTeacher || profile?.permissions?.can_manage_accounting;
-
-  if (!canManageAccounting) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6">
-        <AlertCircle size={60} className="text-red-500 mb-4" />
-        <h2 className="text-xl font-black text-slate-800 mb-2">
-          {lang === 'bn' ? 'আপনার অনুমতি নেই' : 'Access Denied'}
-        </h2>
-        <p className="text-slate-500 mb-6">
-          {lang === 'bn' 
-            ? 'আপনার এই মডিউলটি ব্যবহার করার অনুমতি নেই। অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।' 
-            : 'You do not have permission to access this module. Please contact your administrator.'}
-        </p>
-        <button onClick={onBack} className="px-8 py-3 bg-slate-800 text-white rounded-full font-black">
-          {lang === 'bn' ? 'ফিরে যান' : 'Go Back'}
-        </button>
-      </div>
-    );
-  }
+  const canManageAccounting = role === 'org_admin' || role === 'super_admin' || role === 'accountant' || !!profile?.permissions?.can_manage_accounting;
 
   const [activeTab, setActiveTab] = useState<'summary' | 'ledger' | 'fees' | 'structures' | 'add-ledger'>('fees');
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<any>(null);

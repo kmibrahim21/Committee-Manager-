@@ -5,6 +5,36 @@ import { OfflineService } from 'services/OfflineService';
 import { Profile, Institution } from 'types';
 import { isValidUUID } from '../utils/validation';
 
+export const normalizeExecutiveData = (raw: any) => {
+  if (!raw) return null;
+  const user = raw.user || raw;
+  const id = user.id || raw.id;
+  const institution_id = user.institution_id || user.institute_id || raw.institution_id || raw.institute_id;
+  const name = user.name || user.teacher_name || user.full_name || raw.name || raw.teacher_name || raw.full_name || 'Executive';
+  let permissions = user.permissions || raw.permissions || {};
+  if (typeof permissions === 'string') {
+    try {
+      permissions = JSON.parse(permissions);
+    } catch {
+      permissions = {};
+    }
+  }
+  const is_active = user.is_active !== undefined ? user.is_active : raw.is_active !== undefined ? raw.is_active : true;
+  const created_at = user.created_at || raw.created_at || new Date().toISOString();
+
+  if (!id) return null;
+
+  return {
+    id,
+    institution_id,
+    name,
+    full_name: name,
+    permissions,
+    is_active,
+    created_at
+  };
+};
+
 export const useAuth = () => {
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -389,8 +419,6 @@ export const useAuth = () => {
         if (currentSession && currentSession.user) {
           setSession(currentSession);
           
-          // Check if it's an executive session
-          const executiveSessionStr = localStorage.getItem('executive_session');
           const memberSessionStr = localStorage.getItem('member_session');
 
           if (memberSessionStr) {
@@ -444,87 +472,65 @@ export const useAuth = () => {
             }
           }
 
+          const executiveSessionStr = localStorage.getItem('executive_session') || localStorage.getItem('committee_session');
           if (executiveSessionStr) {
             try {
-              const executiveData = JSON.parse(executiveSessionStr);
+              const rawData = JSON.parse(executiveSessionStr);
+              const executiveData = normalizeExecutiveData(rawData);
+              
               if (executiveData && executiveData.id) {
                 // Fetch latest executive data to get updated permissions and check active status with try-catch resilience
-                let latestExecutive = null;
+                let latestExecutive: any = null;
                 try {
                   const { data } = await supabase
                     .from('executives')
                     .select('*')
                     .eq('id', executiveData.id)
                     .maybeSingle();
-                  latestExecutive = data;
+                  if (data) {
+                    latestExecutive = normalizeExecutiveData(data);
+                  }
                 } catch (eError) {
                   console.warn("Failed to fetch latest executive, falling back to local storage:", eError);
                 }
 
-                if (latestExecutive) {
-                  if (!latestExecutive.is_active) {
-                    localStorage.removeItem('executive_session');
-                    setProfile(null);
-                    setMadrasah(null);
-                    setLoading(false);
-                    return;
-                  }
+                const activeExec = latestExecutive || executiveData;
 
-                  setProfile({
-                    id: latestExecutive.id,
-                    institution_id: latestExecutive.institution_id,
-                    full_name: latestExecutive.name,
-                    role: 'executive',
-                    is_active: latestExecutive.is_active,
-                    created_at: latestExecutive.created_at,
-                    permissions: latestExecutive.permissions
-                  });
-                  // Update local storage too
-                  localStorage.setItem('executive_session', JSON.stringify(latestExecutive));
-                  
-                  // Fetch madrasah data with try-catch resilience
-                  if (isValidUUID(latestExecutive.institution_id)) {
-                    try {
-                      const { data: institutionData } = await supabase
-                        .from('institutions')
-                        .select('*')
-                        .eq('id', latestExecutive.institution_id)
-                        .maybeSingle();
-                        
-                      if (institutionData) {
-                        setMadrasah(institutionData);
-                      }
-                    } catch (mErr) {
-                      console.warn("Failed to fetch institutionData for executive:", mErr);
+                if (!activeExec.is_active) {
+                  localStorage.removeItem('executive_session');
+                  localStorage.removeItem('committee_session');
+                  setProfile(null);
+                  setMadrasah(null);
+                  setLoading(false);
+                  return;
+                }
+
+                setProfile({
+                  id: activeExec.id,
+                  institution_id: activeExec.institution_id,
+                  full_name: activeExec.full_name || activeExec.name,
+                  role: 'executive',
+                  is_active: activeExec.is_active,
+                  created_at: activeExec.created_at,
+                  permissions: activeExec.permissions
+                });
+                // Update local storage too
+                localStorage.setItem('executive_session', JSON.stringify(activeExec));
+
+                // Fetch madrasah data with try-catch resilience
+                if (isValidUUID(activeExec.institution_id)) {
+                  try {
+                    const { data: institutionData } = await supabase
+                      .from('institutions')
+                      .select('*')
+                      .eq('id', activeExec.institution_id)
+                      .maybeSingle();
+                      
+                    if (institutionData) {
+                      setMadrasah(institutionData);
                     }
-                  }
-                } else {
-                  // Fallback to stored data if fetch fails (e.g. offline)
-                  setProfile({
-                    id: executiveData.id,
-                    institution_id: executiveData.institution_id,
-                    full_name: executiveData.name,
-                    role: 'executive',
-                    is_active: executiveData.is_active,
-                    created_at: executiveData.created_at,
-                    permissions: executiveData.permissions
-                  });
-                  
-                  // Fetch madrasah data with try-catch resilience
-                  if (isValidUUID(executiveData.institution_id)) {
-                    try {
-                      const { data: institutionData } = await supabase
-                        .from('institutions')
-                        .select('*')
-                        .eq('id', executiveData.institution_id)
-                        .maybeSingle();
-                        
-                      if (institutionData) {
-                        setMadrasah(institutionData);
-                      }
-                    } catch (mErr) {
-                      console.warn("Failed to fetch institutionData in fallback:", mErr);
-                    }
+                  } catch (mErr) {
+                    console.warn("Failed to fetch institutionData for executive:", mErr);
                   }
                 }
                 
@@ -538,7 +544,6 @@ export const useAuth = () => {
           
           await fetchUserProfile(currentSession.user.id, currentSession.user.email);
         } else {
-          const executiveSessionStr = localStorage.getItem('executive_session');
           const memberSessionStr = localStorage.getItem('member_session');
 
           if (memberSessionStr) {
@@ -593,97 +598,76 @@ export const useAuth = () => {
             }
           }
 
+          const executiveSessionStr = localStorage.getItem('executive_session') || localStorage.getItem('committee_session');
           if (executiveSessionStr) {
             try {
-              const executiveData = JSON.parse(executiveSessionStr);
+              const rawData = JSON.parse(executiveSessionStr);
+              const executiveData = normalizeExecutiveData(rawData);
+              
               if (executiveData && executiveData.id) {
                 // Fetch latest executive data to get updated permissions and check active status with try-catch resilience
-                let latestExecutive = null;
+                let latestExecutive: any = null;
                 try {
                   const { data } = await supabase
                     .from('executives')
                     .select('*')
                     .eq('id', executiveData.id)
                     .maybeSingle();
-                  latestExecutive = data;
+                  if (data) {
+                    latestExecutive = normalizeExecutiveData(data);
+                  }
                 } catch (eError) {
                   console.warn("Failed to fetch latest executive in else, falling back to local storage:", eError);
                 }
 
-                if (latestExecutive) {
-                  if (!latestExecutive.is_active) {
-                    localStorage.removeItem('executive_session');
-                    setProfile(null);
-                    setMadrasah(null);
-                    setLoading(false);
-                    return;
-                  }
+                const activeExec = latestExecutive || executiveData;
 
-                  setSession({ user: { id: latestExecutive.id, role: 'executive' } });
-                  setProfile({
-                    id: latestExecutive.id,
-                    institution_id: latestExecutive.institution_id,
-                    full_name: latestExecutive.name,
-                    role: 'executive',
-                    is_active: latestExecutive.is_active,
-                    created_at: latestExecutive.created_at,
-                    permissions: latestExecutive.permissions
-                  });
-                  // Update local storage too
-                  localStorage.setItem('executive_session', JSON.stringify(latestExecutive));
-                  
-                  // Fetch madrasah data with try-catch resilience
-                  if (isValidUUID(latestExecutive.institution_id)) {
-                    try {
-                      const { data: institutionData } = await supabase
-                        .from('institutions')
-                        .select('*')
-                        .eq('id', latestExecutive.institution_id)
-                        .maybeSingle();
-                        
-                      if (institutionData) {
-                        setMadrasah(institutionData);
-                      }
-                    } catch (mErr) {
-                      console.warn("Failed to fetch institutionData for executive in else:", mErr);
+                if (!activeExec.is_active) {
+                  localStorage.removeItem('executive_session');
+                  localStorage.removeItem('committee_session');
+                  setProfile(null);
+                  setMadrasah(null);
+                  setLoading(false);
+                  return;
+                }
+
+                setSession({ user: { id: activeExec.id, role: 'executive' } });
+                setProfile({
+                  id: activeExec.id,
+                  institution_id: activeExec.institution_id,
+                  full_name: activeExec.full_name || activeExec.name,
+                  role: 'executive',
+                  is_active: activeExec.is_active,
+                  created_at: activeExec.created_at,
+                  permissions: activeExec.permissions
+                });
+                // Update local storage too
+                localStorage.setItem('executive_session', JSON.stringify(activeExec));
+                
+                // Fetch madrasah data with try-catch resilience
+                if (isValidUUID(activeExec.institution_id)) {
+                  try {
+                    const { data: institutionData } = await supabase
+                      .from('institutions')
+                      .select('*')
+                      .eq('id', activeExec.institution_id)
+                      .maybeSingle();
+                      
+                    if (institutionData) {
+                      setMadrasah(institutionData);
                     }
-                  }
-                } else {
-                  // Fallback to stored data if fetch fails (e.g. offline)
-                  setSession({ user: { id: executiveData.id, role: 'executive' } });
-                  setProfile({
-                    id: executiveData.id,
-                    institution_id: executiveData.institution_id,
-                    full_name: executiveData.name,
-                    role: 'executive',
-                    is_active: executiveData.is_active,
-                    created_at: executiveData.created_at,
-                    permissions: executiveData.permissions
-                  });
-                  
-                  // Fetch madrasah data with try-catch resilience
-                  if (isValidUUID(executiveData.institution_id)) {
-                    try {
-                      const { data: institutionData } = await supabase
-                        .from('institutions')
-                        .select('*')
-                        .eq('id', executiveData.institution_id)
-                        .maybeSingle();
-                        
-                      if (institutionData) {
-                        setMadrasah(institutionData);
-                      }
-                    } catch (mErr) {
-                      console.warn("Failed to fetch institutionData in fallback in else:", mErr);
-                    }
+                  } catch (mErr) {
+                    console.warn("Failed to fetch institutionData for executive in else:", mErr);
                   }
                 }
               } else {
                 localStorage.removeItem('executive_session');
+                localStorage.removeItem('committee_session');
               }
             } catch (e) {
               console.error("Error parsing executive session:", e);
               localStorage.removeItem('executive_session');
+              localStorage.removeItem('committee_session');
             }
           }
         }

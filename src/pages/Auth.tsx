@@ -86,7 +86,16 @@ const Auth: React.FC<AuthProps> = ({ lang, signInAsMember }) => {
       if (fetchError) throw fetchError;
       
       if (data) {
-        localStorage.setItem('executive_session', JSON.stringify(data));
+        const sessionData = {
+          ...data,
+          id: data.id,
+          institution_id: data.institution_id || data.institute_id,
+          name: data.name || data.teacher_name,
+          permissions: typeof data.permissions === 'string' ? JSON.parse(data.permissions) : (data.permissions || {}),
+          role: 'executive'
+        };
+        localStorage.setItem('executive_session', JSON.stringify(sessionData));
+        localStorage.setItem('committee_session', JSON.stringify(sessionData));
         window.location.reload();
       } else {
         setError(lang === 'bn' ? 'ভুল ফোন নম্বর' : 'Invalid phone number');

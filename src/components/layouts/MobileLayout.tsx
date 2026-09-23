@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Menu, UserCheck } from 'lucide-react';
+import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Menu, UserCheck, Activity } from 'lucide-react';
 import { handleHardRefresh } from '../../utils/hardRefresh';
 import { View, Language, Institution, Transaction, Profile } from 'types';
 import { t } from 'translations';
@@ -160,6 +160,25 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
                   <NavItem icon={Users} label={lang === 'bn' ? 'কমিটি' : 'Committees'} tab="list" onClick={() => setView('admin-panel')} />
                   <NavItem icon={CreditCard} label={t('approvals', lang, madrasah?.institution_type)} tab="approvals" onClick={() => setView('admin-approvals')} />
                 </>
+              ) : role === 'member' ? (
+                <>
+                  <NavItem icon={Home} label={t('home', lang, madrasah?.institution_type)} tab="home" onClick={() => setView('home')} />
+                  {!!madrasah?.member_portal_config?.permissions?.view_attendance && modules.modules.attendance && (
+                    <NavItem icon={ClipboardList} label={lang === 'bn' ? 'আমার উপস্থিতি' : 'My Attendance'} tab="attendance" onClick={() => setView('attendance')} />
+                  )}
+                  {!!madrasah?.member_portal_config?.permissions?.view_finances && modules.modules.accounting && (
+                    <NavItem icon={Banknote} label={lang === 'bn' ? 'আমার ফি ও হিসাব' : 'My Finances'} tab="accounting" onClick={() => setView('accounting')} />
+                  )}
+                  {!!madrasah?.member_portal_config?.permissions?.view_meetings && modules.modules.meetings && (
+                    <NavItem icon={GraduationCap} label={t('meetings', lang, madrasah?.institution_type)} tab="exams" onClick={() => setView('meetings')} />
+                  )}
+                  {!!madrasah?.member_portal_config?.permissions?.view_notices && (
+                    <NavItem icon={Bell} label={lang === 'bn' ? 'নোটিশ বোর্ড' : 'Notice Board'} tab="notice-board" onClick={() => setView('notice-board')} />
+                  )}
+                  {!!madrasah?.member_portal_config?.permissions?.view_polls && (
+                    <NavItem icon={Activity} label={lang === 'bn' ? 'পোল ও ভোট' : 'Polls & Voting'} tab="polls" onClick={() => setView('polls')} />
+                  )}
+                </>
               ) : (
                 <>
                   <NavItem icon={Home} label={t('home', lang, madrasah?.institution_type)} tab="home" onClick={() => setView('home')} />
@@ -180,7 +199,7 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
                     <NavItem icon={CreditCard} label={lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscriptions'} tab="subscriptions" onClick={() => setView('subscriptions')} />
                   )}
                   
-                  {(role !== 'executive' || hasPermission('can_manage_members') || hasPermission('can_manage_departments') || true) && (
+                  {(role !== 'executive' || hasPermission('can_manage_members') || hasPermission('can_manage_departments')) && (
                     <NavItem icon={BookOpen} label={t('menu_students', lang, madrasah?.institution_type)} tab="departments" onClick={() => setView('departments')} />
                   )}
                   

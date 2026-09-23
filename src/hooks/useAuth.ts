@@ -320,11 +320,40 @@ export const useAuth = () => {
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
-    } catch (e) {}
-    localStorage.removeItem('executive_session');
-    localStorage.removeItem('member_session');
-    localStorage.removeItem('demo_session');
+      // Race signOut to prevent hanging if offline or network failure
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 800))
+      ]);
+    } catch (e) {
+      console.warn("Supabase signOut error/timeout:", e);
+    }
+    
+    try {
+      localStorage.removeItem('madrasah_auth_token');
+      localStorage.removeItem('executive_session');
+      localStorage.removeItem('committee_session');
+      localStorage.removeItem('member_session');
+      localStorage.removeItem('demo_session');
+      localStorage.removeItem('m_name');
+      localStorage.removeItem('user_profile');
+      localStorage.removeItem('profile');
+      
+      // Clear any auth or session cache keys
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.startsWith('cache_') || key.includes('session') || key.includes('auth-token') || key.includes('user_profile') || key.includes('profile'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      
+      sessionStorage.clear();
+    } catch (err) {
+      console.error("Error clearing storage on logout:", err);
+    }
+
     OfflineService.removeCache('user_profile');
     OfflineService.removeCache('profile');
     setSession(null);
@@ -698,8 +727,13 @@ export const useAuth = () => {
         setSession(null); 
         setMadrasah(null); 
         setProfile(null);
+        localStorage.removeItem('madrasah_auth_token');
         localStorage.removeItem('executive_session');
+        localStorage.removeItem('committee_session');
         localStorage.removeItem('member_session');
+        localStorage.removeItem('demo_session');
+        OfflineService.removeCache('user_profile');
+        OfflineService.removeCache('profile');
       } else if (session) {
         setSession(session);
         if (session.user) {

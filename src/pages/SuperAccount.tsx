@@ -21,6 +21,17 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
   const [isEditingBulkSMS, setIsEditingBulkSMS] = useState(false);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState({ show: false, title: '', message: '' });
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogoutClick = async () => {
+    setIsLoggingOut(true);
+    try {
+      await onLogout();
+    } catch (e) {
+      console.error(e);
+      setIsLoggingOut(false);
+    }
+  };
 
   const [globalSettings, setGlobalSettings] = useState({
     reve_api_key: '',
@@ -292,15 +303,18 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
         </div>
 
         <button 
-          onClick={onLogout} 
-          className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all ${madrasah?.theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50/50 border-red-100'}`}
+          onClick={handleLogoutClick} 
+          disabled={isLoggingOut}
+          className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all disabled:opacity-60 disabled:pointer-events-none ${madrasah?.theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50/50 border-red-100'}`}
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <LogOut size={24} />
+              {isLoggingOut ? <Loader2 className="animate-spin text-red-600" size={24} /> : <LogOut size={24} />}
             </div>
             <div className="text-left">
-              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>{t('logout', lang)}</h5>
+              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+                {isLoggingOut ? (lang === 'bn' ? 'লগআউট হচ্ছে...' : 'Logging out...') : t('logout', lang)}
+              </h5>
               <p className="text-[10px] font-bold text-red-300 uppercase tracking-widest mt-1.5">{t('logout_system', lang)}</p>
             </div>
           </div>

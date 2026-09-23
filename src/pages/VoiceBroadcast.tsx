@@ -305,8 +305,8 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
     const { data } = await supabase.from('departments').select('*').eq('institution_id', madrasah.id);
     if (data) {
       let filteredClasses = data;
-      if (role === 'executive' && profile?.permissions?.allowed_departments) {
-        filteredClasses = data.filter(cls => profile.permissions?.allowed_departments?.includes(cls.id));
+      if (role === 'executive' && Array.isArray(profile?.permissions?.allowed_departments) && profile.permissions.allowed_departments.length > 0) {
+        filteredClasses = data.filter(cls => profile.permissions.allowed_departments.includes(cls.id));
       }
       setClasses(sortMadrasahClasses(filteredClasses));
     }

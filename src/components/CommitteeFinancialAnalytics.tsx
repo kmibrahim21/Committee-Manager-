@@ -102,8 +102,8 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
         .then(({ data }) => {
           if (data) {
             let filteredClasses = data;
-            if (role === 'executive' && profile?.permissions?.allowed_departments) {
-              filteredClasses = data.filter(cls => profile.permissions?.allowed_departments?.includes(cls.id));
+            if (role === 'executive' && Array.isArray(profile?.permissions?.allowed_departments) && profile.permissions.allowed_departments.length > 0) {
+              filteredClasses = data.filter(cls => profile.permissions.allowed_departments.includes(cls.id));
             }
             setLocalClasses(filteredClasses);
           }

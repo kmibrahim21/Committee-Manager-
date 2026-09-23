@@ -34,6 +34,17 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   const [pinError, setPinError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState({ show: false, title: '', message: '' });
   const [downloadingForm, setDownloadingForm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  
+  const handleLogoutClick = async () => {
+    setIsLoggingOut(true);
+    try {
+      await onLogout();
+    } catch (e) {
+      console.error(e);
+      setIsLoggingOut(false);
+    }
+  };
   
   const handleDownloadForm = async () => {
     setDownloadingForm(true);
@@ -215,11 +226,10 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
 
   if (!madrasah) return null;
 
-  const displayName = madrasah?.name || 'User';
-
   const role = profile?.role || 'executive';
   const isAdmin = role === 'org_admin' || role === 'super_admin';
   const isMember = role === 'member';
+  const displayName = isMember ? (profile?.full_name || 'Member Profile') : (madrasah?.name || 'User');
   const canManageAccounting = isAdmin || (isMember ? !!madrasah?.member_portal_config?.permissions?.view_finances : !!profile?.permissions?.can_manage_accounting);
 
   let config = madrasah?.config_json as any;
@@ -308,6 +318,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       {/* Main Options Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mx-1">
         {/* Academic Calendar Card */}
+        {(!isMember || !!madrasah?.member_portal_config?.permissions?.view_meetings) && (
         <button 
           onClick={() => setView('academic-calendar')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -324,7 +335,9 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             </p>
           </div>
         </button>
+        )}
 
+        {!isMember && (
         <button 
           onClick={() => setIsEditingProfile(true)} 
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -337,7 +350,9 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t('branding', lang)}</p>
           </div>
         </button>
+        )}
 
+        {!isMember && (
         <button 
           onClick={() => setView('data-management')} 
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -350,8 +365,9 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Excel Tools</p>
           </div>
         </button>
+        )}
 
-                {madrasah?.institution_type === 'association' && (
+        {!isMember && madrasah?.institution_type === 'association' && (
         <button 
           onClick={() => setView('management')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -370,7 +386,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         </button>
         )}
 
-        {(madrasah?.institution_type === 'sangha' || madrasah?.institution_type === 'union') && (
+        {!isMember && (madrasah?.institution_type === 'sangha' || madrasah?.institution_type === 'union') && (
         <button 
           onClick={() => setView('management')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -389,7 +405,8 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         </button>
         )}
 
-{/* Executive Committee Card */}
+        {/* Executive Committee Card */}
+        {!isMember && (
         <button 
           onClick={() => setView('executives')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -406,6 +423,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             </p>
           </div>
         </button>
+        )}
 
         {/* Video Tutorial Card */}
         <button 
@@ -426,6 +444,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         </button>
 
         {/* Voting & Polls Card */}
+        {(!isMember || !!madrasah?.member_portal_config?.permissions?.view_polls) && (
         <button 
           onClick={() => setView('polls')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -442,8 +461,10 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             </p>
           </div>
         </button>
+        )}
 
         {/* Notice Board Card */}
+        {(!isMember || !!madrasah?.member_portal_config?.permissions?.view_notices) && (
         <button 
           onClick={() => setView('notice-board')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -460,8 +481,10 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             </p>
           </div>
         </button>
+        )}
 
         {/* Member Types Config Card */}
+        {!isMember && (
         <button 
           onClick={() => setShowMemberTypeManager(true)}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -478,8 +501,10 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             </p>
           </div>
         </button>
+        )}
 
         {/* Member Portal Settings Card */}
+        {!isMember && (
         <button 
           onClick={() => setShowMemberPortalSettings(true)}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -496,8 +521,10 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             </p>
           </div>
         </button>
+        )}
 
         {/* Member Form PDF Download Card */}
+        {!isMember && (
         <button 
           onClick={handleDownloadForm}
           disabled={downloadingForm}
@@ -515,6 +542,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
             </p>
           </div>
         </button>
+        )}
 
         {/* Language Card */}
         <div className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between gap-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
@@ -567,15 +595,18 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         </div>
 
         <button 
-          onClick={onLogout} 
-          className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all ${madrasah?.theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50/50 border-red-100'}`}
+          onClick={handleLogoutClick} 
+          disabled={isLoggingOut}
+          className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all disabled:opacity-60 disabled:pointer-events-none ${madrasah?.theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50/50 border-red-100'}`}
         >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              <LogOut size={24} />
+              {isLoggingOut ? <Loader2 className="animate-spin text-red-600" size={24} /> : <LogOut size={24} />}
             </div>
             <div className="text-left">
-              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>{t('logout', lang)}</h5>
+              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+                {isLoggingOut ? (lang === 'bn' ? 'লগআউট হচ্ছে...' : 'Logging out...') : t('logout', lang)}
+              </h5>
               <p className="text-[10px] font-bold text-red-300 uppercase tracking-widest mt-1.5">{t('logout_system', lang)}</p>
             </div>
           </div>

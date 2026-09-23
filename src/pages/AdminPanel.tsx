@@ -152,6 +152,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editAddress, setEditAddress] = useState('');
   const [editLoginCode, setEditLoginCode] = useState('');
   const [editActive, setEditActive] = useState(true);
+  const [editSmsBalance, setEditSmsBalance] = useState<string>('0');
+  const [editVoiceBalance, setEditVoiceBalance] = useState<string>('0');
   const [editReveApiKey, setEditReveApiKey] = useState('');
   const [editReveCallerId, setEditReveCallerId] = useState('');
   const [editVoiceSenderId, setEditVoiceSenderId] = useState('');
@@ -363,6 +365,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     setEditAddress(user.address || '');
     setEditLoginCode(user.login_code || '');
     setEditActive(user.is_active);
+    setEditSmsBalance(String(user.sms_balance ?? 0));
+    setEditVoiceBalance(String(user.balance ?? 0));
     setEditReveApiKey(user.reve_api_key || '');
     setEditReveCallerId(user.reve_caller_id || '');
     setEditVoiceSenderId(user.voice_sender_id || '');
@@ -453,6 +457,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         fee_engine: editFeeEngine,
         accounting_mode: editAccountingMode
       });
+      const parsedSmsBalance = Math.max(0, parseInt(editSmsBalance, 10) || 0);
+      const parsedVoiceBalance = Math.max(0, parseFloat(editVoiceBalance) || 0);
+
       const { data, error } = await supabase.from('institutions').update({
         name: editName.trim(),
         phone: editPhone.trim(),
@@ -460,6 +467,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         address: editAddress.trim() || null,
         login_code: editLoginCode.trim(),
         is_active: editActive,
+        sms_balance: parsedSmsBalance,
+        balance: parsedVoiceBalance,
         reve_api_key: editReveApiKey.trim() || null,
         reve_caller_id: editReveCallerId.trim() || null,
         voice_sender_id: editVoiceSenderId.trim() || null,
@@ -498,7 +507,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         if (!success) throw new Error("Password update failed");
       }
 
-      setStatusModal({ show: true, type: 'success', title: 'সফল', message: 'মাদরাসা প্রোফাইল আপডেট হয়েছে।' });
+      setStatusModal({ 
+        show: true, 
+        type: 'success', 
+        title: lang === 'bn' ? 'সফল' : 'Success', 
+        message: lang === 'bn' ? 'কমিটির প্রোফাইল, এসএমএস ও ভয়েস ব্যালেন্স সফলভাবে আপডেট হয়েছে।' : 'Committee profile, SMS and voice balances have been updated successfully.' 
+      });
       setEditPassword('');
       initData(true);
       if (onProfileUpdate) onProfileUpdate();
@@ -1046,19 +1060,19 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                         </div>
                         <div className="min-w-0">
                           <h3 className={`font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} truncate font-noto text-lg`}>{m.name}</h3>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
                             <p className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${m.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
                               {m.is_active ? (lang === 'bn' ? 'সচল' : 'Active') : (lang === 'bn' ? 'বন্ধ' : 'Blocked')}
                             </p>
-                            <span className="text-[10px] text-slate-300">•</span>
                             <p className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-[#42f5e9]/10 text-[#0fb5ab]">
                               {m.institution_type || 'madrasah'}
                             </p>
-                            {m.config_json?.modules?.voice_broadcast !== false && (
-                              <p className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">
-                                {lang === 'bn' ? 'ভয়েস' : 'Voice'}
-                              </p>
-                            )}
+                            <p className="text-[8px] font-black px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-800/50 flex items-center gap-1">
+                              <MessageSquare size={10} /> {m.sms_balance || 0} SMS
+                            </p>
+                            <p className="text-[8px] font-black px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50 flex items-center gap-1">
+                              <PhoneCall size={10} /> ৳{Number(m.balance || 0).toFixed(1)}
+                            </p>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.phone || (lang === 'bn' ? 'ফোন নেই' : 'No Phone')}</p>
                           </div>
                         </div>
@@ -1257,12 +1271,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কমিটি' : 'Classes'}</p>
                       </div>
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 border-[#42f5e9]/50' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{selectedUser.sms_balance || 0}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'এসএমএস' : 'SMS Bal'}</p>
+                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{editSmsBalance || 0}</h5>
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'এসএমএস ব্যালেন্স' : 'SMS Bal'}</p>
                       </div>
                       <div className={`${madrasah?.theme === 'dark' ? 'bg-emerald-900/30 border-emerald-900/50' : 'bg-emerald-50 border-emerald-100'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>{Number(selectedUser.balance || 0).toFixed(2)}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'ভয়েস' : 'Voice Bal'}</p>
+                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>{Number(editVoiceBalance || 0).toFixed(2)} ৳</h5>
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'ভয়েস ব্যালেন্স' : 'Voice Bal'}</p>
                       </div>
                    </div>
 
@@ -1275,7 +1289,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                           className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'basic' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
                         >
                           <UserIcon size={14} />
-                          <span>{lang === 'bn' ? 'প্রাথমিক তথ্য' : 'General Info'}</span>
+                          <span>{lang === 'bn' ? 'প্রাথমিক ও ব্যালেন্স তথ্য' : 'General & Balance'}</span>
                         </button>
                         <button
                           type="button"
@@ -1306,27 +1320,171 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       {/* Tab Contents */}
                       {detailsTab === 'basic' && (
                         <div className="space-y-6 animate-in fade-in duration-300">
-                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Committee Name</label>
-                            <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editName} onChange={(e) => setEditName(e.target.value)} />
-                         </div>
-                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Gmail / Email</label>
-                            <input type="email" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
-                         </div>
-                         <div className="grid grid-cols-1 gap-4 lg:col-span-2">
-                            <div className="space-y-2">
-                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Phone</label>
-                               <input type="tel" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                          {/* Balance & Wallet Management Section */}
+                          <div className={`p-6 rounded-[2.5rem] border ${madrasah?.theme === 'dark' ? 'bg-slate-800/60 border-slate-700' : 'bg-gradient-to-br from-teal-50/70 via-cyan-50/40 to-emerald-50/60 border-[#0fb5ab]/20'} space-y-6 shadow-sm`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-[#0fb5ab] text-white flex items-center justify-center shadow-md">
+                                  <CreditCard size={20} />
+                                </div>
+                                <div>
+                                  <h4 className={`text-sm font-black font-noto ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+                                    {lang === 'bn' ? 'ব্যালেন্স ও ওয়ালেট ম্যানেজমেন্ট' : 'SMS & Voice Balance Management'}
+                                  </h4>
+                                  <p className="text-[10px] text-slate-500 font-bold font-noto">
+                                    {lang === 'bn' ? 'ইউজারের অ্যাকাউন্টে সরাসরি ব্যালেন্স ও এসএমএস পরিবর্তন বা রিচার্জ করুন' : 'Directly adjust user SMS and Voice balance'}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                            <div className="space-y-2">
-                                {/* pin segment removed */}
-                               {/* pin removed */}
-                            </div>
-                         </div>
-                      </div>
 
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              {/* SMS Balance Box */}
+                              <div className={`p-5 rounded-3xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-100'} shadow-sm space-y-4`}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                                      <MessageSquare size={18} />
+                                    </div>
+                                    <span className="text-xs font-black font-noto">
+                                      {lang === 'bn' ? 'এসএমএস ব্যালেন্স (সংখ্যা / কাউন্ট)' : 'SMS Balance (Count)'}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300">
+                                    {Number(editSmsBalance) || 0} SMS
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    {lang === 'bn' ? 'ব্যালেন্স সংখ্যা লিখুন' : 'Enter SMS Count'}
+                                  </label>
+                                  <div className="relative">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      value={editSmsBalance}
+                                      onChange={(e) => setEditSmsBalance(e.target.value)}
+                                      placeholder="0"
+                                      className={`w-full h-13 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-2xl px-4 font-black text-base outline-none focus:border-[#0fb5ab] transition-all`}
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 font-noto">
+                                      {lang === 'bn' ? 'টি' : 'SMS'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Quick SMS Add Buttons */}
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {[10, 50, 100, 500, 1000].map((amt) => (
+                                    <button
+                                      type="button"
+                                      key={amt}
+                                      onClick={() => setEditSmsBalance(prev => String(Math.max(0, (parseInt(prev, 10) || 0) + amt)))}
+                                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border ${madrasah?.theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-cyan-400' : 'bg-cyan-50 hover:bg-cyan-100 border-cyan-100 text-cyan-700'}`}
+                                    >
+                                      +{amt}
+                                    </button>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditSmsBalance('0')}
+                                    className="px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"
+                                  >
+                                    {lang === 'bn' ? 'রিসেট ০' : 'Reset 0'}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Voice Balance Box */}
+                              <div className={`p-5 rounded-3xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-100'} shadow-sm space-y-4`}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                      <PhoneCall size={18} />
+                                    </div>
+                                    <span className="text-xs font-black font-noto">
+                                      {lang === 'bn' ? 'ভয়েস কল ব্যালেন্স (টাকা ৳)' : 'Voice Call Balance (BDT)'}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                                    ৳{Number(editVoiceBalance || 0).toFixed(2)}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                    {lang === 'bn' ? 'ব্যালেন্স পরিমাণ লিখুন (টাকা)' : 'Enter Balance Amount (৳)'}
+                                  </label>
+                                  <div className="relative">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.5"
+                                      value={editVoiceBalance}
+                                      onChange={(e) => setEditVoiceBalance(e.target.value)}
+                                      placeholder="0.00"
+                                      className={`w-full h-13 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-2xl px-4 font-black text-base outline-none focus:border-[#0fb5ab] transition-all`}
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 font-noto">
+                                      ৳
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Quick Voice Balance Add Buttons */}
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {[10, 50, 100, 500, 1000].map((amt) => (
+                                    <button
+                                      type="button"
+                                      key={amt}
+                                      onClick={() => setEditVoiceBalance(prev => String(Math.max(0, (parseFloat(prev) || 0) + amt)))}
+                                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border ${madrasah?.theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-emerald-400' : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-100 text-emerald-700'}`}
+                                    >
+                                      +৳{amt}
+                                    </button>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditVoiceBalance('0')}
+                                    className="px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"
+                                  >
+                                    {lang === 'bn' ? 'রিসেট ০' : 'Reset 0'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <p className="text-[10px] text-slate-400 font-bold font-noto flex items-center gap-1.5">
+                              <CheckCircle2 size={12} className="text-emerald-500" />
+                              {lang === 'bn' ? 'নিচের "Save Profile Changes" বাটনে ক্লিক করলে ইউজারের অ্যাকাউন্টে ব্যালেন্স অবিলম্বে আপডেট হয়ে যাবে।' : 'Clicking "Save Profile Changes" below will immediately update the balance in their account.'}
+                            </p>
+                          </div>
+
+                          {/* Basic Profile Details */}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Committee / Org Name</label>
+                              <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editName} onChange={(e) => setEditName(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Gmail / Email</label>
+                              <input type="email" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Phone</label>
+                              <input type="tel" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Login Code</label>
+                              <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editLoginCode} onChange={(e) => setEditLoginCode(e.target.value)} />
+                            </div>
+                            <div className="space-y-2 lg:col-span-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Address</label>
+                              <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editAddress} onChange={(e) => setEditAddress(e.target.value)} placeholder="Full Address" />
+                            </div>
+                          </div>
                         </div>
                       )}
 

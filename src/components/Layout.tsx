@@ -127,7 +127,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               {isSuperAdmin ? (lang === 'bn' ? 'সুপার অ্যাডমিন' : 'Super Admin') : (madrasah?.name || 'Organization Portal')}
             </h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 font-noto">
-              {role === 'super_admin' ? 'Super Admin Portal' : role === 'executive' ? 'Executive Portal' : role === 'accountant' ? 'Accounts Portal' : 'Admin Portal'}
+              {role === 'super_admin' ? 'Super Admin Portal' : role === 'member' ? 'Member Portal' : role === 'executive' ? 'Executive Portal' : role === 'accountant' ? 'Accounts Portal' : 'Admin Portal'}
             </p>
           </div>
         </div>
@@ -168,7 +168,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 <Home size={22} strokeWidth={isTabActive('home') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{t('home', lang)}</span>
               </button>
-              {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && hasPermission('can_manage_members'))) && (
+              {(isSuperAdmin || role === 'org_admin' || role === 'executive' || (role !== 'member' && hasPermission('can_manage_members'))) && (
                 <button 
                   onClick={() => setView(modules.modules.departments !== false ? 'departments' : 'members')} 
                   className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}
@@ -244,7 +244,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 {isSuperAdmin ? (lang === 'bn' ? 'সুপার অ্যাডমিন' : 'Super Admin') : (madrasah?.name || 'Committee Manager')}
               </h1>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 font-noto">
-                {role === 'super_admin' ? 'Super Admin Portal' : role === 'executive' ? 'Executive Portal' : role === 'accountant' ? 'Accounts Portal' : 'Admin Portal'}
+                {role === 'super_admin' ? 'Super Admin Portal' : role === 'member' ? 'Member Portal' : role === 'executive' ? 'Executive Portal' : role === 'accountant' ? 'Accounts Portal' : 'Admin Portal'}
               </p>
             </div>
           </div>
@@ -328,7 +328,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 <Home size={20} strokeWidth={isTabActive('home') ? 3 : 2} />
                 <span className="text-[9px] font-black font-noto opacity-80">{t('home', lang)}</span>
               </button>
-              {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && hasPermission('can_manage_members'))) && (
+              {(isSuperAdmin || role === 'org_admin' || role === 'executive' || (role !== 'member' && hasPermission('can_manage_members'))) && (
                 <button 
                   onClick={() => setView(modules.modules.departments !== false ? 'departments' : 'members')} 
                   className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white' : 'text-[#94A3B8]')}`}

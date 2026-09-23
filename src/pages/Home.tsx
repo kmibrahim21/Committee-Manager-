@@ -9,6 +9,7 @@ import { isValidUUID } from 'utils/validation';
 import { GenericDashboard } from 'components/dashboards/GenericDashboard';
 import { ClubDashboard } from 'components/dashboards/ClubDashboard';
 import { OrganizationDashboard } from 'components/dashboards/OrganizationDashboard';
+import { MemberPortalDashboard } from 'components/dashboards/MemberPortalDashboard';
 
 interface HomeProps {
   onMemberClick: (member: Member) => void;
@@ -68,6 +69,10 @@ const Home: React.FC<HomeProps> = ({
   };
 
   const renderDashboard = () => {
+    if (profile?.role === 'member') {
+      return <MemberPortalDashboard lang={lang} madrasah={madrasah} profile={profile} onNavigateToView={onNavigateToAccounting} />;
+    }
+
     switch (instType) {
       case 'association':
         return <GenericDashboard {...commonProps} />;

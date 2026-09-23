@@ -61,7 +61,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
         if (error) throw error;
         if (classesData) {
           let filteredClasses = classesData;
-          if (profile?.role === 'executive' && profile?.permissions?.allowed_departments) {
+          if (profile?.role === 'executive' && Array.isArray(profile?.permissions?.allowed_departments) && profile.permissions.allowed_departments.length > 0) {
             filteredClasses = classesData.filter(cls => profile.permissions?.allowed_departments?.includes(cls.id));
           }
 

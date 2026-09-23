@@ -144,8 +144,8 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
     const { data } = await supabase.from('departments').select('*').eq('institution_id', madrasah.id);
     if (data) {
       let filteredClasses = data;
-      if (role === 'executive' && profile?.permissions?.allowed_departments) {
-        filteredClasses = data.filter((cls: any) => profile.permissions?.allowed_departments?.includes(cls.id));
+      if (role === 'executive' && Array.isArray(profile?.permissions?.allowed_departments) && profile.permissions.allowed_departments.length > 0) {
+        filteredClasses = data.filter((cls: any) => profile.permissions.allowed_departments.includes(cls.id));
       }
       setClasses(sortMadrasahClasses(filteredClasses));
     }
@@ -222,8 +222,8 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
           }));
         }
 
-        if (role === 'executive' && profile?.permissions?.allowed_departments && !classId) {
-          filteredData = filteredData.filter((student: any) => profile.permissions?.allowed_departments?.includes(student.department_id));
+        if (role === 'executive' && Array.isArray(profile?.permissions?.allowed_departments) && profile.permissions.allowed_departments.length > 0 && !classId) {
+          filteredData = filteredData.filter((student: any) => profile.permissions.allowed_departments.includes(student.department_id));
         }
 
         const correctedData = filteredData.map((student: any) => {

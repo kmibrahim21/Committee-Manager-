@@ -225,7 +225,7 @@ const Auth: React.FC<AuthProps> = ({ lang, signInAsMember }) => {
           <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#42f5e9]/10 rounded-full blur-[80px] pointer-events-none" />
           
           <div className="flex p-1 bg-black/40 rounded-2xl border border-white/5 relative mb-6">
-            <div className={`absolute h-[calc(100%-8px)] w-[calc(33.33%-4px)] bg-[#42f5e9] rounded-xl shadow-lg shadow-[#42f5e9]/20 transition-transform duration-300 ${loginType === 'executive' ? 'translate-x-full' : loginType === 'member' ? 'translate-x-[200%]' : 'translate-x-0'}`} />
+            <div className={`absolute h-[calc(100%-8px)] w-[calc(50%-4px)] bg-[#42f5e9] rounded-xl shadow-lg shadow-[#42f5e9]/20 transition-transform duration-300 ${loginType === 'executive' ? 'translate-x-full' : 'translate-x-0'}`} />
             <button 
               onClick={() => { setLoginType('admin'); setError(''); }}
               className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest relative z-10 transition-colors ${loginType === 'admin' ? 'text-[#0fb5ab]' : 'text-slate-400 hover:text-slate-300'}`}
@@ -238,12 +238,7 @@ const Auth: React.FC<AuthProps> = ({ lang, signInAsMember }) => {
             >
               Exec
             </button>
-            <button 
-              onClick={() => { setLoginType('member'); setError(''); }}
-              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest relative z-10 transition-colors ${loginType === 'member' ? 'text-[#0fb5ab]' : 'text-slate-400 hover:text-slate-300'}`}
-            >
-              Member
-            </button>
+            {/* Member login option is temporarily hidden as requested. Can be restored by adding 'member' button back. */}
           </div>
 
           {loginType === 'admin' ? (

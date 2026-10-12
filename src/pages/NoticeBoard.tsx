@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Institution, Language, Notice, Profile, UserRole } from '../types';
 import { 
   Pin, 
@@ -11,7 +12,10 @@ import {
   Calendar,
   User,
   MoreVertical,
-  CheckCircle2
+  CheckCircle2,
+  Edit2,
+  Loader2,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../supabase';
@@ -28,10 +32,12 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
   const [notices, setNotices] = useState<Notice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
+  const [deleteNoticeId, setDeleteNoticeId] = useState<string | null>(null);
   const [newNotice, setNewNotice] = useState({ title: '', content: '', is_pinned: false, is_urgent: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const canManage = role === 'super_admin' || role === 'org_admin' || profile?.permissions?.can_manage_settings;
+  const canManage = role === 'super_admin' || role === 'org_admin' || role === 'executive' || !!profile?.permissions?.can_manage_settings;
 
   useEffect(() => {
     fetchNotices();
@@ -134,8 +140,39 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
       setNotices(prev => [savedNotice, ...prev]);
       setIsAdding(false);
       setNewNotice({ title: '', content: '', is_pinned: false, is_urgent: false });
-      
-      alert(lang === 'bn' ? 'নোটিশ সফলভাবে সংরক্ষিত হয়েছে!' : 'Notice saved successfully!');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateNotice = async () => {
+    if (!madrasah || !editingNotice || !editingNotice.title || !editingNotice.content) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('notices')
+        .update({
+          title: editingNotice.title,
+          content: editingNotice.content,
+          is_pinned: editingNotice.is_pinned,
+          is_urgent: editingNotice.is_urgent
+        })
+        .eq('id', editingNotice.id);
+
+      if (error) throw error;
+
+      // Update in local storage fallback
+      const localNoticesJson = localStorage.getItem(`local_notices_${madrasah.id}`);
+      if (localNoticesJson) {
+        const localNotices: Notice[] = JSON.parse(localNoticesJson);
+        const updated = localNotices.map(n => n.id === editingNotice.id ? editingNotice : n);
+        localStorage.setItem(`local_notices_${madrasah.id}`, JSON.stringify(updated));
+      }
+
+      setNotices(prev => prev.map(n => n.id === editingNotice.id ? editingNotice : n));
+      setEditingNotice(null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -144,7 +181,6 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
   };
 
   const handleDeleteNotice = async (id: string) => {
-    if (!confirm(lang === 'bn' ? 'আপনি কি নিশ্চিত?' : 'Are you sure?')) return;
     try {
       await supabase
         .from('notices')
@@ -162,6 +198,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
       }
 
       setNotices(prev => prev.filter(n => n.id !== id));
+      setDeleteNoticeId(null);
     } catch (e) {
       console.error(e);
     }
@@ -277,12 +314,22 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
                       </div>
                       
                       {canManage && (
-                        <button 
-                          onClick={() => handleDeleteNotice(notice.id)}
-                          className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setEditingNotice(notice); }}
+                            className="p-2 text-slate-400 hover:text-[#0fb5ab] rounded-lg transition-colors"
+                            title={lang === 'bn' ? 'এডিট করুন' : 'Edit Notice'}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setDeleteNoticeId(notice.id); }}
+                            className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                            title={lang === 'bn' ? 'ডিলিট করুন' : 'Delete Notice'}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -293,8 +340,9 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
         )}
       </div>
 
-      {/* Add Modal */}
-      <AnimatePresence>
+      {/* Modals Portaled */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
         {isAdding && (
           <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div 
@@ -381,14 +429,152 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ lang, madrasah, profile, role
                     disabled={isSubmitting || !newNotice.title || !newNotice.content}
                     className="flex-[2] h-14 bg-[#42f5e9] text-[#0e8a84] rounded-2xl font-black shadow-lg shadow-[#42f5e9]/20 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center justify-center"
                   >
-                    {isSubmitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : t('submit')}
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : t('submit')}
                   </button>
                 </div>
               </div>
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+
+        {/* Edit Modal */}
+        {editingNotice && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingNotice(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`relative w-full max-w-lg p-6 rounded-[2.5rem] shadow-2xl max-h-[90vh] overflow-y-auto ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
+            >
+              <h2 className={`text-xl font-black font-noto mb-6 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                {lang === 'bn' ? 'নোটিশ এডিট করুন' : 'Edit Notice'}
+              </h2>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t('title')}</label>
+                  <input 
+                    type="text" 
+                    className={`w-full h-14 rounded-2xl px-6 font-bold outline-none border focus:border-[#42f5e9]/50 transition-all ${
+                      madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'
+                    }`}
+                    value={editingNotice.title}
+                    onChange={(e) => setEditingNotice({...editingNotice, title: e.target.value})}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t('content')}</label>
+                  <textarea 
+                    rows={4}
+                    className={`w-full p-6 rounded-2xl font-bold outline-none border focus:border-[#42f5e9]/50 transition-all resize-none ${
+                      madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'
+                    }`}
+                    value={editingNotice.content}
+                    onChange={(e) => setEditingNotice({...editingNotice, content: e.target.value})}
+                  />
+                </div>
+                
+                <div className="flex gap-4 pt-2">
+                  <button 
+                    onClick={() => setEditingNotice({...editingNotice, is_pinned: !editingNotice.is_pinned})}
+                    className={`flex-1 p-4 rounded-2xl border flex items-center justify-center gap-2 transition-all ${
+                      editingNotice.is_pinned 
+                        ? 'bg-[#42f5e9]/10 border-[#42f5e9]/20 text-[#0fb5ab]' 
+                        : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-white border-slate-100 text-slate-400')
+                    }`}
+                  >
+                    <Pin size={18} fill={editingNotice.is_pinned ? "currentColor" : "none"} />
+                    <span className="text-sm font-black">{t('pin')}</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setEditingNotice({...editingNotice, is_urgent: !editingNotice.is_urgent})}
+                    className={`flex-1 p-4 rounded-2xl border flex items-center justify-center gap-2 transition-all ${
+                      editingNotice.is_urgent 
+                        ? 'bg-red-50 border-red-200 text-red-600' 
+                        : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-white border-slate-100 text-slate-400')
+                    }`}
+                  >
+                    <AlertTriangle size={18} />
+                    <span className="text-sm font-black">{t('urgent')}</span>
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-3 pt-4">
+                  <button 
+                    onClick={() => setEditingNotice(null)}
+                    className={`flex-1 h-14 rounded-2xl font-black transition-all ${
+                      madrasah?.theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button 
+                    onClick={handleUpdateNotice}
+                    disabled={isSubmitting || !editingNotice.title || !editingNotice.content}
+                    className="flex-[2] h-14 bg-[#42f5e9] text-[#0e8a84] rounded-2xl font-black shadow-lg shadow-[#42f5e9]/20 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center justify-center"
+                  >
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (lang === 'bn' ? 'আপডেট করুন' : 'Update Notice')}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {deleteNoticeId && (
+          <div className="fixed inset-0 z-[350] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteNoticeId(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`relative w-full max-w-sm p-6 rounded-[2.5rem] shadow-2xl text-center ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
+            >
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={32} />
+              </div>
+              <h3 className={`text-lg font-black font-noto mb-2 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+                {lang === 'bn' ? 'নোটিশ ডিলিট করবেন?' : 'Delete Notice?'}
+              </h3>
+              <p className="text-xs text-slate-400 mb-6">
+                {lang === 'bn' ? 'আপনি কি নিশ্চিতভাবে এই নোটিশটি মুছে ফেলতে চান? এটি আর ফেরত পাওয়া যাবে না।' : 'Are you sure you want to delete this notice? This action cannot be undone.'}
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setDeleteNoticeId(null)}
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs uppercase"
+                >
+                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                </button>
+                <button 
+                  onClick={() => handleDeleteNotice(deleteNoticeId)}
+                  className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-rose-500/20 active:scale-95"
+                >
+                  {lang === 'bn' ? 'ডিলিট করুন' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

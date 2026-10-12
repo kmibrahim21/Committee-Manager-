@@ -98,9 +98,17 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
   const [rechargeType, setRechargeType] = useState<'sms' | 'voice'>('sms');
   const [requesting, setRequesting] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
-  const [adminBkash, setAdminBkash] = useState('০১৭৬৬-XXXXXX');
+  const [adminBkash, setAdminBkash] = useState('01766-XXXXXX');
   const [smsRate, setSmsRate] = useState<number>(0.50);
   const [voiceRate, setVoiceRate] = useState<number>(1.00);
+
+  const formatDigits = (str: string) => {
+    if (!str) return 'N/A';
+    const bnToEn: Record<string, string> = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+    const enToBn: Record<string, string> = { '0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪', '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯' };
+    if (lang === 'en') return str.replace(/[০-৯]/g, d => bnToEn[d] || d);
+    return str.replace(/[0-9]/g, d => enToBn[d] || d);
+  };
 
   useEffect(() => { 
     if (activeTab === 'templates') fetchTemplates(); 
@@ -600,7 +608,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                     <Smartphone size={60} />
                   </div>
                   <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 relative z-10 ${madrasah?.theme === 'dark' ? 'text-[#0fb5ab]' : 'text-[#0fb5ab]'}`}>{t('bkash_personal', lang)}</p>
-                  <h3 className={`text-3xl font-black relative z-10 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{adminBkash}</h3>
+                  <h3 className={`text-3xl font-black relative z-10 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{formatDigits(adminBkash)}</h3>
                 </div>
 
                 <div className="space-y-4">

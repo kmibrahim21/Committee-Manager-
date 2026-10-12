@@ -36,6 +36,7 @@ import Polls from 'pages/Polls';
 import NoticeBoard from 'pages/NoticeBoard';
 import { VoiceServiceDashboard } from 'components/VoiceServiceDashboard';
 import { TutorialsManager } from 'components/TutorialsManager';
+import { ManagerManagement } from 'components/ManagerManagement';
 import { View, Department as Department, Member as Member, Language } from 'types';
 import { t } from 'translations';
 import { BookOpen, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -195,17 +196,11 @@ const App: React.FC = () => {
         if (role === 'member') { setView('home'); return null; }
         return <Departments onClassClick={(cls) => { setSelectedClass(cls); setView('members'); }} lang={lang} madrasah={madrasah} dataVersion={dataVersion} triggerRefresh={triggerRefresh} readOnly={role !== 'org_admin' && role !== 'super_admin' && !profile?.permissions?.can_manage_departments} profile={profile} />;
       case 'members':
-        const parsedConfig = typeof madrasah?.config_json === 'string'
-          ? (() => { try { return JSON.parse(madrasah.config_json); } catch(e) { return {}; } })()
-          : (madrasah?.config_json || {});
-        if (!selectedClass && parsedConfig?.modules?.departments !== false) {
-           setView('departments');
-           return null;
-        }
         return <Members 
                   selectedClass={selectedClass} 
                   onStudentClick={(s) => { setSelectedStudent(s); setView('member-details'); }} 
                   onAddClick={() => { setIsEditing(false); setSelectedStudent(null); setView('member-form'); }} 
+                  onEditClick={(s) => { setSelectedStudent(s); setIsEditing(true); setView('member-form'); }}
                   onBack={() => setView(selectedClass ? 'departments' : 'home')} 
                   lang={lang} 
                   dataVersion={dataVersion} 
@@ -241,25 +236,31 @@ const App: React.FC = () => {
       case 'account':
         return <Account lang={lang} setLang={(l) => { setLang(l); localStorage.setItem('app_lang', l); }} initialMadrasah={madrasah} setView={setView} onLogout={handleLogout} onProfileUpdate={refreshMadrasah} profile={profile} />;
       case 'super-account':
-        if (role !== 'super_admin') { setView('home'); return null; }
+        if (role !== 'super_admin' && role !== 'manager') { setView('home'); return null; }
         return <SuperAccount lang={lang} setLang={(l) => { setLang(l); localStorage.setItem('app_lang', l); }} initialMadrasah={madrasah} setView={setView} onLogout={handleLogout} onProfileUpdate={refreshMadrasah} />;
       case 'admin-panel':
       case 'admin-approvals':
       case 'admin-dashboard':
-        if (role !== 'super_admin') { setView('home'); return null; }
+        if (role !== 'super_admin' && role !== 'manager') { setView('home'); return null; }
         
         const permissions = profile?.permissions;
-        if (view === 'admin-dashboard' && permissions?.dashboard === false) { setView('home'); return null; }
-        if (view === 'admin-panel' && permissions?.organizations === false) { setView('home'); return null; }
-        if (view === 'admin-approvals' && permissions?.approvals === false) { setView('home'); return null; }
+        if (view === 'admin-dashboard' && (permissions?.dashboard === false || permissions?.can_view_dashboard === false)) { setView('home'); return null; }
+        if (view === 'admin-panel' && (permissions?.organizations === false || permissions?.can_manage_committees === false)) { setView('home'); return null; }
+        if (view === 'admin-approvals' && (permissions?.approvals === false || permissions?.can_approve_payments === false)) { setView('home'); return null; }
         
         return <AdminPanel lang={lang} currentView={view === 'admin-approvals' ? 'approvals' : view === 'admin-dashboard' ? 'dashboard' : 'list'} dataVersion={dataVersion} onProfileUpdate={refreshMadrasah} madrasah={madrasah} profile={profile} setStatusModal={setStatusModal} />;
+      case 'admin-managers':
+        if (role !== 'super_admin' && !(role === 'manager' && profile?.permissions?.can_manage_managers)) {
+          setView('super-account');
+          return null;
+        }
+        return <ManagerManagement lang={lang} madrasah={madrasah} profile={profile} setStatusModal={setStatusModal} onBack={() => setView('super-account')} />;
       case 'admin-voice-service':
-        if (role !== 'super_admin') { setView('home'); return null; }
-        return <VoiceServiceDashboard onBack={() => setView('account')} madrasah={madrasah} setStatusModal={setStatusModal} />;
+        if (role !== 'super_admin' && !(role === 'manager' && profile?.permissions?.can_access_voice_service)) { setView('home'); return null; }
+        return <VoiceServiceDashboard onBack={() => setView('super-account')} madrasah={madrasah} setStatusModal={setStatusModal} />;
       case 'admin-tutorials':
-        if (role !== 'super_admin') { setView('home'); return null; }
-        return <TutorialsManager onBack={() => setView('account')} madrasah={madrasah} setStatusModal={setStatusModal} />;
+        if (role !== 'super_admin' && !(role === 'manager' && profile?.permissions?.can_manage_tutorials)) { setView('home'); return null; }
+        return <TutorialsManager onBack={() => setView('super-account')} madrasah={madrasah} setStatusModal={setStatusModal} />;
       case 'wallet-sms':
         return <WalletSMS lang={lang} madrasah={madrasah} triggerRefresh={triggerRefresh} dataVersion={dataVersion} initialTab={walletTab} role={role} profile={profile} onBack={() => setView('home')} />;
       case 'voice-broadcast':

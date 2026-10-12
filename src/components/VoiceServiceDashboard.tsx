@@ -676,10 +676,10 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-4 border shadow-sm flex flex-col justify-between ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
         }`}>
-          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 ${
+          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 shrink-0 ${
             isDark ? 'bg-emerald-950/50 text-emerald-400' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
           }`}>
-            <DollarSign size={18} />
+            <DollarSign size={18} className="shrink-0" />
           </div>
           <div className="min-w-0">
             <p className={`text-[9px] font-black uppercase tracking-widest truncate ${
@@ -699,10 +699,10 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-4 border shadow-sm flex flex-col justify-between ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
         }`}>
-          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 ${
+          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 shrink-0 ${
             isDark ? 'bg-blue-950/50 text-blue-400' : 'bg-blue-50 text-blue-600 border border-blue-100'
           }`}>
-            <Mic size={18} />
+            <Mic size={18} className="shrink-0" />
           </div>
           <div className="min-w-0">
             <p className={`text-[9px] font-black uppercase tracking-widest truncate ${
@@ -710,16 +710,17 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
             }`}>
               TOTAL VOICES
             </p>
-            <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
-              <span className={`text-xs sm:text-base font-black ${
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className={`text-sm sm:text-base font-black ${
                 isDark ? 'text-white' : 'text-slate-900'
               }`}>
                 {voices.length}
               </span>
-              <span className={`text-[9px] sm:text-[10px] font-black whitespace-nowrap ${
-                isDark ? 'text-emerald-400' : 'text-emerald-600'
+              <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                isDark ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               }`}>
-                {approvedCount} ok
+                <Check size={10} strokeWidth={3} className="shrink-0" />
+                <span>{approvedCount} ok</span>
               </span>
             </div>
           </div>
@@ -729,10 +730,10 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-4 border shadow-sm flex flex-col justify-between ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
         }`}>
-          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 ${
+          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 shrink-0 ${
             isDark ? 'bg-emerald-950/50 text-emerald-400' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
           }`}>
-            <Building2 size={18} />
+            <Building2 size={18} className="shrink-0" />
           </div>
           <div className="min-w-0">
             <p className={`text-[9px] font-black uppercase tracking-widest truncate ${
@@ -740,7 +741,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
             }`}>
               ASSIGNED
             </p>
-            <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
+            <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
               <span className={`text-xs sm:text-base font-black ${
                 isDark ? 'text-white' : 'text-slate-900'
               }`}>

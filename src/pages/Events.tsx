@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Plus, Search, Calendar, MapPin, User, Clock, 
   MoreVertical, Edit2, Trash2, ChevronLeft, 
@@ -28,6 +29,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
   const [filterType, setFilterType] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   
   const [newEvent, setNewEvent] = useState<Partial<Event>>({
     title: '',
@@ -100,7 +102,36 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
       fetchEvents();
     } catch (error) {
       console.error('Error creating event:', error);
-      alert('Event create failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !editingEvent.title || !editingEvent.start_date) return;
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('events')
+        .update({
+          title: editingEvent.title,
+          description: editingEvent.description,
+          venue: editingEvent.venue,
+          event_type: editingEvent.event_type,
+          start_date: editingEvent.start_date,
+          end_date: editingEvent.end_date,
+          organizer: editingEvent.organizer,
+          guest_name: editingEvent.guest_name,
+          status: editingEvent.status,
+          department_id: editingEvent.department_id || null
+        })
+        .eq('id', editingEvent.id);
+
+      if (error) throw error;
+      setEditingEvent(null);
+      fetchEvents();
+    } catch (error) {
+      console.error('Error updating event:', error);
     } finally {
       setLoading(false);
     }
@@ -281,9 +312,21 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                             event.status === 'cancelled' ? 'বাতিল' : event.status
                           ) : event.status}
                        </div>
-                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <button className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}><Edit2 size={16} className="text-[#0fb5ab]" /></button>
-                         <button onClick={() => setShowDeleteConfirm(event.id)} className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}><Trash2 size={16} className="text-rose-500" /></button>
+                       <div className="flex gap-2">
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setEditingEvent(event); }} 
+                           className={`p-2 rounded-lg border transition-all ${isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-700' : 'bg-slate-50 hover:bg-blue-50 border-slate-100'}`}
+                           title={lang === 'bn' ? 'এডিট করুন' : 'Edit Event'}
+                         >
+                           <Edit2 size={16} className="text-[#0fb5ab]" />
+                         </button>
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(event.id); }} 
+                           className={`p-2 rounded-lg border transition-all ${isDark ? 'bg-slate-800 hover:bg-rose-950/40 border-slate-700' : 'bg-rose-50 hover:bg-rose-100 border-rose-100'}`}
+                           title={lang === 'bn' ? 'ডিলিট করুন' : 'Delete Event'}
+                         >
+                           <Trash2 size={16} className="text-rose-500" />
+                         </button>
                        </div>
                     </div>
 
@@ -350,9 +393,11 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
         )}
       </div>
 
-      {/* Add Modal */}
-      <AnimatePresence>
-        {showAddModal && (
+      {/* Modals Portaled */}
+      {typeof document !== 'undefined' && createPortal(
+        <>
+          <AnimatePresence>
+            {showAddModal && (
           <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
@@ -489,6 +534,140 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
             </motion.div>
           </div>
         )}
+        {/* Edit Modal */}
+        {editingEvent && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingEvent(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`relative w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${
+                isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between p-8 border-b border-transparent shrink-0">
+                <h3 className="text-2xl font-black font-noto">{lang === 'bn' ? 'ইভেন্ট এডিট করুন' : 'Edit Event'}</h3>
+                <button onClick={() => setEditingEvent(null)} className="p-2 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-8 flex-1 overflow-y-auto space-y-6 max-h-[60vh]">
+                 {/* Title */}
+                  <div className="space-y-2">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'ইভেন্টের শিরোনাম' : 'Event Title'}</label>
+                     <input 
+                      value={editingEvent.title || ''}
+                      onChange={(e) => setEditingEvent({...editingEvent, title: e.target.value})}
+                      className={`w-full h-14 rounded-2xl px-6 font-bold outline-none border-2 transition-all ${
+                        isDark ? 'bg-slate-800 border-transparent focus:border-[#42f5e9]' : 'bg-slate-50 border-transparent focus:border-[#42f5e9]/20'
+                      }`}
+                    />
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'ধরন' : 'Type'}</label>
+                      <select 
+                        value={editingEvent.event_type}
+                        onChange={(e) => setEditingEvent({...editingEvent, event_type: e.target.value as any})}
+                        className={`w-full h-14 rounded-2xl px-6 font-bold outline-none cursor-pointer ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
+                      >
+                         {eventTypes.map(t => <option key={t} value={t}>{lang === 'bn' ? (
+                          t === 'General' ? 'সাধারণ' : 
+                          t === 'Meeting' ? 'মিটিং' : 
+                          t === 'Seminar' ? 'সেমিনার' : 
+                          t === 'Cultural' ? 'সাংস্কৃতিক' : 
+                          t === 'Religious' ? 'ধর্মীয়' : 
+                          t === 'Exam' ? 'পরীক্ষা' : 
+                          t === 'Holiday' ? 'ছুটি' : 'অন্যান্য'
+                        ) : t}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'স্ট্যাটাস' : 'Status'}</label>
+                      <select 
+                        value={editingEvent.status}
+                        onChange={(e) => setEditingEvent({...editingEvent, status: e.target.value as any})}
+                        className={`w-full h-14 rounded-2xl px-6 font-bold outline-none cursor-pointer ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
+                      >
+                         <option value="planned">{lang === 'bn' ? 'আসন্ন (Planned)' : 'Planned'}</option>
+                         <option value="ongoing">{lang === 'bn' ? 'চলমান (Ongoing)' : 'Ongoing'}</option>
+                         <option value="completed">{lang === 'bn' ? 'সম্পন্ন (Completed)' : 'Completed'}</option>
+                         <option value="cancelled">{lang === 'bn' ? 'বাতিল (Cancelled)' : 'Cancelled'}</option>
+                      </select>
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'শুরুর তারিখ ও সময়' : 'Start Date & Time'}</label>
+                      <input 
+                        type="datetime-local"
+                        value={editingEvent.start_date?.slice(0, 16)}
+                        onChange={(e) => setEditingEvent({...editingEvent, start_date: new Date(e.target.value).toISOString()})}
+                        className={`w-full h-14 rounded-2xl px-6 font-bold outline-none ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'শেষের তারিখ (ঐচ্ছিক)' : 'End Date (Optional)'}</label>
+                      <input 
+                        type="datetime-local"
+                        value={editingEvent.end_date ? editingEvent.end_date.slice(0, 16) : ''}
+                        onChange={(e) => setEditingEvent({...editingEvent, end_date: e.target.value ? new Date(e.target.value).toISOString() : ''})}
+                        className={`w-full h-14 rounded-2xl px-6 font-bold outline-none ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
+                      />
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'স্থান/লোকেশন' : 'Venue / Location'}</label>
+                       <input 
+                         value={editingEvent.venue || ''}
+                         onChange={(e) => setEditingEvent({...editingEvent, venue: e.target.value})}
+                         className={`w-full h-14 rounded-2xl px-6 font-bold outline-none ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'গেস্টের নাম' : 'Select Guest/Guest Name'}</label>
+                       <input 
+                         value={editingEvent.guest_name || ''}
+                         onChange={(e) => setEditingEvent({...editingEvent, guest_name: e.target.value})}
+                         className={`w-full h-14 rounded-2xl px-6 font-bold outline-none ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}
+                       />
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'bn' ? 'বিস্তারিত তথ্য' : 'Description / Details'}</label>
+                    <textarea 
+                      value={editingEvent.description || ''}
+                      onChange={(e) => setEditingEvent({...editingEvent, description: e.target.value})}
+                      className={`w-full h-24 rounded-2xl p-6 font-bold outline-none resize-none ${isDark ? 'bg-slate-800 border-transparent' : 'bg-slate-50 border-transparent'}`}
+                    />
+                 </div>
+              </div>
+
+              <div className="p-8 border-t border-slate-50/10">
+                 <button 
+                   onClick={handleUpdateEvent}
+                   disabled={loading || !editingEvent.title}
+                   className="w-full py-6 bg-[#42f5e9] text-[#0e8a84] rounded-[2rem] font-black shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all text-xs uppercase tracking-widest disabled:opacity-50"
+                 >
+                   {loading ? <Loader2 className="animate-spin" /> : <><Sparkles size={18} /> {lang === 'bn' ? 'ইভেন্ট আপডেট করুন' : 'Update Event Protocol'}</>}
+                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
       {/* Delete Confirm */}
@@ -507,6 +686,9 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
               </div>
            </div>
         </div>
+      )}
+        </>,
+        document.body
       )}
     </div>
   );

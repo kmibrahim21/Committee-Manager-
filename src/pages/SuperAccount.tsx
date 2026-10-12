@@ -23,6 +23,16 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
   const [showSuccessModal, setShowSuccessModal] = useState({ show: false, title: '', message: '' });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  const formatDigitsByLang = (str: string | undefined | null, currentLang: Language): string => {
+    if (!str) return 'N/A';
+    const bnToEn: Record<string, string> = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+    const enToBn: Record<string, string> = { '0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪', '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯' };
+    if (currentLang === 'en') {
+      return str.replace(/[০-৯]/g, d => bnToEn[d] || d);
+    }
+    return str.replace(/[0-9]/g, d => enToBn[d] || d);
+  };
+
   const handleLogoutClick = async () => {
     setIsLoggingOut(true);
     try {
@@ -180,6 +190,23 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
         </button>
 
         <button 
+          onClick={() => setView('admin-managers')}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-[#BFE8DD] text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <ShieldCheck size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>
+              {lang === 'bn' ? 'ম্যানেজার প্যানেল' : 'Manager Panel'}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'ম্যানেজার ও পারমিশন' : 'Managers & Roles'}
+            </p>
+          </div>
+        </button>
+
+        <button 
           onClick={() => setView('executives')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
         >
@@ -253,8 +280,12 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
             <Mic size={24} />
           </div>
           <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>ভয়েস সার্ভিস</h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">আপলোড ও ডিরেক্ট কল</p>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>
+              {lang === 'bn' ? 'ভয়েস সার্ভিস' : 'Voice Service'}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {lang === 'bn' ? 'আপলোড ও ডিরেক্ট কল' : 'Upload & Direct Call'}
+            </p>
           </div>
         </button>
         
@@ -267,7 +298,9 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
           </div>
           <div>
             <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>Master Payment</h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{globalSettings.bkash_number || 'N/A'}</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {formatDigitsByLang(globalSettings.bkash_number, lang)}
+            </p>
           </div>
         </button>
 

@@ -24,6 +24,7 @@ interface MeetingDetailViewProps {
     onDeleteDecision: (id: string) => void;
     onToggleAgenda: (id: string, completed: boolean) => void;
     onDeleteMeeting: () => void;
+    onEditMeeting?: () => void;
     onUpdateStatus: (status: string) => void;
     lang: string;
 }
@@ -31,7 +32,7 @@ interface MeetingDetailViewProps {
 const MeetingDetailView: React.FC<MeetingDetailViewProps> = ({ 
     meeting, madrasah, agendas, decisions, attendanceMembers, attendanceRecords, 
     onBack, onUpdateAttendance, onPrint, onAddAgenda, onAddDecision, onDeleteAgenda, 
-    onDeleteDecision, onToggleAgenda, onDeleteMeeting, onUpdateStatus, lang
+    onDeleteDecision, onToggleAgenda, onDeleteMeeting, onEditMeeting, onUpdateStatus, lang
 }) => {
     const [activeSection, setActiveSection] = useState<'info' | 'agenda' | 'participants' | 'attendance'>('info');
     const [newAgenda, setNewAgenda] = useState('');
@@ -165,14 +166,29 @@ const MeetingDetailView: React.FC<MeetingDetailViewProps> = ({
                         </span>
                     )}
 
+                    {/* Edit Button */}
+                    {onEditMeeting && (
+                        <button 
+                            onClick={onEditMeeting} 
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-bold font-noto tracking-wide transition-all active:scale-95 hover:scale-[1.01]
+                                ${isDark ? 'bg-slate-900 border-slate-800 text-sky-400 hover:bg-slate-850' : 'bg-white border-slate-200/60 text-[#2563EB] shadow-sm hover:bg-slate-50'}`}
+                            title={lang === 'bn' ? 'মিটিং এডিট' : 'Edit Meeting'}
+                        >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+                        </button>
+                    )}
+
                     {/* Delete Button */}
                     <button 
                         onClick={onDeleteMeeting}
-                        className={`p-2 rounded-xl border transition-all active:scale-95 hover:bg-rose-500/10 hover:text-rose-500
-                            ${isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50/50 border-rose-100 text-rose-500 shadow-sm'}`}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-all active:scale-95 hover:bg-rose-500 hover:text-white
+                            ${isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50/80 border-rose-100 text-rose-600 shadow-sm'}`}
                         id="btn_delete_meeting"
+                        title={lang === 'bn' ? 'মিটিং ডিলিট করুন' : 'Delete Meeting'}
                     >
                         <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{lang === 'bn' ? 'ডিলিট' : 'Delete'}</span>
                     </button>
                 </div>
             </header>
@@ -707,7 +723,8 @@ const MeetingDetailView: React.FC<MeetingDetailViewProps> = ({
                                                             { id: 'absent', activeBg: 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20', inactiveBg: isDark ? 'bg-blue-950/30 text-blue-700/60 border-blue-950 hover:text-sky-400 hover:border-blue-900' : 'bg-blue-50/40 text-blue-300 border-blue-100/50 hover:text-[#2563EB] hover:border-blue-300/80', label: lang === 'bn' ? 'অনুপস্থিত' : 'Absent', icon: XCircle },
                                                             { id: 'late', activeBg: 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20', inactiveBg: isDark ? 'bg-blue-950/30 text-blue-700/60 border-blue-950 hover:text-sky-400 hover:border-blue-900' : 'bg-blue-50/40 text-blue-300 border-blue-100/50 hover:text-[#2563EB] hover:border-blue-300/80', label: lang === 'bn' ? 'বিলম্ব' : 'Late', icon: Clock }
                                                         ].map(stat => {
-                                                            const isActive = attendanceRecords[member.id] === stat.id;
+                                                            const memberStatus = attendanceRecords[member.id] || 'absent';
+                                                            const isActive = memberStatus === stat.id;
                                                             return (
                                                                 <button
                                                                     key={stat.id}

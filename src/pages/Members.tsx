@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Plus, Search, CheckCircle2, MessageSquare, X, BookOpen, ChevronDown, Check, PhoneCall, Smartphone, Loader2, ListChecks, MessageCircle, Phone, AlertCircle, AlertTriangle, Zap } from 'lucide-react';
+import { ArrowLeft, Plus, Search, CheckCircle2, MessageSquare, X, BookOpen, ChevronDown, Check, PhoneCall, Smartphone, Loader2, ListChecks, MessageCircle, Phone, AlertCircle, AlertTriangle, Zap, Edit3, Trash2 } from 'lucide-react';
 import { supabase, offlineApi, smsApi } from 'supabase';
 import { Department, Member, Language, Institution } from 'types';
 import { t } from 'translations';
@@ -12,6 +12,7 @@ interface StudentsProps {
   selectedClass?: Department | null;
   onStudentClick: (student: Member) => void;
   onAddClick: () => void;
+  onEditClick?: (student: Member) => void;
   onBack: () => void;
   lang: Language;
   dataVersion: number;
@@ -25,13 +26,35 @@ interface StudentsProps {
 
 const PAGE_SIZE = 50;
 
-const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAddClick, onBack, lang, dataVersion, triggerRefresh, canAdd, canSendSMS, institutionId, madrasah, onNavigateToWallet }) => {
+const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAddClick, onEditClick, onBack, lang, dataVersion, triggerRefresh, canAdd, canSendSMS, institutionId, madrasah, onNavigateToWallet }) => {
   const [students, setStudents] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteStudentId, setDeleteStudentId] = useState<string | null>(null);
+  const [isDeletingMember, setIsDeletingMember] = useState(false);
+
+  const handleDeleteMember = async (id: string) => {
+    try {
+      setIsDeletingMember(true);
+      const { error } = await supabase.from('members').delete().eq('id', id);
+      if (error) {
+        console.warn('Supabase delete error:', error);
+      }
+      setStudents(prev => prev.filter(s => s.id !== id));
+      setDeleteStudentId(null);
+      triggerRefresh();
+    } catch (e: any) {
+      console.error('Delete member error:', e);
+      setStudents(prev => prev.filter(s => s.id !== id));
+      setDeleteStudentId(null);
+      triggerRefresh();
+    } finally {
+      setIsDeletingMember(false);
+    }
+  };
   
   // Union Specific Filters
   const [filterDivision, setFilterDivision] = useState('');
@@ -320,18 +343,38 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
               </div>
             </div>
             {!isSelectionMode && (
-              <div className="flex items-center gap-2 shrink-0 ml-3">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-2">
+                {canAdd && onEditClick && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onEditClick(student); }} 
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border-2 shadow-sm active:scale-90 transition-all ${isDark ? 'bg-slate-800 text-sky-400 border-slate-700 hover:bg-slate-700' : 'bg-slate-50 text-blue-600 border-slate-100 hover:bg-blue-50'}`}
+                    title={lang === 'bn' ? 'সদস্য এডিট করুন' : 'Edit Member'}
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                )}
+                {canAdd && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setDeleteStudentId(student.id); }} 
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border-2 shadow-sm active:scale-90 transition-all ${isDark ? 'bg-slate-800 text-rose-400 border-slate-700 hover:bg-rose-950/40' : 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100'}`}
+                    title={lang === 'bn' ? 'সদস্য ডিলিট করুন' : 'Delete Member'}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
                 <button 
                   onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${student.phone}`; }} 
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 shadow-sm active:scale-90 transition-all hover:bg-[#42f5e9] hover:text-[#0e8a84] hover:border-[#42f5e9] hover:shadow-[#42f5e9]/20 ${isDark ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-slate-50 text-[#0fb5ab] border-slate-100'}`}
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border-2 shadow-sm active:scale-90 transition-all hover:bg-[#42f5e9] hover:text-[#0e8a84] hover:border-[#42f5e9] hover:shadow-[#42f5e9]/20 ${isDark ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-slate-50 text-[#0fb5ab] border-slate-100'}`}
+                  title={lang === 'bn' ? 'কল করুন' : 'Call'}
                 >
-                  <Phone size={18} fill="currentColor" />
+                  <Phone size={16} fill="currentColor" />
                 </button>
                 <button 
                   onClick={(e) => { e.stopPropagation(); window.location.href = `https://wa.me/88${student.phone.replace(/\D/g, '')}`; }} 
-                  className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 active:scale-90 transition-all hover:rotate-6 hover:shadow-emerald-300"
+                  className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 active:scale-90 transition-all hover:rotate-6 hover:shadow-emerald-300"
+                  title="WhatsApp"
                 >
-                  <PhoneCall size={18} fill="currentColor" />
+                  <PhoneCall size={16} fill="currentColor" />
                 </button>
               </div>
             )}
@@ -405,6 +448,39 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
              >
                {lang === 'bn' ? 'ঠিক আছে' : 'Continue'}
              </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {deleteStudentId && createPortal(
+        <div className="fixed inset-0 z-[350] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteStudentId(null)} />
+          <div className={`relative w-full max-w-sm p-6 sm:p-8 rounded-[2.5rem] shadow-2xl text-center border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+            <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={32} />
+            </div>
+            <h3 className={`text-lg font-black font-noto mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+              {lang === 'bn' ? 'সদস্য ডিলিট করবেন?' : 'Delete Member?'}
+            </h3>
+            <p className="text-xs text-slate-400 mb-6 font-noto">
+              {lang === 'bn' ? 'আপনি কি নিশ্চিতভাবে এই সদস্যের তথ্য মুছে ফেলতে চান? এটি আর ফেরত পাওয়া যাবে না।' : 'Are you sure you want to delete this member? This action cannot be undone.'}
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setDeleteStudentId(null)}
+                className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs uppercase font-noto"
+              >
+                {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+              </button>
+              <button 
+                onClick={() => handleDeleteMember(deleteStudentId)}
+                disabled={isDeletingMember}
+                className="flex-1 py-3.5 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase font-noto shadow-lg shadow-rose-500/20 active:scale-95 flex items-center justify-center gap-2"
+              >
+                {isDeletingMember ? <Loader2 size={16} className="animate-spin" /> : (lang === 'bn' ? 'ডিলিট করুন' : 'Delete')}
+              </button>
+            </div>
           </div>
         </div>,
         document.body

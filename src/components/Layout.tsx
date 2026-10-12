@@ -34,6 +34,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isSuperAdmin = profile?.role === 'super_admin';
+  const isManager = profile?.role === 'manager';
+  const isSystemAdmin = isSuperAdmin || isManager;
   const role = profile?.role || 'executive';
 
   const handleRefreshClick = async () => {
@@ -44,6 +46,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
   
   const canAccess = (module: string) => {
     if (profile?.role === 'super_admin') return true;
+    if (profile?.role === 'manager') {
+      const perms = profile?.permissions;
+      if (module === 'dashboard') return perms?.can_view_dashboard !== false && perms?.dashboard !== false;
+      if (module === 'organizations') return perms?.can_manage_committees !== false && perms?.organizations !== false;
+      if (module === 'approvals') return perms?.can_approve_payments !== false && perms?.approvals !== false;
+      if (module === 'managers') return !!perms?.can_manage_managers;
+      return true;
+    }
     return false;
   };
   
@@ -118,22 +128,22 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
         <div className="p-6 flex items-center gap-4 border-b border-inherit">
           <div className="relative shrink-0">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-              {isSuperAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
+              {isSystemAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
             </div>
             <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 ${madrasah?.theme === 'dark' ? 'border-slate-900' : 'border-white'} ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
           </div>
           <div className="min-w-0 flex-1">
             <h1 className={`text-lg font-black leading-tight tracking-tight font-noto line-clamp-3 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'}`}>
-              {isSuperAdmin ? (lang === 'bn' ? 'সুপার অ্যাডমিন' : 'Super Admin') : (madrasah?.name || 'Organization Portal')}
+              {isSuperAdmin ? (lang === 'bn' ? 'সুপার অ্যাডমিন' : 'Super Admin') : isManager ? (lang === 'bn' ? 'ম্যানেজার' : 'Manager') : (madrasah?.name || 'Organization Portal')}
             </h1>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 font-noto">
-              {role === 'super_admin' ? 'Super Admin Portal' : role === 'member' ? 'Member Portal' : role === 'executive' ? 'Executive Portal' : role === 'accountant' ? 'Accounts Portal' : 'Admin Portal'}
+              {role === 'super_admin' ? 'Super Admin Portal' : role === 'manager' ? 'Manager Portal' : role === 'member' ? 'Member Portal' : role === 'executive' ? 'Executive Portal' : role === 'accountant' ? 'Accounts Portal' : 'Admin Portal'}
             </p>
           </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-          {isSuperAdmin ? (
+          {isSystemAdmin ? (
             <>
               {canAccess('dashboard') && (
                 <button onClick={() => setView('admin-dashboard')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
@@ -153,11 +163,17 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                   <span className="text-sm font-bold font-noto">{t('approvals', lang)}</span>
                 </button>
               )}
+              {canAccess('managers') && (
+                <button onClick={() => setView('admin-managers')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('admin-managers') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+                  <ShieldCheck size={22} strokeWidth={isTabActive('admin-managers') ? 2.5 : 2} />
+                  <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'ম্যানেজার' : 'Managers'}</span>
+                </button>
+              )}
               <button onClick={() => setView('sms-voice-menu')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <MessageSquare size={22} strokeWidth={isTabActive('sms-voice-menu') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'যোগাযোগ' : 'Communication'}</span>
               </button>
-              <button onClick={() => setView(isSuperAdmin ? 'super-account' : 'account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
+              <button onClick={() => setView(isSystemAdmin ? 'super-account' : 'account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                 <User size={22} strokeWidth={isTabActive('account') ? 2.5 : 2} />
                 <span className="text-sm font-bold font-noto">{t('account', lang)}</span>
               </button>
@@ -297,7 +313,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
         {/* Mobile Bottom Nav */}
         <div className="fixed md:hidden bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-[200]">
         <nav className={`backdrop-blur-[25px] border flex justify-around items-center py-4 px-1 rounded-[2.5rem] shadow-bubble ${madrasah?.theme === 'dark' ? 'bg-slate-800/95 border-slate-700' : 'bg-white/95 border-slate-200'}`}>
-          {isSuperAdmin ? (
+          {isSystemAdmin ? (
             <>
               {canAccess('dashboard') && (
                 <button onClick={() => setView('admin-dashboard')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
@@ -315,6 +331,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 <button onClick={() => setView('admin-approvals')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
                   <CreditCard size={20} />
                   <span className="text-[9px] font-black font-noto opacity-80">{t('approvals', lang)}</span>
+                </button>
+              )}
+              {canAccess('managers') && (
+                <button onClick={() => setView('admin-managers')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('admin-managers') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
+                  <ShieldCheck size={20} />
+                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'ম্যানেজার' : 'Manager'}</span>
                 </button>
               )}
               <button onClick={() => setView('sms-voice-menu')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
@@ -385,7 +407,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
             </>
           )}
           
-          <button onClick={() => setView(isSuperAdmin ? 'super-account' : 'account')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
+          <button onClick={() => setView(isSystemAdmin ? 'super-account' : 'account')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
             <User size={20} />
             <span className="text-[9px] font-black font-noto opacity-80">{t('account', lang)}</span>
           </button>

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Institution, Language, Poll, PollVote, Profile, UserRole } from '../types';
 import { 
   Plus, 
@@ -10,7 +11,10 @@ import {
   CheckCircle2,
   BarChart,
   Users,
-  Timer
+  Timer,
+  Edit2,
+  Loader2,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../supabase';
@@ -30,10 +34,12 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
   const [selectedOptions, setSelectedOptions] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingPoll, setEditingPoll] = useState<Poll | null>(null);
+  const [deletePollId, setDeletePollId] = useState<string | null>(null);
   const [newPoll, setNewPoll] = useState({ question: '', options: ['', ''], end_date: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const canManage = role === 'super_admin' || role === 'org_admin' || profile?.permissions?.can_manage_settings;
+  const canManage = role === 'super_admin' || role === 'org_admin' || role === 'executive' || !!profile?.permissions?.can_manage_settings || !!profile?.permissions?.can_manage_members;
 
   useEffect(() => {
     fetchPolls();
@@ -218,8 +224,41 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
       setActivePolls(prev => [savedPoll, ...prev]);
       setIsCreating(false);
       setNewPoll({ question: '', options: ['', ''], end_date: '' });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-      alert(lang === 'bn' ? 'পোল সফলভাবে তৈরি এবং সংরক্ষিত হয়েছে!' : 'Poll created and saved successfully!');
+  const handleUpdatePoll = async () => {
+    if (!madrasah || !editingPoll || !editingPoll.question || editingPoll.options.some(o => !o)) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('polls')
+        .update({
+          question: editingPoll.question,
+          options: editingPoll.options,
+          end_date: editingPoll.end_date
+        })
+        .eq('id', editingPoll.id);
+
+      if (error) throw error;
+
+      // Update local storage fallback
+      if (madrasah) {
+        const localPollsJson = localStorage.getItem(`local_polls_${madrasah.id}`);
+        if (localPollsJson) {
+          const localPolls: Poll[] = JSON.parse(localPollsJson);
+          const updated = localPolls.map(p => p.id === editingPoll.id ? editingPoll : p);
+          localStorage.setItem(`local_polls_${madrasah.id}`, JSON.stringify(updated));
+        }
+      }
+
+      setActivePolls(prev => prev.map(p => p.id === editingPoll.id ? editingPoll : p));
+      setCompletedPolls(prev => prev.map(p => p.id === editingPoll.id ? editingPoll : p));
+      setEditingPoll(null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -228,7 +267,6 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
   };
 
   const handleClosePoll = async (id: string) => {
-    if (!confirm(lang === 'bn' ? 'আপনি কি পোলটি বন্ধ করতে চান?' : 'Do you want to close this poll?')) return;
     try {
       await supabase
         .from('polls')
@@ -250,6 +288,31 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
         setActivePolls(prev => prev.filter(p => p.id !== id));
         setCompletedPolls(prev => [{ ...poll, is_active: false }, ...prev]);
       }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeletePoll = async (id: string) => {
+    try {
+      await supabase
+        .from('polls')
+        .delete()
+        .eq('id', id);
+
+      // Remove from local storage fallback
+      if (madrasah) {
+        const localPollsJson = localStorage.getItem(`local_polls_${madrasah.id}`);
+        if (localPollsJson) {
+          const localPolls: Poll[] = JSON.parse(localPollsJson);
+          const updated = localPolls.filter(p => p.id !== id);
+          localStorage.setItem(`local_polls_${madrasah.id}`, JSON.stringify(updated));
+        }
+      }
+
+      setActivePolls(prev => prev.filter(p => p.id !== id));
+      setCompletedPolls(prev => prev.filter(p => p.id !== id));
+      setDeletePollId(null);
     } catch (e) {
       console.error(e);
     }
@@ -407,12 +470,29 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
                           </div>
                           
                           {canManage && (
-                            <button 
-                              onClick={() => handleClosePoll(poll.id)}
-                              className="text-[10px] font-black text-red-500 uppercase tracking-widest px-3 py-1 bg-red-50 rounded-full hover:bg-red-100 transition-all"
-                            >
-                              {t('close_poll')}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => setEditingPoll(poll)}
+                                className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest px-3 py-1.5 bg-[#42f5e9]/10 hover:bg-[#42f5e9]/20 rounded-full transition-all flex items-center gap-1"
+                                title={lang === 'bn' ? 'এডিট করুন' : 'Edit Poll'}
+                              >
+                                <Edit2 size={12} />
+                                <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+                              </button>
+                              <button 
+                                onClick={() => handleClosePoll(poll.id)}
+                                className="text-[10px] font-black text-amber-600 uppercase tracking-widest px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 rounded-full transition-all"
+                              >
+                                {t('close_poll')}
+                              </button>
+                              <button 
+                                onClick={() => setDeletePollId(poll.id)}
+                                className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-full transition-all"
+                                title={lang === 'bn' ? 'ডিলিট করুন' : 'Delete Poll'}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </motion.div>
@@ -438,11 +518,31 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
                     return (
                       <div
                         key={poll.id}
-                        className={`p-6 rounded-[2rem] border opacity-80 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-800' : 'bg-white border-slate-50'}`}
+                        className={`p-6 rounded-[2rem] border opacity-90 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-800' : 'bg-white border-slate-50'}`}
                       >
-                        <h3 className={`text-lg font-black font-noto mb-4 ${madrasah?.theme === 'dark' ? 'text-slate-100' : 'text-slate-700'}`}>
-                          {poll.question}
-                        </h3>
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                          <h3 className={`text-lg font-black font-noto ${madrasah?.theme === 'dark' ? 'text-slate-100' : 'text-slate-700'}`}>
+                            {poll.question}
+                          </h3>
+                          {canManage && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setEditingPoll(poll); }}
+                                className="p-1.5 text-slate-400 hover:text-[#0fb5ab] rounded-full transition-all"
+                                title={lang === 'bn' ? 'এডিট করুন' : 'Edit'}
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setDeletePollId(poll.id); }}
+                                className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-full transition-all"
+                                title={lang === 'bn' ? 'ডিলিট করুন' : 'Delete'}
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         
                         <div className="space-y-2">
                           {poll.options.map((option, idx) => {
@@ -476,8 +576,9 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
         )}
       </div>
 
-      {/* Create Modal */}
-      <AnimatePresence>
+      {/* Modals Portaled */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
         {isCreating && (
           <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div 
@@ -567,14 +668,146 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
                     disabled={isSubmitting || !newPoll.question || newPoll.options.some(o => !o)}
                     className="flex-[2] h-14 bg-[#42f5e9] text-[#0e8a84] rounded-2xl font-black shadow-lg shadow-[#42f5e9]/20 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center justify-center"
                   >
-                    {isSubmitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : lang === 'bn' ? 'তৈরি করুন' : 'Create Poll'}
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : lang === 'bn' ? 'তৈরি করুন' : 'Create Poll'}
                   </button>
                 </div>
               </div>
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+
+        {/* Edit Modal */}
+        {editingPoll && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingPoll(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`relative w-full max-w-lg p-6 rounded-[2.5rem] shadow-2xl max-h-[90vh] overflow-y-auto ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
+            >
+              <h2 className={`text-xl font-black font-noto mb-6 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                {lang === 'bn' ? 'পোল এডিট করুন' : 'Edit Poll'}
+              </h2>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t('question')}</label>
+                  <input 
+                    type="text" 
+                    className={`w-full h-14 rounded-2xl px-6 font-bold outline-none border focus:border-[#42f5e9]/50 transition-all ${
+                      madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'
+                    }`}
+                    value={editingPoll.question}
+                    onChange={(e) => setEditingPoll({...editingPoll, question: e.target.value})}
+                  />
+                </div>
+                
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t('options')}</label>
+                  {editingPoll.options.map((opt, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input 
+                        type="text" 
+                        className={`flex-1 h-12 rounded-xl px-5 font-bold outline-none border focus:border-[#42f5e9]/50 transition-all ${
+                          madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'
+                        }`}
+                        placeholder={`${lang === 'bn' ? 'বিকল্প' : 'Option'} ${i + 1}`}
+                        value={opt}
+                        onChange={(e) => {
+                          const newOpts = [...editingPoll.options];
+                          newOpts[i] = e.target.value;
+                          setEditingPoll({...editingPoll, options: newOpts});
+                        }}
+                      />
+                      {editingPoll.options.length > 2 && (
+                        <button 
+                          onClick={() => {
+                            const newOpts = editingPoll.options.filter((_, idx) => idx !== i);
+                            setEditingPoll({...editingPoll, options: newOpts});
+                          }}
+                          className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex items-center gap-3 pt-4">
+                  <button 
+                    onClick={() => setEditingPoll(null)}
+                    className={`flex-1 h-14 rounded-2xl font-black transition-all ${
+                      madrasah?.theme === 'dark' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                  </button>
+                  <button 
+                    onClick={handleUpdatePoll}
+                    disabled={isSubmitting || !editingPoll.question || editingPoll.options.some(o => !o)}
+                    className="flex-[2] h-14 bg-[#42f5e9] text-[#0e8a84] rounded-2xl font-black shadow-lg shadow-[#42f5e9]/20 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all flex items-center justify-center"
+                  >
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : lang === 'bn' ? 'আপডেট করুন' : 'Update Poll'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {deletePollId && (
+          <div className="fixed inset-0 z-[350] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeletePollId(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`relative w-full max-w-sm p-6 rounded-[2.5rem] shadow-2xl text-center ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-white'}`}
+            >
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={32} />
+              </div>
+              <h3 className={`text-lg font-black font-noto mb-2 ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+                {lang === 'bn' ? 'পোল ডিলিট করবেন?' : 'Delete Poll?'}
+              </h3>
+              <p className="text-xs text-slate-400 mb-6 font-noto">
+                {lang === 'bn' ? 'আপনি কি নিশ্চিতভাবে এই পোল ও এর সকল ভোট মুছে ফেলতে চান?' : 'Are you sure you want to delete this poll and all its votes?'}
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setDeletePollId(null)}
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs uppercase"
+                >
+                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                </button>
+                <button 
+                  onClick={() => handleDeletePoll(deletePollId)}
+                  className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-rose-500/20 active:scale-95"
+                >
+                  {lang === 'bn' ? 'ডিলিট করুন' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

@@ -339,3 +339,144 @@ export const generateMemberFormPDF = async (
     
     doc.save(`Blank-Member-Registration-Form.pdf`);
 };
+
+// --- MEETING SUMMARY & RESOLUTIONS PDF GENERATOR ---
+export const generateMeetingMinutesPDF = async (
+    meeting: any,
+    madrasah: Institution | null,
+    lang: 'en' | 'bn' = 'bn',
+    agendas: any[] = [],
+    decisions: any[] = [],
+    attendanceMembers: any[] = [],
+    attendanceRecords: Record<string, string> = {}
+) => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    await loadBengaliFont(doc);
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
+
+    // Header Title
+    doc.setFontSize(18);
+    doc.setTextColor(30, 58, 138); // #1E3A8A
+    const orgName = madrasah?.name || (lang === 'bn' ? 'কমিটি ব্যবস্থাপনা পরিষদ' : 'Committee Management Council');
+    doc.text(orgName, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 8;
+
+    doc.setFontSize(14);
+    doc.setTextColor(51, 65, 85);
+    const docTitle = lang === 'bn' ? `মিটিং কার্যবিবরণী ও রেজোলিউশন` : `Meeting Minutes & Resolutions`;
+    doc.text(docTitle, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    // Horizontal divider
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.5);
+    doc.line(15, yPos, pageWidth - 15, yPos);
+    yPos += 8;
+
+    // Meeting Info Box
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${lang === 'bn' ? 'সভার নাম:' : 'Meeting:'} ${meeting.title || 'N/A'}`, 15, yPos);
+    yPos += 6;
+
+    const formattedDate = meeting.date ? new Date(meeting.date).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US') : 'N/A';
+    doc.text(`${lang === 'bn' ? 'তারিখ:' : 'Date:'} ${formattedDate}    |    ${lang === 'bn' ? 'সময়:' : 'Time:'} ${meeting.time || '10:00 AM'}`, 15, yPos);
+    yPos += 6;
+
+    doc.text(`${lang === 'bn' ? 'স্থান:' : 'Venue:'} ${meeting.venue || (lang === 'bn' ? 'প্রধান সভাকক্ষ' : 'Main Hall')}    |    ${lang === 'bn' ? 'কমিটি/শাখা:' : 'Group:'} ${meeting.departments?.name || (lang === 'bn' ? 'সাধারণ পরিষদ' : 'General')}`, 15, yPos);
+    yPos += 10;
+
+    // Attendance Summary
+    const totalMem = attendanceMembers.length;
+    const presentMem = attendanceMembers.filter(m => attendanceRecords[m.id] === 'present').length;
+    const rate = totalMem > 0 ? Math.round((presentMem / totalMem) * 100) : 0;
+    
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(15, yPos, pageWidth - 30, 12, 2, 2, 'F');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    const attendanceSummaryText = lang === 'bn' 
+        ? `মোট সদস্য: ${totalMem} জন | উপস্থিত: ${presentMem} জন | উপস্থিতির হার: ${rate}%`
+        : `Total Members: ${totalMem} | Present: ${presentMem} | Attendance Rate: ${rate}%`;
+    doc.text(attendanceSummaryText, pageWidth / 2, yPos + 7.5, { align: 'center' });
+    yPos += 18;
+
+    // Description / Objective
+    if (meeting.description) {
+        doc.setFontSize(11);
+        doc.setTextColor(30, 58, 138);
+        doc.text(lang === 'bn' ? 'মিটিং এর উদ্দেশ্য ও বিবরণ:' : 'Objective & Description:', 15, yPos);
+        yPos += 6;
+
+        doc.setFontSize(9.5);
+        doc.setTextColor(71, 85, 105);
+        const descLines = doc.splitTextToSize(meeting.description.replace(/---METADATA---[\s\S]*?---METADATA---/, '').trim(), pageWidth - 30);
+        doc.text(descLines, 15, yPos);
+        yPos += descLines.length * 5 + 6;
+    }
+
+    // Agendas
+    if (agendas.length > 0) {
+        doc.setFontSize(11);
+        doc.setTextColor(30, 58, 138);
+        doc.text(lang === 'bn' ? 'আলোচ্য সূচি (Agendas):' : 'Agendas:', 15, yPos);
+        yPos += 6;
+
+        const agendaRows = agendas.map((ag, idx) => [
+            (idx + 1).toString(),
+            ag.topic || '',
+            ag.is_completed ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : (lang === 'bn' ? 'চলমান' : 'Pending')
+        ]);
+
+        autoTable(doc, {
+            startY: yPos,
+            head: [[lang === 'bn' ? 'ক্রম' : '#', lang === 'bn' ? 'আলোচ্য বিষয়' : 'Topic', lang === 'bn' ? 'অবস্থা' : 'Status']],
+            body: agendaRows,
+            theme: 'grid',
+            headStyles: { fillColor: [37, 99, 235], textColor: 255, font: 'NotoSansBengali', fontSize: 9 },
+            styles: { font: 'NotoSansBengali', fontSize: 9 },
+            margin: { left: 15, right: 15 }
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Decisions / Resolutions
+    if (decisions.length > 0) {
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(11);
+        doc.setTextColor(30, 58, 138);
+        doc.text(lang === 'bn' ? 'গৃহীত সিদ্ধান্তসমূহ (Decisions):' : 'Decisions & Resolutions:', 15, yPos);
+        yPos += 6;
+
+        const decisionRows = decisions.map((dec, idx) => [
+            (idx + 1).toString(),
+            dec.decision || '',
+            dec.responsible_person || (lang === 'bn' ? 'সাধারণ' : 'General')
+        ]);
+
+        autoTable(doc, {
+            startY: yPos,
+            head: [[lang === 'bn' ? 'ক্রম' : '#', lang === 'bn' ? 'সিদ্ধান্ত' : 'Decision', lang === 'bn' ? 'দায়িত্বপ্রাপ্ত' : 'Assignee']],
+            body: decisionRows,
+            theme: 'grid',
+            headStyles: { fillColor: [14, 165, 233], textColor: 255, font: 'NotoSansBengali', fontSize: 9 },
+            styles: { font: 'NotoSansBengali', fontSize: 9 },
+            margin: { left: 15, right: 15 }
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 12;
+    }
+
+    // Signatures
+    if (yPos > 245) { doc.addPage(); yPos = 20; }
+    yPos = Math.max(yPos, 245);
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(lang === 'bn' ? 'সাধারণ সম্পাদক' : 'General Secretary', 35, yPos, { align: 'center' });
+    doc.text(lang === 'bn' ? 'সভাপতি / সভাপতিমন্ডলী' : 'President / Chairperson', pageWidth - 45, yPos, { align: 'center' });
+
+    doc.save(`Meeting-Minutes-${(meeting.title || 'report').replace(/[^a-zA-Z0-9\u0980-\u09FF_-]/g, '_')}.pdf`);
+};

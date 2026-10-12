@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from 'supabase';
 import { Institution, LedgerEntry, Language, UserRole, Department, Profile, Member } from 'types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calculator, Plus, ArrowUpCircle, ArrowDownCircle, Loader2, Save, X, DollarSign, Tag, FileText, RefreshCw, Bell, Heart, Users, BarChart3, AlertCircle, CreditCard, Calendar as CalendarIcon, Hash, BookmarkPlus, Trash2 } from 'lucide-react';
+import { Calculator, Plus, ArrowUpCircle, ArrowDownCircle, Loader2, Save, X, DollarSign, Tag, FileText, RefreshCw, Bell, Heart, Users, BarChart3, AlertCircle, CreditCard, Calendar as CalendarIcon, Hash, BookmarkPlus, Trash2, Edit2 } from 'lucide-react';
 import CommitteeFinancialAnalytics from 'components/CommitteeFinancialAnalytics';
 import { FlexibleSubscriptionEngine } from 'components/finance/FlexibleSubscriptionEngine';
 import { StandardSubscriptionEngine } from 'components/finance/StandardSubscriptionEngine';
@@ -394,6 +394,22 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                                   {entry.type === 'income' ? '+' : '-'} ৳{entry.amount.toLocaleString('bn-BD')}
                                 </p>
                               </div>
+                              {canManageAccounting && (
+                                <button
+                                  onClick={() => {
+                                    setType(entry.type as any);
+                                    setAmount(entry.amount.toString());
+                                    setCategory(entry.category || '');
+                                    setDesc(entry.description || '');
+                                    setTransactionDate(entry.transaction_date ? entry.transaction_date.slice(0, 10) : new Date().toISOString().slice(0, 10));
+                                    setActiveTab('add-ledger');
+                                  }}
+                                  className={`p-1.5 rounded-xl border transition-colors ${isDark ? 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-sky-400' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-blue-600'}`}
+                                  title={lang === 'bn' ? 'এডিট করুন' : 'Edit'}
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                              )}
                               <button
                                 onClick={() => setConfirmDeleteId(entry.id)}
                                 className={`p-1.5 rounded-xl border transition-colors ${isDark ? 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-red-400' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-red-500'}`}

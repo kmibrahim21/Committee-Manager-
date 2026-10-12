@@ -108,12 +108,12 @@ export const useAuth = () => {
           } else {
             setMadrasah(null);
           }
-        } else if (finalProfile.role === 'super_admin') {
-          // Super admins might not have a institution_id
+        } else if (finalProfile.role === 'super_admin' || finalProfile.role === 'manager') {
+          // Super admins & Managers might not have a institution_id
           const localTheme = localStorage.getItem('super_admin_theme') || 'default';
           const defaultSuperAdminInst = {
             id: 'super_admin',
-            name: 'Super Admin',
+            name: finalProfile.role === 'manager' ? (finalProfile.full_name || 'System Manager') : 'Super Admin',
             institution_type: 'system',
             theme: localTheme,
             config_json: { 

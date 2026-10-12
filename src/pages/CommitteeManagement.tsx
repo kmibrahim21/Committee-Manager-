@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Users, UserPlus, Search, Edit3, Trash2, Shield, 
   ChevronLeft, Loader2, CheckCircle2, AlertCircle,
@@ -31,6 +32,7 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedExecutive, setSelectedExecutive] = useState<Teacher | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -190,8 +192,6 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
   };
 
   const handleDeleteExecutive = async (id: string) => {
-    if (!window.confirm(t('confirm_delete', lang))) return;
-    
     try {
       const { error } = await supabase
         .from('executives')
@@ -199,10 +199,12 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
         .eq('id', id);
 
       if (error) throw error;
-      await fetchExecutives();
+      setExecutives(prev => prev.filter(e => e.id !== id));
+      setDeleteConfirmId(null);
     } catch (err: any) {
       console.error('Delete executive error:', err);
-      alert(err.message || 'Failed to delete executive');
+      setError(err.message || 'Failed to delete executive');
+      setDeleteConfirmId(null);
     }
   };
 
@@ -332,14 +334,16 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
                     {canManageExecutives && (
                       <>
                         <button 
-                          onClick={() => openEditModal(executive)}
+                          onClick={(e) => { e.stopPropagation(); openEditModal(executive); }}
                           className={`p-2 rounded-lg font-black text-[9px] uppercase tracking-widest flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 transition-all ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600'}`}
+                          title={lang === 'bn' ? 'এডিট করুন' : 'Edit'}
                         >
                           <Edit3 size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDeleteExecutive(executive.id)}
+                          onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(executive.id); }}
                           className={`p-2 rounded-lg flex items-center justify-center hover:bg-red-500 hover:text-white transition-all ${isDark ? 'bg-red-900/20 text-red-400' : 'bg-red-50 text-red-600'}`}
+                          title={lang === 'bn' ? 'ডিলিট করুন' : 'Delete'}
                         >
                           <Trash2 size={14} />
                         </button>
@@ -384,7 +388,9 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
         )}
       </div>
 
-      <AnimatePresence>
+      {/* Modals Portaled */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
         {(showAddModal || showEditModal) && (
           <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
             <motion.div 
@@ -523,7 +529,51 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
             </motion.div>
           </div>
         )}
-      </AnimatePresence>
+        {/* Delete Confirmation Modal */}
+        {deleteConfirmId && (
+          <div className="fixed inset-0 z-[350] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirmId(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`relative w-full max-w-sm p-6 rounded-[2.5rem] shadow-2xl text-center ${isDark ? 'bg-slate-800' : 'bg-white'}`}
+            >
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={32} />
+              </div>
+              <h3 className={`text-lg font-black font-noto mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                {lang === 'bn' ? 'কার্যনির্বাহী সদস্য ডিলিট করবেন?' : 'Delete Executive?'}
+              </h3>
+              <p className="text-xs text-slate-400 mb-6 font-noto">
+                {lang === 'bn' ? 'আপনি কি নিশ্চিতভাবে এই সদস্যকে কার্যনির্বাহী পরিষদ থেকে মুছে ফেলতে চান?' : 'Are you sure you want to remove this member from the executive committee?'}
+              </p>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs uppercase font-noto"
+                >
+                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                </button>
+                <button 
+                  onClick={() => handleDeleteExecutive(deleteConfirmId)}
+                  className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase font-noto shadow-lg shadow-rose-500/20 active:scale-95"
+                >
+                  {lang === 'bn' ? 'ডিলিট করুন' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

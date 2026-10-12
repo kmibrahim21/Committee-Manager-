@@ -114,8 +114,16 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   const [rechargePhone, setRechargePhone] = useState('');
   const [isRecharging, setIsRecharging] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
-  const [adminBkash, setAdminBkash] = useState('০১৭৬৬-XXXXXX');
+  const [adminBkash, setAdminBkash] = useState('01766-XXXXXX');
   const [voiceRate, setVoiceRate] = useState(1.00);
+
+  const formatDigits = (str: string) => {
+    if (!str) return 'N/A';
+    const bnToEn: Record<string, string> = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
+    const enToBn: Record<string, string> = { '0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪', '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯' };
+    if (lang === 'en') return str.replace(/[০-৯]/g, d => bnToEn[d] || d);
+    return str.replace(/[0-9]/g, d => enToBn[d] || d);
+  };
 
   // Error/Status Modal
   const [statusModal, setStatusModal] = useState<{show: boolean, type: 'error' | 'balance' | 'success', title: string, message: string}>({
@@ -1285,7 +1293,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                       <Smartphone size={60} />
                     </div>
                     <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-1 relative z-10">{t('bkash_personal', lang)}</p>
-                    <h3 className="text-3xl font-black text-[#0fb5ab] relative z-10">{adminBkash}</h3>
+                    <h3 className="text-3xl font-black text-[#0fb5ab] relative z-10">{formatDigits(adminBkash)}</h3>
                   </div>
                 </div>
 

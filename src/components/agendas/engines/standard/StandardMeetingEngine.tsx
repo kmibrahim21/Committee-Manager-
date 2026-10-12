@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../../../supabase';
 import { Institution, Language, UserRole, Profile, Department, Member } from '../../../../types';
 import { 
@@ -10,6 +11,7 @@ import {
 import { motion } from 'motion/react';
 import MeetingDashboard from './MeetingDashboard';
 import MeetingDetailView from './MeetingDetailView';
+import { generateMeetingMinutesPDF } from '../../../../utils/pdfGenerator';
 
 interface MeetingEngineProps {
     lang: Language;
@@ -179,6 +181,17 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
             if (members) setAttendanceMembers(members);
             
             const recordMap: Record<string, string> = {};
+            // Check localStorage cache first
+            if (madrasah?.id) {
+                const cached = localStorage.getItem(`meeting_attendance_${meetingId}`);
+                if (cached) {
+                    try {
+                        Object.assign(recordMap, JSON.parse(cached));
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+            }
             records?.forEach(r => {
                 recordMap[r.member_id] = r.status;
             });
@@ -191,19 +204,28 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
     };
 
     const handleUpdateAttendance = async (memberId: string, status: string) => {
+        if (!selectedMeeting) return;
+        // Optimistic update
+        setAttendanceRecords(prev => {
+            const next = { ...prev, [memberId]: status };
+            try {
+                localStorage.setItem(`meeting_attendance_${selectedMeeting.id}`, JSON.stringify(next));
+            } catch (e) {
+                console.error(e);
+            }
+            return next;
+        });
+
         try {
-            const { error } = await supabase
+            await supabase
                 .from('meeting_attendance')
                 .upsert({
                     meeting_id: selectedMeeting.id,
                     member_id: memberId,
                     status
                 }, { onConflict: 'meeting_id,member_id' });
-            
-            if (error) throw error;
-            setAttendanceRecords(prev => ({ ...prev, [memberId]: status }));
         } catch (e) {
-            alert(lang === 'bn' ? 'উপস্থিতি আপডেট করতে সমস্যা হয়েছে' : 'Error updating attendance');
+            console.error('Error updating attendance remotely:', e);
         }
     };
 
@@ -368,39 +390,20 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
         }
     };
 
-    const handlePrintMinutes = (meeting: any) => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-        
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>Meeting Minutes - ${meeting.title}</title>
-                    <style>
-                        body { font-family: 'Noto Sans Bengali', 'Inter', sans-serif; padding: 40px; color: #1e293b; }
-                        h1 { color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-                        .meta { margin-bottom: 30px; font-size: 14px; color: #64748b; }
-                        .section { margin-bottom: 30px; }
-                        .section-title { font-weight: bold; text-transform: uppercase; font-size: 12px; color: #94a3b8; margin-bottom: 10px; }
-                        .content { line-height: 1.6; white-space: pre-wrap; background: #f8fafc; padding: 20px; border-radius: 10px; }
-                    </style>
-                </head>
-                <body>
-                    <h1>${meeting.title}</h1>
-                    <div class="meta">
-                        Date: ${new Date(meeting.date).toLocaleDateString()} | 
-                        Audience: ${meeting.departments?.name || 'All'}
-                    </div>
-                    
-                    <div class="section">
-                        <div class="section-title">Description</div>
-                        <div class="content">${meeting.description || 'N/A'}</div>
-                    </div>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
+    const handlePrintMinutes = async (meeting: any) => {
+        try {
+            await generateMeetingMinutesPDF(
+                meeting,
+                madrasah,
+                lang === 'en' ? 'en' : 'bn',
+                agendas,
+                decisions,
+                attendanceMembers,
+                attendanceRecords
+            );
+        } catch (e) {
+            console.error('PDF generation error:', e);
+        }
     };
 
     const onAddAgenda = async (topic: string) => {
@@ -639,6 +642,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                     onDeleteDecision={onDeleteDecision}
                     onToggleAgenda={onToggleAgenda}
                     onDeleteMeeting={() => setDeletingId(selectedMeeting.id)}
+                    onEditMeeting={() => { setEditingMeeting(selectedMeeting); setShowEditModal(true); }}
                     onUpdateStatus={(status) => handleUpdateStatus(selectedMeeting.id, status)}
                     lang={lang}
                 />
@@ -646,7 +650,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
 
 
             {/* Delete Confirmation Modal */}
-            {deletingId && (
+            {deletingId && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-3xl z-[3000] flex items-center justify-center p-4 sm:p-6">
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.8 }}
@@ -678,11 +682,12 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                             </button>
                         </div>
                     </motion.div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Add Modal */}
-            {showAddModal && (
+            {showAddModal && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[2000] flex items-center justify-center p-3 sm:p-10">
                     <motion.div 
                         initial={{ opacity: 0, y: 100, scale: 0.9 }}
@@ -794,11 +799,12 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                             </button>
                         </div>
                     </motion.div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Edit Modal */}
-            {showEditModal && editingMeeting && (
+            {showEditModal && editingMeeting && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[2000] flex items-center justify-center p-3 sm:p-10">
                     <motion.div 
                         initial={{ opacity: 0, y: 100, scale: 0.9 }}
@@ -907,7 +913,8 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                             </button>
                         </div>
                     </motion.div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

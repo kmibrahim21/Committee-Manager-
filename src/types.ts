@@ -5,7 +5,7 @@
 
 export type Language = 'bn' | 'en';
 
-export type UserRole = 'super_admin' | 'org_admin' | 'accountant' | 'executive' | 'member';
+export type UserRole = 'super_admin' | 'manager' | 'org_admin' | 'accountant' | 'executive' | 'member';
 
 export interface Institution {
   id: string;
@@ -165,6 +165,28 @@ export interface QawmiResultConfig {
   is_active: boolean;
 }
 
+export interface ManagerProfile {
+  id: string;
+  email?: string;
+  full_name: string;
+  role: 'manager';
+  is_active: boolean;
+  phone?: string;
+  created_at: string;
+  permissions: ManagerPermissions;
+}
+
+export interface ManagerPermissions {
+  can_manage_committees?: boolean;      // কমিটি তৈরি ও এডিট করার অনুমতি
+  can_approve_payments?: boolean;       // এসএমএস ও পেমেন্ট রিকোয়েস্ট অ্যাপ্রুভ/রিজেক্ট
+  can_send_sms?: boolean;               // সুপার অ্যাডমিন বাল্ক এসএমএস পাঠানো
+  can_manage_rates?: boolean;           // এসএমএস ও ভয়েস রেট কনফিগারেশন
+  can_view_dashboard?: boolean;         // সিস্টেম অ্যানালিটিক্স ও ড্যাশবোর্ড
+  can_manage_tutorials?: boolean;       // ভিডিও ও টিউটোরিয়াল ম্যানেজমেন্ট
+  can_access_voice_service?: boolean;   // ভয়েস সার্ভিস ও ডিরেক্ট কল
+  can_manage_managers?: boolean;        // অন্যান্য ম্যানেজার ম্যানেজ করার ক্ষমতা
+}
+
 export interface Profile {
   id: string;
   institution_id: string;
@@ -195,6 +217,14 @@ export interface Profile {
     can_manage_executives?: boolean;
     can_manage_settings?: boolean;
     can_view_reports?: boolean;
+    // Super Admin Manager permissions
+    can_manage_committees?: boolean;
+    can_approve_payments?: boolean;
+    can_manage_rates?: boolean;
+    can_view_dashboard?: boolean;
+    can_manage_tutorials?: boolean;
+    can_access_voice_service?: boolean;
+    can_manage_managers?: boolean;
     allowed_departments?: string[];
   };
 }
@@ -444,6 +474,7 @@ export type View =
   | 'tutorials'
   | 'admin-voice-service'
   | 'admin-tutorials'
+  | 'admin-managers'
   | 'polls' | 'management'
   | 'notice-board'
   | 'super-account'

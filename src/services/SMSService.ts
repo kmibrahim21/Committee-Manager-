@@ -28,7 +28,7 @@ export const SMSService = {
       const defaults = { 
         reve_api_key: 'demo16a6792c44443d2.81791638', 
         reve_caller_id: '8809601017065',
-        bkash_number: '০১৭৬৬-XXXXXX',
+        bkash_number: '01766-XXXXXX',
         sms_rate: 0.50,
         voice_rate: 1.00
       };
@@ -43,7 +43,7 @@ export const SMSService = {
         voice_rate: data.voice_rate || defaults.voice_rate
       };
     } catch (e) {
-      return { reve_api_key: 'demo16a6792c44443d2.81791638', bkash_number: '০১৭৬৬-XXXXXX', reve_caller_id: '8809601017065' };
+      return { reve_api_key: 'demo16a6792c44443d2.81791638', bkash_number: '01766-XXXXXX', reve_caller_id: '8809601017065' };
     }
   },
 

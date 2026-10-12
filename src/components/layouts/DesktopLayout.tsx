@@ -27,6 +27,8 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const isSuperAdmin = profile?.role === 'super_admin';
+  const isManager = profile?.role === 'manager';
+  const isSystemAdmin = isSuperAdmin || isManager;
   const role = profile?.role || 'org_admin';
   
   const modules = React.useMemo(() => {
@@ -75,6 +77,7 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
     if (tab === 'list' && currentView === 'admin-panel') return true;
     if (tab === 'dashboard' && currentView === 'admin-dashboard') return true;
     if (tab === 'approvals' && currentView === 'admin-approvals') return true;
+    if (tab === 'managers' && currentView === 'admin-managers') return true;
     if (tab === 'accounting' && currentView === 'accounting') return true;
     if (tab === 'attendance' && currentView === 'attendance') return true;
     if (tab === 'meetings' && currentView === 'meetings') return true;
@@ -103,6 +106,7 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
       'account': t('account', lang, madrasah?.institution_type),
       'wallet': t('wallet', lang, madrasah?.institution_type),
       'admin-dashboard': 'Admin Dashboard',
+      'admin-managers': lang === 'bn' ? 'ম্যানেজার প্যানেল' : 'Manager Management',
       'data-management': 'Data Management',
       'accounting': t('accounting', lang, madrasah?.institution_type) || 'Accounting',
       'attendance': t('attendance', lang, madrasah?.institution_type) || 'Attendance',
@@ -125,24 +129,33 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
       <aside className={`w-64 flex-none flex flex-col border-r ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
         <div className="p-6 flex items-center gap-3 border-b border-slate-100">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border shrink-0 overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-blue-50 border-blue-100'}`}>
-            {isSuperAdmin ? <ShieldCheck size={22} className="text-[#2563EB]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
+            {isSystemAdmin ? <ShieldCheck size={22} className="text-[#2563EB]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
           </div>
           <div className="min-w-0 flex-1">
             <h1 className={`text-sm font-black leading-tight tracking-tight font-noto truncate ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'}`}>
-              {isSuperAdmin ? (lang === 'bn' ? 'সুপার অ্যাডমিন' : 'Super Admin') : (madrasah?.name || 'Organization Portal')}
+              {isSuperAdmin ? (lang === 'bn' ? 'সুপার অ্যাডমিন' : 'Super Admin') : isManager ? (lang === 'bn' ? 'ম্যানেজার' : 'Manager') : (madrasah?.name || 'Organization Portal')}
             </h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 font-noto">
-              {role === 'super_admin' ? 'Super Admin Portal' : role === 'member' ? 'Member Portal' : role === 'accountant' ? 'Accounts Portal' : 'Admin Portal'}
+              {role === 'super_admin' ? 'Super Admin Portal' : role === 'manager' ? 'Manager Portal' : role === 'member' ? 'Member Portal' : role === 'accountant' ? 'Accounts Portal' : 'Admin Portal'}
             </p>
           </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
-          {isSuperAdmin ? (
+          {isSystemAdmin ? (
             <>
-              <NavItem icon={BarChart3} label={t('dashboard', lang, madrasah?.institution_type)} tab="dashboard" onClick={() => setView('admin-dashboard')} />
-              <NavItem icon={Users} label={lang === 'bn' ? 'কমিটি' : 'Committees'} tab="list" onClick={() => setView('admin-panel')} />
-              <NavItem icon={CreditCard} label={t('approvals', lang, madrasah?.institution_type)} tab="approvals" onClick={() => setView('admin-approvals')} />
+              {(isSuperAdmin || profile?.permissions?.can_view_dashboard !== false) && (
+                <NavItem icon={BarChart3} label={t('dashboard', lang, madrasah?.institution_type)} tab="dashboard" onClick={() => setView('admin-dashboard')} />
+              )}
+              {(isSuperAdmin || profile?.permissions?.can_manage_committees !== false) && (
+                <NavItem icon={Users} label={lang === 'bn' ? 'কমিটি' : 'Committees'} tab="list" onClick={() => setView('admin-panel')} />
+              )}
+              {(isSuperAdmin || profile?.permissions?.can_approve_payments !== false) && (
+                <NavItem icon={CreditCard} label={t('approvals', lang, madrasah?.institution_type)} tab="approvals" onClick={() => setView('admin-approvals')} />
+              )}
+              {(isSuperAdmin || profile?.permissions?.can_manage_managers) && (
+                <NavItem icon={ShieldCheck} label={lang === 'bn' ? 'ম্যানেজার' : 'Managers'} tab="managers" onClick={() => setView('admin-managers')} />
+              )}
             </>
           ) : role === 'member' ? (
             <>

@@ -82,6 +82,45 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
     fetchCustomMemberTypes();
   }, []);
 
+  useEffect(() => {
+    if (student) {
+      setName(student.name || '');
+      setRoll(student.roll?.toString() || '');
+      setMemberIdNumber(student.member_id_number || '');
+      setClassId(student.department_id || defaultClassId || '');
+      setMemberType(student.member_type || 'general');
+      setPhotoUrl(student.photo_url || '');
+      setFatherName(student.father_name || '');
+      setMotherName(student.mother_name || '');
+      setDob(student.dob || '');
+      setGender(student.gender || 'male');
+      setBloodGroup(student.blood_group || '');
+      setOccupation(student.occupation || '');
+      setNid(student.nid || '');
+      setEducation(student.education || '');
+      setPhone(student.phone || '');
+      setEmail(student.email || '');
+      setGuardianName(student.guardian_name || '');
+      setPhone2(student.guardian_phone_2 || '');
+      setPresentAddress(student.present_address || student.address || '');
+      setPermanentAddress(student.permanent_address || '');
+      setJoinDate(student.join_date || new Date().toISOString().split('T')[0]);
+      setReference(student.reference || '');
+    } else if (!isEditing) {
+      setName('');
+      setRoll('');
+      setMemberIdNumber('');
+      setClassId(defaultClassId || '');
+      setMemberType('general');
+      setPhotoUrl('');
+      setPhone('');
+      setEmail('');
+      setNid('');
+      setPresentAddress('');
+      setPermanentAddress('');
+    }
+  }, [student, isEditing, defaultClassId]);
+
   const fetchCustomMemberTypes = async () => {
     if (madrasah) {
       const { data } = await supabase.from('member_types').select('*').eq('institution_id', madrasah.id);

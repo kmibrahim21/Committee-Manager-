@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 // Fix: Import icons from lucide-react instead of ../supabase
-import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2, PlusCircle, BookOpen, Vote, Landmark, ClipboardList } from 'lucide-react';
+import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2, PlusCircle, BookOpen, Vote, Landmark, ClipboardList, Filter } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Transaction, AdminSMSStock } from 'types';
 import { COMMITTEE_TYPES as UTILITY_COMMITTEE_TYPES } from '../utils/committeeTypes';
@@ -75,6 +75,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   );
 
   const [paymentTab, setPaymentTab] = useState<'sms' | 'voice'>('sms');
+  const [showPaymentFilter, setShowPaymentFilter] = useState(false);
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [paymentDateFilter, setPaymentDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
   const [isFetchingAwajVoices, setIsFetchingAwajVoices] = useState(false);
@@ -840,6 +844,57 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     return matchesSearch && matchesType;
   }), [madrasahs, searchQuery, filterType]);
 
+  const isTransactionMatchingDate = (dateStr: string, filter: 'all' | 'today' | 'week' | 'month') => {
+    if (filter === 'all') return true;
+    const date = new Date(dateStr);
+    const now = new Date();
+    if (filter === 'today') {
+      return date.toDateString() === now.toDateString();
+    }
+    if (filter === 'week') {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(now.getDate() - 7);
+      return date >= oneWeekAgo;
+    }
+    if (filter === 'month') {
+      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }
+    return true;
+  };
+
+  const matchesPaymentSearch = (tr: Transaction, query: string) => {
+    if (!query) return true;
+    const q = query.toLowerCase().trim();
+    const instName = (tr.institutions?.name || '').toLowerCase();
+    const trxId = (tr.transaction_id || '').toLowerCase();
+    const phone = (tr.sender_phone || '').toLowerCase();
+    const amount = String(tr.amount || '');
+    return instName.includes(q) || trxId.includes(q) || phone.includes(q) || amount.includes(q);
+  };
+
+  const filteredPending = useMemo(() => {
+    if (paymentStatusFilter === 'approved' || paymentStatusFilter === 'rejected') return [];
+    return pendingTrans.filter(tr => {
+      const desc = (tr.description || '').toLowerCase();
+      const matchesTab = paymentTab === 'sms' ? (desc.includes('sms') || !desc.includes('voice')) : desc.includes('voice');
+      const matchesSearch = matchesPaymentSearch(tr, paymentSearch);
+      const matchesDate = isTransactionMatchingDate(tr.created_at, paymentDateFilter);
+      return matchesTab && matchesSearch && matchesDate;
+    });
+  }, [pendingTrans, paymentTab, paymentSearch, paymentDateFilter, paymentStatusFilter]);
+
+  const filteredHistory = useMemo(() => {
+    if (paymentStatusFilter === 'pending') return [];
+    return transactionHistory.filter(tr => {
+      const desc = (tr.description || '').toLowerCase();
+      const matchesTab = paymentTab === 'sms' ? (desc.includes('sms') || !desc.includes('voice')) : desc.includes('voice');
+      const matchesStatus = paymentStatusFilter === 'all' || tr.status === paymentStatusFilter;
+      const matchesSearch = matchesPaymentSearch(tr, paymentSearch);
+      const matchesDate = isTransactionMatchingDate(tr.created_at, paymentDateFilter);
+      return matchesTab && matchesStatus && matchesSearch && matchesDate;
+    });
+  }, [transactionHistory, paymentTab, paymentStatusFilter, paymentSearch, paymentDateFilter]);
+
   return (
     <div className={`space-y-6 pb-20 animate-in fade-in relative ${madrasah?.theme === 'dark' ? 'text-white' : ''}`}>
       {loading ? (
@@ -852,7 +907,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           {view === 'dashboard' && (
             <div className="space-y-6 animate-in slide-in-from-bottom-5">
               <div className="flex items-center justify-between px-2">
-                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto`}>সিস্টেম ড্যাশবোর্ড</h1>
+                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto`}>
+                  {lang === 'bn' ? 'সিস্টেম ড্যাশবোর্ড' : 'System Dashboard'}
+                </h1>
                 <button onClick={() => initData()} className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#0fb5ab] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'} rounded-xl active:scale-95 transition-all border shadow-sm`}>
                    <RefreshCw size={18} />
                 </button>
@@ -860,29 +917,29 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center`}>
-                  <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
-                    <Users2 size={20} />
+                  <div className={`w-10 h-10 min-w-[40px] min-h-[40px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
+                    <Users2 size={20} className="shrink-0" />
                   </div>
                   <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalInstitutions}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'মোট পোর্টাল' : 'Total Portals'}</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center`}>
-                  <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
-                    <Activity size={20} />
+                  <div className={`w-10 h-10 min-w-[40px] min-h-[40px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
+                    <Activity size={20} className="shrink-0" />
                   </div>
                   <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.activeInstitutions}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'সচল পোর্টাল' : 'Active Portals'}</p>
                 </div>
                 <div onClick={() => setView('approvals')} className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none hover:border-yellow-900' : 'bg-white border-slate-100 shadow-bubble hover:border-yellow-200'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center cursor-pointer transition-all active:scale-95`}>
-                  <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-50 text-yellow-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
-                    <CreditCard size={20} />
+                  <div className={`w-10 h-10 min-w-[40px] min-h-[40px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-50 text-yellow-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
+                    <CreditCard size={20} className="shrink-0" />
                   </div>
                   <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.pendingApprovals}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'পেন্ডিং রিকোয়েস্ট' : 'Pending Approvals'}</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-5 rounded-[2.2rem] border flex flex-col items-center text-center`}>
-                  <div className={`w-10 h-10 ${madrasah?.theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-50 text-purple-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
-                    <Banknote size={20} />
+                  <div className={`w-10 h-10 min-w-[40px] min-h-[40px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-50 text-purple-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
+                    <Banknote size={20} className="shrink-0" />
                   </div>
                   <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalRevenue.toLocaleString('bn-BD')}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'মোট আয় (৳)' : 'Total Revenue (৳)'}</p>
@@ -891,15 +948,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
               <div className="grid grid-cols-2 gap-3">
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-4 rounded-[2rem] border flex flex-col items-center text-center`}>
-                  <div className={`w-8 h-8 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
-                    <GraduationCap size={16} />
+                  <div className={`w-8 h-8 min-w-[32px] min-h-[32px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
+                    <GraduationCap size={16} className="shrink-0" />
                   </div>
                   <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalStudents.toLocaleString('bn-BD')}</h4>
                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্য' : 'Members'}</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-4 rounded-[2rem] border flex flex-col items-center text-center`}>
-                  <div className={`w-8 h-8 ${madrasah?.theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-50 text-orange-500'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
-                    <Layers size={16} />
+                  <div className={`w-8 h-8 min-w-[32px] min-h-[32px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-50 text-orange-500'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
+                    <Layers size={16} className="shrink-0" />
                   </div>
                   <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalClasses.toLocaleString('bn-BD')}</h4>
                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কমিটি' : 'Committees'}</p>
@@ -909,37 +966,43 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>SMS Inventory</h3>
+                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>
+                      {lang === 'bn' ? 'এসএমএস ইনভেন্টরি' : 'SMS Inventory'}
+                    </h3>
                     <Zap size={24} className={madrasah?.theme === 'dark' ? 'text-[#0fb5ab]' : 'text-[#0fb5ab]'} fill="currentColor" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-5 rounded-3xl border`}>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">বিতরণকৃত SMS</p>
-                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalDistributedSMS.toLocaleString('bn-BD')}</h5>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{lang === 'bn' ? 'বিতরণকৃত SMS' : 'Distributed SMS'}</p>
+                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalDistributedSMS.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</h5>
                     </div>
                     <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-5 rounded-3xl border`}>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ব্যবহৃত SMS</p>
-                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-red-400' : 'text-red-500'}`}>{globalStats.totalSentSMS.toLocaleString('bn-BD')}</h5>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{lang === 'bn' ? 'ব্যবহৃত SMS' : 'Sent SMS'}</p>
+                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-red-400' : 'text-red-500'}`}>{globalStats.totalSentSMS.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</h5>
                     </div>
                     <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-5 rounded-3xl border`}>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">ইউজার ওয়ালেট (মোট SMS)</p>
-                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-purple-400' : 'text-[#8D30F4]'}`}>{globalStats.currentInUserWallets.toLocaleString('bn-BD')}</h5>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{lang === 'bn' ? 'ইউজার ওয়ালেট (মোট SMS)' : 'User Wallets (Total SMS)'}</p>
+                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-purple-400' : 'text-[#8D30F4]'}`}>{globalStats.currentInUserWallets.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</h5>
                     </div>
                     <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-5 rounded-3xl border`}>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">সিস্টেম স্টক (অবশিষ্ট SMS)</p>
-                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-500'}`}>{globalStats.adminSMSStock.toLocaleString('bn-BD')}</h5>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{lang === 'bn' ? 'সিস্টেম স্টক (অবশিষ্ট SMS)' : 'System Stock (Available SMS)'}</p>
+                      <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-500'}`}>{globalStats.adminSMSStock.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</h5>
                     </div>
                   </div>
                 </div>
 
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>System Info</h3>
+                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>
+                      {lang === 'bn' ? 'সিস্টেম তথ্য' : 'System Info'}
+                    </h3>
                     <AlertCircle size={24} className="text-slate-300" />
                   </div>
                   <div className="flex flex-col justify-center h-full pb-8">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-center">Total Institutions</p>
-                    <h5 className={`text-4xl font-black text-center ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalInstitutions.toLocaleString('bn-BD')}</h5>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-center">
+                      {lang === 'bn' ? 'মোট প্রতিষ্ঠান' : 'Total Institutions'}
+                    </p>
+                    <h5 className={`text-4xl font-black text-center ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalInstitutions.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</h5>
                   </div>
                 </div>
               </div>
@@ -947,7 +1010,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>System Breakdown</h3>
+                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>
+                      {lang === 'bn' ? 'সিস্টেম বিভাজন' : 'System Breakdown'}
+                    </h3>
                     <PieChart size={24} className="text-slate-300" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -962,7 +1027,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>Recent Portals</h3>
+                    <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>
+                      {lang === 'bn' ? 'সাম্প্রতিক পোর্টাল' : 'Recent Portals'}
+                    </h3>
                     <Building2 size={24} className="text-slate-300" />
                   </div>
                   <div className="space-y-3">
@@ -1091,44 +1158,174 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           {view === 'approvals' && (
             <div className="space-y-8 px-1">
               <div className="flex items-center justify-between px-2">
-                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>পেমেন্ট ম্যানেজমেন্ট</h1>
-                <button onClick={() => initData()} className={`p-2 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#0fb5ab] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'} rounded-xl active:scale-95 transition-all border shadow-sm`}>
-                   <RefreshCw size={18} />
-                </button>
+                <div>
+                  <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>
+                    {lang === 'bn' ? 'পেমেন্ট ম্যানেজমেন্ট' : 'Payment Management'}
+                  </h1>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                    {lang === 'bn' ? 'অনুমোদন ও রিচার্জ রিকোয়েস্ট' : 'Recharge Approvals & History'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowPaymentFilter(prev => !prev)} 
+                    className={`p-2.5 rounded-xl border transition-all active:scale-95 flex items-center gap-1.5 shadow-sm relative ${
+                      showPaymentFilter || paymentSearch || paymentStatusFilter !== 'all' || paymentDateFilter !== 'all'
+                        ? 'bg-[#42f5e9] text-[#0e8a84] border-[#0fb5ab]'
+                        : madrasah?.theme === 'dark'
+                          ? 'bg-slate-800 text-[#0fb5ab] border-slate-700'
+                          : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'
+                    }`}
+                    title={lang === 'bn' ? 'ফিল্টার' : 'Filter'}
+                  >
+                    <Filter size={18} />
+                    {(paymentSearch || paymentStatusFilter !== 'all' || paymentDateFilter !== 'all') && (
+                      <span className="w-2 h-2 rounded-full bg-[#0e8a84] absolute top-1 right-1" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => initData()} 
+                    className={`p-2.5 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#0fb5ab] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'} rounded-xl active:scale-95 transition-all border shadow-sm`}
+                    title={lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}
+                  >
+                     <RefreshCw size={18} />
+                  </button>
+                </div>
               </div>
+
+              {/* Collapsible Payment Filter UI */}
+              {showPaymentFilter && (
+                <div className={`p-5 rounded-[2rem] border animate-in slide-in-from-top-3 space-y-4 shadow-sm ${
+                  madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'
+                }`}>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Filter size={16} className="text-[#0fb5ab]" />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                        {lang === 'bn' ? 'পেমেন্ট ফিল্টার' : 'Payment Filter'}
+                      </span>
+                    </div>
+                    {(paymentSearch || paymentStatusFilter !== 'all' || paymentDateFilter !== 'all') && (
+                      <button 
+                        onClick={() => {
+                          setPaymentSearch('');
+                          setPaymentStatusFilter('all');
+                          setPaymentDateFilter('all');
+                        }}
+                        className="text-[10px] font-black text-rose-500 hover:underline uppercase tracking-wider flex items-center gap-1"
+                      >
+                        <X size={12} /> {lang === 'bn' ? 'ফিল্টার রিসেট' : 'Reset Filter'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Search box */}
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                      type="text"
+                      placeholder={lang === 'bn' ? 'TrxID, কমিটি নাম বা ফোন দিয়ে খুঁজুন...' : 'Search by TrxID, Committee, or Phone...'}
+                      value={paymentSearch}
+                      onChange={(e) => setPaymentSearch(e.target.value)}
+                      className={`w-full h-11 pl-11 pr-4 rounded-xl text-xs font-bold outline-none border transition-all ${
+                        madrasah?.theme === 'dark'
+                          ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-[#42f5e9]'
+                          : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#0fb5ab]'
+                      }`}
+                    />
+                    {paymentSearch && (
+                      <button onClick={() => setPaymentSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Pills */}
+                  <div className="space-y-1.5">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      {lang === 'bn' ? 'স্ট্যাটাস ফিল্টার' : 'Status Filter'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { id: 'all', labelBn: 'সকল রিকোয়েস্ট', labelEn: 'All Requests' },
+                        { id: 'pending', labelBn: 'পেন্ডিং', labelEn: 'Pending' },
+                        { id: 'approved', labelBn: 'অনুমোদিত', labelEn: 'Approved' },
+                        { id: 'rejected', labelBn: 'বাতিলকৃত', labelEn: 'Rejected' },
+                      ].map(st => (
+                        <button
+                          key={st.id}
+                          onClick={() => setPaymentStatusFilter(st.id as any)}
+                          className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${
+                            paymentStatusFilter === st.id
+                              ? 'bg-[#0fb5ab] text-white shadow-sm'
+                              : madrasah?.theme === 'dark'
+                                ? 'bg-slate-800 text-slate-400 hover:text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {lang === 'bn' ? st.labelBn : st.labelEn}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Date Filter */}
+                  <div className="space-y-1.5">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      {lang === 'bn' ? 'সময়কাল' : 'Date Period'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { id: 'all', labelBn: 'সকল সময়', labelEn: 'All Time' },
+                        { id: 'today', labelBn: 'আজকের', labelEn: 'Today' },
+                        { id: 'week', labelBn: 'এই সপ্তাহ', labelEn: 'This Week' },
+                        { id: 'month', labelBn: 'এই মাস', labelEn: 'This Month' },
+                      ].map(df => (
+                        <button
+                          key={df.id}
+                          onClick={() => setPaymentDateFilter(df.id as any)}
+                          className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all ${
+                            paymentDateFilter === df.id
+                              ? 'bg-[#0fb5ab] text-white shadow-sm'
+                              : madrasah?.theme === 'dark'
+                                ? 'bg-slate-800 text-slate-400 hover:text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {lang === 'bn' ? df.labelBn : df.labelEn}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className={`flex ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'} p-1 rounded-2xl`}>
                 <button 
                   onClick={() => setPaymentTab('sms')}
                   className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'sms' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
                 >
-                  SMS Recharge
+                  {lang === 'bn' ? 'এসএমএস রিচার্জ' : 'SMS Recharge'}
                 </button>
                 <button 
                   onClick={() => setPaymentTab('voice')}
                   className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'voice' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
                 >
-                  Voice Recharge
+                  {lang === 'bn' ? 'ভয়েস রিচার্জ' : 'Voice Recharge'}
                 </button>
               </div>
               
               <div className="space-y-6">
                 <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
-                   <AlertCircle size={14} className="text-amber-400" /> Pending Requests
+                   <AlertCircle size={14} className="text-amber-400" /> {lang === 'bn' ? 'অপেক্ষমাণ পেমেন্ট অনুরোধ' : 'Pending Requests'}
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {pendingTrans.filter(tr => {
-                    const desc = (tr.description || '').toLowerCase();
-                    return paymentTab === 'sms' ? (desc.includes('sms') || !desc.includes('voice')) : desc.includes('voice');
-                  }).length > 0 ? pendingTrans.filter(tr => {
-                    const desc = (tr.description || '').toLowerCase();
-                    return paymentTab === 'sms' ? (desc.includes('sms') || !desc.includes('voice')) : desc.includes('voice');
-                  }).map(tr => (
+                  {filteredPending.length > 0 ? filteredPending.map(tr => (
                     <div key={tr.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-bubble space-y-4 animate-in slide-in-from-left-4">
                       <div className="flex items-center justify-between">
                         <div className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-[16px] font-black border border-emerald-100">{tr.amount} ৳</div>
                         <div className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1.5">
-                           <Clock size={12} /> {new Date(tr.created_at).toLocaleDateString('bn-BD')}
+                           <Clock size={12} /> {new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}
                         </div>
                       </div>
                       <div className="px-1 space-y-1">
@@ -1137,7 +1334,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                            <p className="text-[10px] font-bold text-slate-400">TrxID: <span className="text-[#0fb5ab]">{tr.transaction_id}</span></p>
                            <p className="text-[11px] font-black text-[#0fb5ab] flex items-center gap-1.5">
                                <Smartphone size={12} className="text-[#0fb5ab]" /> 
-                               বিকাশ নম্বর: <span className="text-slate-800">{tr.sender_phone || 'N/A'}</span>
+                               {lang === 'bn' ? 'বিকাশ নম্বর:' : 'bKash Number:'} <span className="text-slate-800">{tr.sender_phone || 'N/A'}</span>
                            </p>
                         </div>
                       </div>
@@ -1145,7 +1342,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
                         <div className="flex items-center gap-2">
                            <MessageSquare size={16} className={smsEnabledMap[tr.id] ? "text-[#0fb5ab]" : "text-slate-300"} />
-                           <span className="text-[10px] font-black text-slate-500 uppercase">অ্যাপ্রুভ হলে SMS পাঠান</span>
+                           <span className="text-[10px] font-black text-slate-500 uppercase">{lang === 'bn' ? 'অ্যাপ্রুভ হলে SMS পাঠান' : 'Send SMS on Approval'}</span>
                         </div>
                         <button onClick={() => toggleSmsForRequest(tr.id)} className="transition-all active:scale-90">
                            {smsEnabledMap[tr.id] ? (
@@ -1165,7 +1362,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                               className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] font-black text-base text-center outline-none focus:border-[#42f5e9]/50 disabled:opacity-50" 
                               value={smsToCredit[tr.id] || ''} 
                               onChange={(e) => setSmsToCredit({...smsToCredit, [tr.id]: e.target.value})} 
-                              placeholder="SMS Quantity" 
+                              placeholder={lang === 'bn' ? 'এসএমএস সংখ্যা' : 'SMS Quantity'} 
                             />
                           )}
                           <button 
@@ -1173,7 +1370,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                             disabled={approvingIds.has(tr.id) || (paymentTab === 'sms' && !smsToCredit[tr.id])}
                             className="w-full h-14 bg-[#42f5e9] text-[#0e8a84] font-black rounded-[1.5rem] text-sm active:scale-95 transition-all shadow-premium disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center"
                           >
-                            {approvingIds.has(tr.id) ? <Loader2 className="animate-spin" size={20} /> : 'অনুমোদন দিন'}
+                            {approvingIds.has(tr.id) ? <Loader2 className="animate-spin" size={20} /> : (lang === 'bn' ? 'অনুমোদন দিন' : 'Approve')}
                           </button>
                         </div>
                         <button 
@@ -1181,13 +1378,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                           disabled={approvingIds.has(tr.id)}
                           className="w-full h-12 bg-red-50 text-red-500 font-black rounded-[1.5rem] text-xs active:scale-95 transition-all border border-red-100 disabled:opacity-50"
                         >
-                          রিকোয়েস্ট বাতিল করুন
+                          {lang === 'bn' ? 'রিকোয়েস্ট বাতিল করুন' : 'Reject Request'}
                         </button>
                       </div>
                     </div>
                   )) : (
                     <div className="text-center py-10 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
-                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">No Pending Requests</p>
+                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{lang === 'bn' ? 'কোনো অপেক্ষমাণ অনুরোধ নেই' : 'No Pending Requests'}</p>
                     </div>
                   )}
                 </div>
@@ -1195,16 +1392,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
               <div className="space-y-6 pt-4 border-t border-slate-100">
                 <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
-                   <HistoryIcon size={14} className="text-[#0fb5ab]" /> Recent Transactions
+                   <HistoryIcon size={14} className="text-[#0fb5ab]" /> {lang === 'bn' ? 'সাম্প্রতিক লেনদেন ইতিহাস' : 'Recent Transactions'}
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {transactionHistory.filter(tr => {
-                    const desc = (tr.description || '').toLowerCase();
-                    return paymentTab === 'sms' ? (desc.includes('sms') || !desc.includes('voice')) : desc.includes('voice');
-                  }).length > 0 ? transactionHistory.filter(tr => {
-                    const desc = (tr.description || '').toLowerCase();
-                    return paymentTab === 'sms' ? (desc.includes('sms') || !desc.includes('voice')) : desc.includes('voice');
-                  }).map(tr => (
+                  {filteredHistory.length > 0 ? filteredHistory.map(tr => (
                     <div key={tr.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-bubble flex items-center justify-between">
                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -1215,12 +1406,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                           </div>
                           <p className="text-[12px] font-black text-[#0fb5ab] font-noto truncate">{tr.institutions?.name}</p>
                           <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-2">
-                             <Smartphone size={10} /> বিকাশ: {tr.sender_phone || 'N/A'}
+                             <Smartphone size={10} /> {lang === 'bn' ? 'বিকাশ:' : 'bKash:'} {tr.sender_phone || 'N/A'}
                              {tr.sms_count && <span className="text-[#0fb5ab] font-black">({tr.sms_count} SMS)</span>}
                           </p>
                           <div className="flex items-center gap-2 mt-1.5 text-slate-400">
                              <Clock size={10} />
-                             <p className="text-[9px] font-bold">{new Date(tr.created_at).toLocaleDateString('bn-BD')}</p>
+                             <p className="text-[9px] font-bold">{new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}</p>
                           </div>
                        </div>
                        <div className="text-right ml-4">
@@ -1230,7 +1421,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                     </div>
                   )) : (
                     <div className="text-center py-10 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
-                       <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">No History Found</p>
+                       <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{lang === 'bn' ? 'কোনো লেনদেনের ইতিহাস পাওয়া যায়নি' : 'No History Found'}</p>
                     </div>
                   )}
                 </div>
@@ -1245,7 +1436,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       <ArrowLeft size={24} strokeWidth={3} />
                    </button>
                    <div className="min-w-0">
-                      <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto truncate leading-tight`}>Committee Details</h1>
+                      <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto truncate leading-tight`}>
+                        {lang === 'bn' ? 'কমিটির বিস্তারিত বিবরণ' : 'Committee Details'}
+                      </h1>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">UUID: {selectedUser.id}</p>
                    </div>
                 </div>

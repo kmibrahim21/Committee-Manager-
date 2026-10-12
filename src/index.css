@@ -6,15 +6,21 @@
 }
 
 @theme {
-  --color-brand-blue: #3b82f6;
-  --color-brand-light: #f0f9ff;
-  --color-brand-soft: #e0f2fe;
-  --color-brand-lavender: #bae6fd;
-  --color-brand-deep: #0369a1;
-  --color-brand-dark: #1E293B;
+  --color-teal-primary: #0fb5ab;
+  --color-teal-dark: #0c9d92;
+  --color-pastel-mint: #BFE8DD;
+  --color-pastel-soft-mint: #EBF8F5;
+  --color-pastel-peach: #F6D9CE;
+  --color-pastel-soft-peach: #FDF1EB;
+  --color-pastel-yellow: #FBEFC9;
+  --color-pastel-soft-yellow: #FFF9E6;
+  --color-pastel-cream: #FFF9F4;
+  --color-navy-text: #22303C;
+  --color-gray-muted: #8A94A6;
 
-  --shadow-bubble: 0 20px 40px -15px rgba(66, 245, 233, 0.2);
-  --shadow-premium: 0 12px 28px -5px rgba(66, 245, 233, 0.3);
+  --shadow-soft: 0 8px 24px rgba(34, 48, 60, 0.05);
+  --shadow-card: 0 12px 32px rgba(34, 48, 60, 0.06);
+  --shadow-float: 0 16px 36px rgba(15, 181, 171, 0.12);
 
   --animate-mesh: mesh 15s ease infinite;
   --animate-float: float 3s ease-in-out infinite;
@@ -25,13 +31,9 @@
   --animate-slide-in-from-top: slide-in-from-top 0.3s ease-out;
   --animate-slide-in-from-right: slide-in-from-right 0.3s ease-out;
 
-  @keyframes mesh {
-    0%, 100% { background-position: 0% 50% }
-    50% { background-position: 100% 50% }
-  }
   @keyframes float {
     0%, 100% { transform: translateY(0) }
-    50% { transform: translateY(-10px) }
+    50% { transform: translateY(-6px) }
   }
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
@@ -71,7 +73,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden; 
-  background-color: #e0f2fe; /* Updated to match the new theme */
+  background-color: #FFF9F4;
   position: fixed; 
   left: 0;
   top: 0;
@@ -82,13 +84,13 @@ html, body {
 }
 
 .dark html, .dark body {
-  background-color: #0F172A;
+  background-color: #121A24;
 }
 
 body {
-  font-family: 'Hind Siliguri', 'Noto Sans Bengali', sans-serif;
+  font-family: 'Noto Sans Bengali', sans-serif;
   -webkit-tap-highlight-color: transparent;
-  color: #2D3142;
+  color: #22303C;
 }
 
 .dark body {
@@ -104,32 +106,104 @@ body {
 
 .font-noto { font-family: 'Noto Sans Bengali', sans-serif; }
 
-.glass-card {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border-radius: 2.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+/* Custom Pastel Design Utility Classes */
+.pastel-card {
+  background-color: #FFFFFF;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(34, 48, 60, 0.05);
+  border: 1px solid rgba(246, 217, 206, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.premium-btn {
-  background: linear-gradient(135deg, #42f5e9 0%, #89fdf6 100%);
-  box-shadow: var(--shadow-premium);
-  color: #0e8a84;
+.dark .pastel-card {
+  background-color: #1E2B37;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
-.mesh-bg-vibrant {
-  background: linear-gradient(-45deg, #89fdf6, #42f5e9, #0fb5ab, #e0fffe);
-  background-size: 400% 400%;
-  animation: mesh 15s ease infinite;
+.btn-primary {
+  background-color: #0fb5ab;
+  color: #ffffff;
+  border-radius: 12px;
+  font-weight: 700;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(15, 181, 171, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 10px; }
+.btn-primary:hover {
+  background-color: #0c9d92;
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  background-color: #ffffff;
+  color: #0fb5ab;
+  border: 1.5px solid rgba(15, 181, 171, 0.35);
+  border-radius: 12px;
+  font-weight: 700;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.dark .btn-secondary {
+  background-color: #1E2B37;
+  color: #42f5e9;
+  border-color: rgba(66, 245, 233, 0.3);
+}
+
+.btn-secondary:hover {
+  background-color: #EBF8F5;
+  border-color: #0fb5ab;
+}
+
+.dark .btn-secondary:hover {
+  background-color: rgba(15, 181, 171, 0.15);
+}
+
+.btn-secondary:active {
+  transform: scale(0.97);
+}
+
+.btn-danger {
+  background-color: #f43f5e;
+  color: #ffffff;
+  border-radius: 12px;
+  font-weight: 700;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-danger:hover {
+  background-color: #e11d48;
+}
+
+.btn-danger:active {
+  transform: scale(0.97);
+}
+
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(138, 148, 166, 0.25); border-radius: 10px; }
 
 input::placeholder, textarea::placeholder {
-  color: #94A3B8;
+  color: #8A94A6;
   font-weight: 500;
 }
 
@@ -139,7 +213,7 @@ input::placeholder, textarea::placeholder {
   height: 100%;
 }
 
-/* Portaled Fix */
+/* Modal Overlay */
 .modal-overlay {
   position: fixed !important;
   inset: 0 !important;
@@ -151,24 +225,18 @@ input::placeholder, textarea::placeholder {
   justify-content: center;
   margin: 0 !important;
   padding: 20px;
-  backdrop-filter: blur(30px) !important;
-  -webkit-backdrop-filter: blur(30px) !important;
-  background-color: rgba(8, 10, 18, 0.5) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  background-color: rgba(34, 48, 60, 0.4) !important;
 }
 
-@keyframes shimmer-fast {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(250%); }
-}
-
-/* Disable default select arrow in some browsers */
 select {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
 }
 
-/* Animation Utility Classes */
+/* Animations */
 .animate-in { animation: animate-in 0.3s ease-out; }
 .fade-in { animation: animate-in 0.3s ease-out; }
 .zoom-in-95 { animation: zoom-in 0.3s ease-out; }

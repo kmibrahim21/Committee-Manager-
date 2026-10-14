@@ -219,6 +219,14 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
       return;
     }
 
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setErrorModal({
+        show: true,
+        message: lang === 'bn' ? 'সঠিক ইমেইল এড্রেস প্রদান করুন (যেমন: example@domain.com)' : 'Please enter a valid email address'
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       let finalPhotoUrl = photoUrl.trim() || student?.photo_url || null;

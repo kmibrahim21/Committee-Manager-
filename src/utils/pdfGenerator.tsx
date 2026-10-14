@@ -453,8 +453,8 @@ export const generateMeetingMinutesPDF = async (
 
         const decisionRows = decisions.map((dec, idx) => [
             (idx + 1).toString(),
-            dec.decision || '',
-            dec.responsible_person || (lang === 'bn' ? 'সাধারণ' : 'General')
+            dec.title || dec.decision || '',
+            dec.description || dec.responsible_person || (lang === 'bn' ? 'সাধারণ' : 'General')
         ]);
 
         autoTable(doc, {

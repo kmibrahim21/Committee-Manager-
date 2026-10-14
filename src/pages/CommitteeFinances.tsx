@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from 'supabase';
 import { Institution, LedgerEntry, Language, UserRole, Department, Profile, Member } from 'types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calculator, Plus, ArrowUpCircle, ArrowDownCircle, Loader2, Save, X, DollarSign, Tag, FileText, RefreshCw, Bell, Heart, Users, BarChart3, AlertCircle, CreditCard, Calendar as CalendarIcon, Hash, BookmarkPlus, Trash2, Edit2 } from 'lucide-react';
+import { Calculator, Plus, ArrowUpCircle, ArrowDownCircle, Loader2, Save, X, DollarSign, Tag, FileText, RefreshCw, Bell, Heart, Users, BarChart3, AlertCircle, CreditCard, Calendar as CalendarIcon, Hash, BookmarkPlus, Trash2, Edit2, CheckCircle2 } from 'lucide-react';
 import CommitteeFinancialAnalytics from 'components/CommitteeFinancialAnalytics';
 import { FlexibleSubscriptionEngine } from 'components/finance/FlexibleSubscriptionEngine';
 import { StandardSubscriptionEngine } from 'components/finance/StandardSubscriptionEngine';
@@ -35,6 +36,11 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [feedbackModal, setFeedbackModal] = useState<{ show: boolean; type: 'error' | 'success'; message: string }>({
+    show: false,
+    type: 'error',
+    message: ''
+  });
 
   const handleDeleteLedger = async (id: string) => {
     setIsDeleting(id);
@@ -44,7 +50,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
       setLedger(prev => prev.filter(item => item.id !== id));
       setRefreshKey(prev => prev + 1);
     } catch (err: any) {
-      alert(err.message);
+      setFeedbackModal({ show: true, type: 'error', message: err.message || 'Error occurred' });
     } finally {
       setIsDeleting(null);
       setConfirmDeleteId(null);
@@ -87,7 +93,14 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
   }, [madrasah?.id]);
 
   const saveTemplate = () => {
-    if (!amount || !category) return alert('ক্যাটাগরি এবং টাকার পরিমাণ দিন');
+    if (!amount || !category) {
+      setFeedbackModal({
+        show: true,
+        type: 'error',
+        message: lang === 'bn' ? 'ক্যাটাগরি এবং টাকার পরিমাণ প্রদান করুন' : 'Please provide category and amount'
+      });
+      return;
+    }
     const newTemplate = { id: Date.now().toString(), type, category: category.trim(), amount: amount.trim() };
     const updated = [...templates, newTemplate];
     setTemplates(updated);
@@ -167,7 +180,11 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
       setAmount(''); setCategory(''); setDesc(''); setSelectedQardLoanId(''); setQardReceiptNo(''); setTxType('general');
       setActiveTab('ledger');
       fetchData();
-    } catch (err: any) { alert(err.message); } finally { setIsSaving(false); }
+    } catch (err: any) { 
+      setFeedbackModal({ show: true, type: 'error', message: err.message || 'Error saving transaction' }); 
+    } finally { 
+      setIsSaving(false); 
+    }
   };
 
   const isDark = madrasah?.theme === 'dark';

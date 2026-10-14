@@ -444,7 +444,7 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
              <p className="text-[13px] font-bold text-slate-400 mt-3 font-noto px-4 leading-relaxed">{statusModal.message}</p>
              <button 
                onClick={() => setStatusModal({ ...statusModal, show: false })} 
-               className="w-full h-16 bg-gradient-to-r from-[#42f5e9] to-[#0fb5ab] text-[#0e8a84] font-black rounded-full shadow-2xl shadow-[#42f5e9]/30 mt-10 text-base uppercase tracking-[0.2em] active:scale-95 transition-all border border-white/10"
+               className="w-full h-14 bg-[#0fb5ab] text-white font-black rounded-xl shadow-lg shadow-[#0fb5ab]/20 mt-8 text-sm uppercase tracking-wider active:scale-95 transition-all"
              >
                {lang === 'bn' ? 'ঠিক আছে' : 'Continue'}
              </button>

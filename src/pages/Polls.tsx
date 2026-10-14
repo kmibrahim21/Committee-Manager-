@@ -38,6 +38,7 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
   const [deletePollId, setDeletePollId] = useState<string | null>(null);
   const [newPoll, setNewPoll] = useState({ question: '', options: ['', ''], end_date: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const canManage = role === 'super_admin' || role === 'org_admin' || role === 'executive' || !!profile?.permissions?.can_manage_settings || !!profile?.permissions?.can_manage_members;
 
@@ -178,7 +179,8 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
         return [...filtered, savedVote];
       });
 
-      alert(lang === 'bn' ? 'ভোট সফলভাবে সংরক্ষিত হয়েছে!' : 'Vote saved successfully!');
+      setToast(lang === 'bn' ? 'ভোট সফলভাবে সংরক্ষিত হয়েছে!' : 'Vote saved successfully!');
+      setTimeout(() => setToast(null), 3000);
     } catch (e) {
       console.error(e);
     }
@@ -804,6 +806,17 @@ const Polls: React.FC<PollsProps> = ({ lang, madrasah, profile, role, onBack }) 
               </div>
             </motion.div>
           </div>
+        )}
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-xs shadow-2xl shadow-emerald-600/30 font-noto pointer-events-none"
+          >
+            <CheckCircle2 size={18} className="shrink-0 text-emerald-100" />
+            <span>{toast}</span>
+          </motion.div>
         )}
         </AnimatePresence>,
         document.body

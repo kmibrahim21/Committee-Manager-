@@ -43,9 +43,18 @@ import { BookOpen, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 const App: React.FC = () => {
-  useSyncEngine();
   const { session, profile, madrasah, loading, authError, handleLogout, refreshMadrasah, signInAsMember } = useAuth();
-  const [view, setView] = useState<View>('home');
+  useSyncEngine();
+  const getInitialView = (): View => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlView = params.get('view') as View;
+      if (urlView) return urlView;
+    }
+    return 'home';
+  };
+
+  const [view, setView] = useState<View>(getInitialView);
   useAndroidBackHandler(view, setView);
   const [walletTab, setWalletTab] = useState<'templates' | 'bulk-sms' | 'history' | 'recharge'>('bulk-sms');
   const [selectedClass, setSelectedClass] = useState<Department | null>(null);
@@ -66,8 +75,12 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (profile?.role === 'super_admin' && view === 'home') {
-      setView('admin-dashboard');
+    if (profile?.role === 'super_admin' && (view === 'home' || !view)) {
+      const params = new URLSearchParams(window.location.search);
+      const urlView = params.get('view') as View;
+      if (!urlView || urlView === 'home') {
+        setView('admin-dashboard');
+      }
     }
   }, [profile?.role, view]);
 

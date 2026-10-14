@@ -127,7 +127,7 @@ export const translations = {
     phone_secondary_15: '২য় ফোন (১৫ ডিজিট পর্যন্ত)',
     bulk_sms: 'এসএমএস',
     new_template: 'নতুন টেমপ্লেট',
-    fee_collection: 'subscription সংগ্রহ',
+    fee_collection: 'চাঁদা সংগ্রহ',
     monthly_fees: 'মাসিক চাঁদা',
     total_revenue: 'মোট সংগ্রহ',
     outstanding_dues: 'বকেয়া পাওনা',

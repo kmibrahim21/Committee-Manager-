@@ -941,7 +941,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                   <div className={`w-10 h-10 min-w-[40px] min-h-[40px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-50 text-purple-500'} rounded-2xl flex items-center justify-center mb-2 shadow-inner`}>
                     <Banknote size={20} className="shrink-0" />
                   </div>
-                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalRevenue.toLocaleString('bn-BD')}</h4>
+                  <h4 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalRevenue.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</h4>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{lang === 'bn' ? 'মোট আয় (৳)' : 'Total Revenue (৳)'}</p>
                 </div>
               </div>
@@ -951,14 +951,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                   <div className={`w-8 h-8 min-w-[32px] min-h-[32px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
                     <GraduationCap size={16} className="shrink-0" />
                   </div>
-                  <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalStudents.toLocaleString('bn-BD')}</h4>
+                  <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalStudents.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</h4>
                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্য' : 'Members'}</p>
                 </div>
                 <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-4 rounded-[2rem] border flex flex-col items-center text-center`}>
                   <div className={`w-8 h-8 min-w-[32px] min-h-[32px] shrink-0 ${madrasah?.theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-50 text-orange-500'} rounded-xl flex items-center justify-center mb-1 shadow-inner`}>
                     <Layers size={16} className="shrink-0" />
                   </div>
-                  <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalClasses.toLocaleString('bn-BD')}</h4>
+                  <h4 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{globalStats.totalClasses.toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US')}</h4>
                   <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কমিটি' : 'Committees'}</p>
                 </div>
               </div>
@@ -1045,7 +1045,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-[8px] font-bold text-slate-400">{new Date(inst.created_at).toLocaleDateString('bn-BD')}</p>
+                          <p className="text-[8px] font-bold text-slate-400">{new Date(inst.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}</p>
                         </div>
                       </div>
                     ))}
@@ -1055,7 +1055,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
               <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} p-8 rounded-[3rem] border space-y-6`}>
                 <div className="flex items-center justify-between">
-                  <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>সাম্প্রতিক লেনদেন</h3>
+                  <h3 className={`text-lg font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>
+                    {lang === 'bn' ? 'সাম্প্রতিক লেনদেন' : 'Recent Transactions'}
+                  </h3>
                   <HistoryIcon size={24} className="text-slate-300" />
                 </div>
                 <div className="space-y-3">
@@ -1072,16 +1074,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                       </div>
                       <div className="text-right">
                         <p className={`text-sm font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'}`}>৳ {tr.amount}</p>
-                        <p className="text-[8px] font-bold text-slate-400">{new Date(tr.created_at).toLocaleDateString('bn-BD')}</p>
+                        <p className="text-[8px] font-bold text-slate-400">{new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}</p>
                       </div>
                     </div>
                   ))}
                   {transactionHistory.length === 0 && (
-                    <p className="text-center py-10 text-slate-400 text-xs font-bold italic">কোন লেনদেন পাওয়া যায়নি</p>
+                    <p className="text-center py-10 text-slate-400 text-xs font-bold italic">{lang === 'bn' ? 'কোন লেনদেন পাওয়া যায়নি' : 'No transactions found'}</p>
                   )}
                 </div>
                 <button onClick={() => setView('approvals')} className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-[#0fb5ab] hover:bg-[#42f5e9]/10 rounded-2xl transition-colors">
-                  সকল লেনদেন দেখুন
+                  {lang === 'bn' ? 'সকল লেনদেন দেখুন' : 'View All Transactions'}
                 </button>
               </div>
             </div>
@@ -1090,13 +1092,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           {view === 'list' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between px-2">
-                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>কমিটি লিস্ট</h1>
+                <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>
+                  {lang === 'bn' ? 'কমিটি লিস্ট' : 'Committee Registry'}
+                </h1>
                 <button 
                   onClick={() => setShowCreateModal(true)} 
                   className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-premium active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9] text-[#0e8a84]' : 'bg-[#42f5e9] text-[#0e8a84] hover:opacity-90'}`}
                 >
                   <PlusCircle size={18} strokeWidth={2.5} />
-                  <span>নতুন কমিটি</span>
+                  <span>{lang === 'bn' ? 'নতুন কমিটি' : 'New Committee'}</span>
                 </button>
               </div>
 
@@ -1315,117 +1319,123 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                 </button>
               </div>
               
-              <div className="space-y-6">
-                <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
-                   <AlertCircle size={14} className="text-amber-400" /> {lang === 'bn' ? 'অপেক্ষমাণ পেমেন্ট অনুরোধ' : 'Pending Requests'}
-                </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {filteredPending.length > 0 ? filteredPending.map(tr => (
-                    <div key={tr.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-bubble space-y-4 animate-in slide-in-from-left-4">
-                      <div className="flex items-center justify-between">
-                        <div className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-[16px] font-black border border-emerald-100">{tr.amount} ৳</div>
-                        <div className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1.5">
-                           <Clock size={12} /> {new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}
+              {/* Pending Requests Section - only show if filter includes pending */}
+              {(paymentStatusFilter === 'all' || paymentStatusFilter === 'pending') && (
+                <div className="space-y-6">
+                  <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
+                     <AlertCircle size={14} className="text-amber-400" /> {lang === 'bn' ? 'অপেক্ষমাণ পেমেন্ট অনুরোধ' : 'Pending Requests'}
+                  </h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filteredPending.length > 0 ? filteredPending.map(tr => (
+                      <div key={tr.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-bubble space-y-4 animate-in slide-in-from-left-4">
+                        <div className="flex items-center justify-between">
+                          <div className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-[16px] font-black border border-emerald-100">{tr.amount} ৳</div>
+                          <div className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-1.5">
+                             <Clock size={12} /> {new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}
+                          </div>
                         </div>
-                      </div>
-                      <div className="px-1 space-y-1">
-                        <p className="text-[15px] font-black text-[#0fb5ab] font-noto">{tr.institutions?.name}</p>
-                        <div className="flex flex-col gap-0.5">
-                           <p className="text-[10px] font-bold text-slate-400">TrxID: <span className="text-[#0fb5ab]">{tr.transaction_id}</span></p>
-                           <p className="text-[11px] font-black text-[#0fb5ab] flex items-center gap-1.5">
-                               <Smartphone size={12} className="text-[#0fb5ab]" /> 
-                               {lang === 'bn' ? 'বিকাশ নম্বর:' : 'bKash Number:'} <span className="text-slate-800">{tr.sender_phone || 'N/A'}</span>
-                           </p>
+                        <div className="px-1 space-y-1">
+                          <p className="text-[15px] font-black text-[#0fb5ab] font-noto">{tr.institutions?.name}</p>
+                          <div className="flex flex-col gap-0.5">
+                             <p className="text-[10px] font-bold text-slate-400">TrxID: <span className="text-[#0fb5ab]">{tr.transaction_id}</span></p>
+                             <p className="text-[11px] font-black text-[#0fb5ab] flex items-center gap-1.5">
+                                 <Smartphone size={12} className="text-[#0fb5ab]" /> 
+                                 {lang === 'bn' ? 'বিকাশ নম্বর:' : 'bKash Number:'} <span className="text-slate-800">{tr.sender_phone || 'N/A'}</span>
+                             </p>
+                          </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <div className="flex items-center gap-2">
-                           <MessageSquare size={16} className={smsEnabledMap[tr.id] ? "text-[#0fb5ab]" : "text-slate-300"} />
-                           <span className="text-[10px] font-black text-slate-500 uppercase">{lang === 'bn' ? 'অ্যাপ্রুভ হলে SMS পাঠান' : 'Send SMS on Approval'}</span>
-                        </div>
-                        <button onClick={() => toggleSmsForRequest(tr.id)} className="transition-all active:scale-90">
-                           {smsEnabledMap[tr.id] ? (
-                             <ToggleRight className="text-[#0fb5ab]" size={28} />
-                           ) : (
-                             <ToggleLeft className="text-slate-300" size={28} />
-                           )}
-                        </button>
-                      </div>
-
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-col gap-2.5">
-                          {paymentTab === 'sms' && (
-                            <input 
-                              type="number" 
-                              disabled={approvingIds.has(tr.id)}
-                              className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] font-black text-base text-center outline-none focus:border-[#42f5e9]/50 disabled:opacity-50" 
-                              value={smsToCredit[tr.id] || ''} 
-                              onChange={(e) => setSmsToCredit({...smsToCredit, [tr.id]: e.target.value})} 
-                              placeholder={lang === 'bn' ? 'এসএমএস সংখ্যা' : 'SMS Quantity'} 
-                            />
-                          )}
-                          <button 
-                            onClick={() => approveTransaction(tr)} 
-                            disabled={approvingIds.has(tr.id) || (paymentTab === 'sms' && !smsToCredit[tr.id])}
-                            className="w-full h-14 bg-[#42f5e9] text-[#0e8a84] font-black rounded-[1.5rem] text-sm active:scale-95 transition-all shadow-premium disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center"
-                          >
-                            {approvingIds.has(tr.id) ? <Loader2 className="animate-spin" size={20} /> : (lang === 'bn' ? 'অনুমোদন দিন' : 'Approve')}
+                        
+                        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                          <div className="flex items-center gap-2">
+                             <MessageSquare size={16} className={smsEnabledMap[tr.id] ? "text-[#0fb5ab]" : "text-slate-300"} />
+                             <span className="text-[10px] font-black text-slate-500 uppercase">{lang === 'bn' ? 'অ্যাপ্রুভ হলে SMS পাঠান' : 'Send SMS on Approval'}</span>
+                          </div>
+                          <button onClick={() => toggleSmsForRequest(tr.id)} className="transition-all active:scale-90">
+                             {smsEnabledMap[tr.id] ? (
+                               <ToggleRight className="text-[#0fb5ab]" size={28} />
+                             ) : (
+                               <ToggleLeft className="text-slate-300" size={28} />
+                             )}
                           </button>
                         </div>
-                        <button 
-                          onClick={() => setRejectConfirm(tr)} 
-                          disabled={approvingIds.has(tr.id)}
-                          className="w-full h-12 bg-red-50 text-red-500 font-black rounded-[1.5rem] text-xs active:scale-95 transition-all border border-red-100 disabled:opacity-50"
-                        >
-                          {lang === 'bn' ? 'রিকোয়েস্ট বাতিল করুন' : 'Reject Request'}
-                        </button>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="text-center py-10 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
-                      <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{lang === 'bn' ? 'কোনো অপেক্ষমাণ অনুরোধ নেই' : 'No Pending Requests'}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              <div className="space-y-6 pt-4 border-t border-slate-100">
-                <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
-                   <HistoryIcon size={14} className="text-[#0fb5ab]" /> {lang === 'bn' ? 'সাম্প্রতিক লেনদেন ইতিহাস' : 'Recent Transactions'}
-                </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {filteredHistory.length > 0 ? filteredHistory.map(tr => (
-                    <div key={tr.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-bubble flex items-center justify-between">
-                       <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                             <p className="text-[15px] font-black text-[#0fb5ab] leading-none">{tr.amount} ৳</p>
-                             <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${tr.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                                {tr.status}
-                             </span>
+                        <div className="flex flex-col gap-3">
+                          <div className="flex flex-col gap-2.5">
+                            {paymentTab === 'sms' && (
+                              <input 
+                                type="number" 
+                                disabled={approvingIds.has(tr.id)}
+                                className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] font-black text-base text-center outline-none focus:border-[#42f5e9]/50 disabled:opacity-50" 
+                                value={smsToCredit[tr.id] || ''} 
+                                onChange={(e) => setSmsToCredit({...smsToCredit, [tr.id]: e.target.value})} 
+                                placeholder={lang === 'bn' ? 'এসএমএস সংখ্যা' : 'SMS Quantity'} 
+                              />
+                            )}
+                            <button 
+                              onClick={() => approveTransaction(tr)} 
+                              disabled={approvingIds.has(tr.id) || (paymentTab === 'sms' && !smsToCredit[tr.id])}
+                              className="w-full h-14 bg-[#42f5e9] text-[#0e8a84] font-black rounded-[1.5rem] text-sm active:scale-95 transition-all shadow-premium disabled:bg-slate-300 disabled:shadow-none flex items-center justify-center"
+                            >
+                              {approvingIds.has(tr.id) ? <Loader2 className="animate-spin" size={20} /> : (lang === 'bn' ? 'অনুমোদন দিন' : 'Approve')}
+                            </button>
                           </div>
-                          <p className="text-[12px] font-black text-[#0fb5ab] font-noto truncate">{tr.institutions?.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-2">
-                             <Smartphone size={10} /> {lang === 'bn' ? 'বিকাশ:' : 'bKash:'} {tr.sender_phone || 'N/A'}
-                             {tr.sms_count && <span className="text-[#0fb5ab] font-black">({tr.sms_count} SMS)</span>}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1.5 text-slate-400">
-                             <Clock size={10} />
-                             <p className="text-[9px] font-bold">{new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}</p>
-                          </div>
-                       </div>
-                       <div className="text-right ml-4">
-                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">TrxID</p>
-                          <p className="text-[10px] font-black text-[#0fb5ab] uppercase leading-tight">{tr.transaction_id}</p>
-                       </div>
-                    </div>
-                  )) : (
-                    <div className="text-center py-10 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
-                       <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{lang === 'bn' ? 'কোনো লেনদেনের ইতিহাস পাওয়া যায়নি' : 'No History Found'}</p>
-                    </div>
-                  )}
+                          <button 
+                            onClick={() => setRejectConfirm(tr)} 
+                            disabled={approvingIds.has(tr.id)}
+                            className="w-full h-12 bg-red-50 text-red-500 font-black rounded-[1.5rem] text-xs active:scale-95 transition-all border border-red-100 disabled:opacity-50"
+                          >
+                            {lang === 'bn' ? 'রিকোয়েস্ট বাতিল করুন' : 'Reject Request'}
+                          </button>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="text-center py-10 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{lang === 'bn' ? 'কোনো অপেক্ষমাণ অনুরোধ নেই' : 'No Pending Requests'}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Recent Transactions Section - only show if filter is not exclusively pending */}
+              {paymentStatusFilter !== 'pending' && (
+                <div className="space-y-6 pt-4 border-t border-slate-100">
+                  <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
+                     <HistoryIcon size={14} className="text-[#0fb5ab]" /> {lang === 'bn' ? 'সাম্প্রতিক লেনদেন ইতিহাস' : 'Recent Transactions'}
+                  </h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {filteredHistory.length > 0 ? filteredHistory.map(tr => (
+                      <div key={tr.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-bubble flex items-center justify-between">
+                         <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                               <p className="text-[15px] font-black text-[#0fb5ab] leading-none">{tr.amount} ৳</p>
+                               <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${tr.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                  {tr.status}
+                               </span>
+                            </div>
+                            <p className="text-[12px] font-black text-[#0fb5ab] font-noto truncate">{tr.institutions?.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-2">
+                               <Smartphone size={10} /> {lang === 'bn' ? 'বিকাশ:' : 'bKash:'} {tr.sender_phone || 'N/A'}
+                               {tr.sms_count && <span className="text-[#0fb5ab] font-black">({tr.sms_count} SMS)</span>}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1.5 text-slate-400">
+                               <Clock size={10} />
+                               <p className="text-[9px] font-bold">{new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}</p>
+                            </div>
+                         </div>
+                         <div className="text-right ml-4">
+                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">TrxID</p>
+                            <p className="text-[10px] font-black text-[#0fb5ab] uppercase leading-tight">{tr.transaction_id}</p>
+                         </div>
+                      </div>
+                    )) : (
+                      <div className="text-center py-10 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{lang === 'bn' ? 'কোনো লেনদেনের ইতিহাস পাওয়া যায়নি' : 'No History Found'}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

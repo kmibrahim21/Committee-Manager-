@@ -513,26 +513,34 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
               auth_token: currentSession?.access_token
             })
           });
-          const resData = await res.json();
-          if (res.ok && resData.success) {
-            pwUpdated = true;
-          } else {
-            console.warn('API password update failed, attempting RPC fallback:', resData.error);
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const resData = await res.json();
+            if (res.ok && resData.success) {
+              pwUpdated = true;
+            } else {
+              console.warn('API password update response:', resData);
+            }
           }
         } catch (apiErr) {
           console.warn('API error, attempting RPC fallback:', apiErr);
         }
 
         if (!pwUpdated) {
-          const { data: success, error: pwError } = await supabase.rpc(
-            "update_user_by_admin",
-            {
-              p_user_id: selectedUser.id,
-              p_password: editPassword.trim(),
-            },
-          );
-          if (pwError) throw pwError;
-          if (!success) throw new Error("Password update failed");
+          try {
+            const { data: success, error: pwError } = await supabase.rpc(
+              "update_user_by_admin",
+              {
+                p_user_id: selectedUser.id,
+                p_password: editPassword.trim(),
+              },
+            );
+            if (!pwError && success) {
+              pwUpdated = true;
+            }
+          } catch (rpcErr) {
+            console.warn('RPC password update failed:', rpcErr);
+          }
         }
       }
 

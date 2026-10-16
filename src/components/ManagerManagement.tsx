@@ -271,9 +271,13 @@ export const ManagerManagement: React.FC<ManagerManagementProps> = ({
               auth_token: currentSession?.access_token
             })
           });
-          const resData = await res.json();
-          if (!res.ok || !resData.success) {
-            console.warn('API password update failed, attempting RPC fallback:', resData.error);
+          const contentType = res.headers.get('content-type') || '';
+          let resData: any = null;
+          if (contentType.includes('application/json')) {
+            resData = await res.json();
+          }
+          if (!res.ok || !resData?.success) {
+            console.warn('API password update failed, attempting RPC fallback:', resData?.error);
             await supabase.rpc('update_user_by_admin', {
               p_user_id: selectedManager.id,
               p_password: password.trim()

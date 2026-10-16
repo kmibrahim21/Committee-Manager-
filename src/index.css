@@ -245,3 +245,12 @@ select {
 .slide-in-from-right-4 { animation: slide-in-from-right 0.3s ease-out; }
 .duration-500 { animation-duration: 500ms; }
 .duration-300 { animation-duration: 300ms; }
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+

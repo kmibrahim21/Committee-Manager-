@@ -192,10 +192,6 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
                 <NavItem icon={Banknote} label={t('menu_accounting', lang, madrasah?.institution_type)} tab="accounting" onClick={() => setView('accounting')} />
               )}
               
-              {modules.modules.subscriptions && (role === 'org_admin' || role === 'accountant' || role === 'executive') && (
-                <NavItem icon={CreditCard} label={lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscriptions'} tab="subscriptions" onClick={() => setView('subscriptions')} />
-              )}
-              
               {(role !== 'executive' || hasPermission('can_manage_members') || hasPermission('can_manage_departments')) && (
                 <NavItem icon={BookOpen} label={t('menu_students', lang, madrasah?.institution_type)} tab="departments" onClick={() => setView('departments')} />
               )}

@@ -583,21 +583,66 @@ app.post("/api/auth/reset-password", async (req, res) => {
   }
 
   try {
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) throw listError;
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = new_password.trim();
 
-    const user = (users as any[]).find((u: any) => u.email?.toLowerCase() === email.trim().toLowerCase());
-    if (!user) {
-      return res.status(404).json({ error: "এই ইমেইলে কোনো একাউন্ট পাওয়া যায়নি।" });
+    let targetUser: any = null;
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (!listError && users) {
+      targetUser = users.find((u: any) => u.email?.toLowerCase() === cleanEmail);
     }
 
-    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-      password: new_password.trim(),
-      email_confirm: true
-    });
-    if (updateError) throw updateError;
+    let instRecord: any = null;
+    if (!targetUser) {
+      const { data: instData } = await supabaseAdmin
+        .from('institutions')
+        .select('id, email, name')
+        .or(`email.ilike.${cleanEmail},login_code.ilike.${cleanEmail}`)
+        .maybeSingle();
 
-    res.json({ success: true, message: "পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!" });
+      if (instData) {
+        instRecord = instData;
+        try {
+          const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(instData.id);
+          if (user) targetUser = user;
+        } catch {
+          // not found by id
+        }
+      }
+    }
+
+    if (targetUser) {
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
+        password: cleanPassword,
+        email_confirm: true
+      });
+      if (updateError) throw updateError;
+
+      try {
+        await supabaseAdmin.rpc("update_user_by_admin", {
+          p_user_id: targetUser.id,
+          p_password: cleanPassword
+        });
+      } catch {
+        // secondary sync
+      }
+
+      return res.json({ success: true, message: "পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!" });
+    }
+
+    if (instRecord) {
+      const { error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: cleanEmail,
+        password: cleanPassword,
+        email_confirm: true,
+        user_metadata: { name: instRecord.name }
+      });
+      if (createError) throw createError;
+
+      return res.json({ success: true, message: "পাসওয়ার্ড সফলভাবে সেট করা হয়েছে!" });
+    }
+
+    return res.status(404).json({ error: "এই ইমেইলে কোনো একাউন্ট পাওয়া যায়নি।" });
   } catch (err: any) {
     console.error("Password reset error:", err);
     res.status(500).json({ error: err.message || "Failed to reset password" });
@@ -628,21 +673,30 @@ app.post("/api/admin/update-user-password", async (req, res) => {
       }
     }
 
-    // 2. Fetch list of auth users to find matching user
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) throw listError;
-
+    // 2. Fetch or find matching user
     let targetUser: any = null;
+    let authUsers: any[] = [];
+    const searchEmail = email?.trim()?.toLowerCase();
 
-    // Try finding by user_id
     if (user_id) {
-      targetUser = users.find((u: any) => u.id === user_id);
+      try {
+        const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(user_id);
+        if (user) targetUser = user;
+      } catch {
+        // user_id might be institution id
+      }
     }
 
-    // If not found by user_id, search by email
-    const searchEmail = email?.trim()?.toLowerCase();
-    if (!targetUser && searchEmail) {
-      targetUser = users.find((u: any) => u.email?.toLowerCase() === searchEmail);
+    if (!targetUser) {
+      const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (!listError && users) {
+        authUsers = users;
+        if (user_id) targetUser = authUsers.find((u: any) => u.id === user_id);
+        const searchEmail = email?.trim()?.toLowerCase();
+        if (!targetUser && searchEmail) {
+          targetUser = authUsers.find((u: any) => u.email?.toLowerCase() === searchEmail);
+        }
+      }
     }
 
     // If still not found, check if user_id was an institution ID
@@ -654,7 +708,7 @@ app.post("/api/admin/update-user-password", async (req, res) => {
         .maybeSingle();
 
       if (instData?.email) {
-        targetUser = users.find((u: any) => u.email?.toLowerCase() === instData.email.toLowerCase());
+        targetUser = authUsers.find((u: any) => u.email?.toLowerCase() === instData.email.toLowerCase());
       }
 
       // If still not found, check profiles
@@ -666,7 +720,7 @@ app.post("/api/admin/update-user-password", async (req, res) => {
           .maybeSingle();
 
         if (profData?.id) {
-          targetUser = users.find((u: any) => u.id === profData.id);
+          targetUser = authUsers.find((u: any) => u.id === profData.id);
         }
       }
     }

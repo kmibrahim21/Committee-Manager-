@@ -180,9 +180,26 @@ export const ManagerManagement: React.FC<ManagerManagementProps> = ({
         permissions: formPermissions
       };
 
-      // 1. Try Supabase upsert
-      try {
-        const { error } = await supabase.from('profiles').insert({
+        if (email.trim() && password.trim()) {
+          try {
+            const currentSession = (await supabase.auth.getSession()).data.session;
+            await fetch('/api/admin/update-user-password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: email.trim().toLowerCase(),
+                new_password: password.trim(),
+                auth_token: currentSession?.access_token
+              })
+            });
+          } catch (e) {
+            console.warn('Auth user creation for manager error:', e);
+          }
+        }
+
+        // 1. Try Supabase upsert
+        try {
+          const { error } = await supabase.from('profiles').insert({
           id: newManagerId,
           institution_id: 'super_admin',
           full_name: newManager.full_name,
@@ -240,7 +257,38 @@ export const ManagerManagement: React.FC<ManagerManagementProps> = ({
         permissions: formPermissions
       };
 
-      // 1. Try Supabase update
+      // 1. If password provided, update user auth password
+      if (password.trim()) {
+        try {
+          const currentSession = (await supabase.auth.getSession()).data.session;
+          const res = await fetch('/api/admin/update-user-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: selectedManager.id,
+              email: (email.trim() || selectedManager.email || '').toLowerCase(),
+              new_password: password.trim(),
+              auth_token: currentSession?.access_token
+            })
+          });
+          const resData = await res.json();
+          if (!res.ok || !resData.success) {
+            console.warn('API password update failed, attempting RPC fallback:', resData.error);
+            await supabase.rpc('update_user_by_admin', {
+              p_user_id: selectedManager.id,
+              p_password: password.trim()
+            });
+          }
+        } catch (pwErr) {
+          console.warn('Password update error:', pwErr);
+          await supabase.rpc('update_user_by_admin', {
+            p_user_id: selectedManager.id,
+            p_password: password.trim()
+          });
+        }
+      }
+
+      // 2. Try Supabase update
       try {
         await supabase.from('profiles').update({
           full_name: updatedItem.full_name,
@@ -256,7 +304,7 @@ export const ManagerManagement: React.FC<ManagerManagementProps> = ({
         console.warn('Supabase update warning:', err);
       }
 
-      // 2. Update local state
+      // 3. Update local state
       const updatedList = managers.map(m => m.id === selectedManager.id ? updatedItem : m);
       setManagers(updatedList);
       saveLocalManagers(updatedList);

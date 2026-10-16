@@ -73,7 +73,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden; 
-  background-color: #FFF9F4;
+  background-color: #F8FAFC;
   position: fixed; 
   left: 0;
   top: 0;
@@ -84,13 +84,13 @@ html, body {
 }
 
 .dark html, .dark body {
-  background-color: #121A24;
+  background-color: #0F172A;
 }
 
 body {
   font-family: 'Noto Sans Bengali', sans-serif;
   -webkit-tap-highlight-color: transparent;
-  color: #22303C;
+  color: #1E293B;
 }
 
 .dark body {
@@ -111,7 +111,7 @@ body {
   background-color: #FFFFFF;
   border-radius: 20px;
   box-shadow: 0 8px 24px rgba(34, 48, 60, 0.05);
-  border: 1px solid rgba(246, 217, 206, 0.35);
+  border: 1px solid rgba(226, 232, 240, 0.8);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 

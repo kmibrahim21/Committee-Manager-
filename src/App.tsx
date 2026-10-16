@@ -247,6 +247,9 @@ const App: React.FC = () => {
         }
         return <AssociationManagement lang={lang} madrasah={madrasah} onBack={() => setView('account')} role={role} profile={profile} />;
       case 'account':
+        if (role === 'super_admin' || role === 'manager') {
+          return <SuperAccount lang={lang} setLang={(l) => { setLang(l); localStorage.setItem('app_lang', l); }} initialMadrasah={madrasah} setView={setView} onLogout={handleLogout} onProfileUpdate={refreshMadrasah} />;
+        }
         return <Account lang={lang} setLang={(l) => { setLang(l); localStorage.setItem('app_lang', l); }} initialMadrasah={madrasah} setView={setView} onLogout={handleLogout} onProfileUpdate={refreshMadrasah} profile={profile} />;
       case 'super-account':
         if (role !== 'super_admin' && role !== 'manager') { setView('home'); return null; }

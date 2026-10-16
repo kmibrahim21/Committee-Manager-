@@ -500,15 +500,40 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       
       // Update password if provided
       if (editPassword.trim()) {
-        const { data: success, error: pwError } = await supabase.rpc(
-          "update_user_by_admin",
-          {
-            p_user_id: selectedUser.id,
-            p_password: editPassword.trim(),
-          },
-        );
-        if (pwError) throw pwError;
-        if (!success) throw new Error("Password update failed");
+        let pwUpdated = false;
+        try {
+          const currentSession = (await supabase.auth.getSession()).data.session;
+          const res = await fetch('/api/admin/update-user-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: selectedUser.id,
+              email: editEmail.trim() || selectedUser.email,
+              new_password: editPassword.trim(),
+              auth_token: currentSession?.access_token
+            })
+          });
+          const resData = await res.json();
+          if (res.ok && resData.success) {
+            pwUpdated = true;
+          } else {
+            console.warn('API password update failed, attempting RPC fallback:', resData.error);
+          }
+        } catch (apiErr) {
+          console.warn('API error, attempting RPC fallback:', apiErr);
+        }
+
+        if (!pwUpdated) {
+          const { data: success, error: pwError } = await supabase.rpc(
+            "update_user_by_admin",
+            {
+              p_user_id: selectedUser.id,
+              p_password: editPassword.trim(),
+            },
+          );
+          if (pwError) throw pwError;
+          if (!success) throw new Error("Password update failed");
+        }
       }
 
       setStatusModal({ 
@@ -1682,6 +1707,33 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                             <div className="space-y-2">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Login Code</label>
                               <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editLoginCode} onChange={(e) => setEditLoginCode(e.target.value)} />
+                            </div>
+                            <div className="space-y-2 lg:col-span-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 flex items-center justify-between">
+                                <span>{lang === 'bn' ? 'লগইন পাসওয়ার্ড (পরিবর্তন করতে চাইলে লিখুন)' : 'Login Password (leave blank to keep current)'}</span>
+                                {editPassword && <span className="text-xs text-[#0fb5ab] font-bold">{lang === 'bn' ? '✓ নতুন পাসওয়ার্ড সেট হবে' : '✓ Password will update'}</span>}
+                              </label>
+                              <div className="relative">
+                                <input 
+                                  type="text" 
+                                  className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 pr-14 font-black outline-none focus:border-[#42f5e9]/50`} 
+                                  value={editPassword} 
+                                  onChange={(e) => setEditPassword(e.target.value)} 
+                                  placeholder={lang === 'bn' ? 'নতুন পাসওয়ার্ড দিন (যেমন: 123456)' : 'Enter new password'} 
+                                />
+                                {editPassword && (
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setEditPassword('')} 
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 text-xs font-bold px-2 py-1"
+                                  >
+                                    মুছুন
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-400 font-bold px-2">
+                                {lang === 'bn' ? 'ইউজারের লগইন পাসওয়ার্ড পরিবর্তন করতে চাইলে এখানে নতুন পাসওয়ার্ড দিন এবং "Save Profile Changes" চাপুন।' : 'To update user login password, enter new password and save.'}
+                              </p>
                             </div>
                             <div className="space-y-2 lg:col-span-2">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Address</label>

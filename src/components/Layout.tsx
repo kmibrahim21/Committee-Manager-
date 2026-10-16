@@ -117,15 +117,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
     if (tab === 'sms-voice-menu' && currentView === 'sms-voice-menu') return true;
     if (tab === 'executives' && currentView === 'executives') return true;
     if (tab === 'departments' && (currentView === 'departments' || currentView === 'members' || currentView === 'member-details' || currentView === 'member-form')) return true;
+    if (tab === 'managers' && currentView === 'admin-managers') return true;
     if (tab === currentView) return true;
     return false;
   };
 
   return (
-    <div className={`flex flex-col md:flex-row w-full h-full relative overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-brand-light'}`}>
+    <div className={`flex flex-col md:flex-row w-full h-full relative overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-800'}`}>
       
       {/* Desktop Sidebar */}
-      <aside className={`hidden md:flex flex-col w-72 border-r z-20 shrink-0 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-brand-lavender/30'}`}>
+      <aside className={`hidden md:flex flex-col w-72 border-r z-20 shrink-0 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
         <div className="p-6 flex items-center gap-4 border-b border-inherit">
           <div className="relative shrink-0">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
@@ -248,11 +249,15 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
 
       <div className="flex flex-col flex-1 w-full h-full relative overflow-hidden">
         {/* Mobile Header */}
-        <header className={`md:hidden flex-none px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 flex items-center justify-between relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-brand-light/80 border-brand-lavender/20'} backdrop-blur-md border-b`}>
-          <div className="flex items-center gap-4 flex-1 min-w-0">
+        <header className={`md:hidden flex-none px-6 pt-[calc(env(safe-area-inset-top)+8px)] pb-3 flex items-center justify-between relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'} backdrop-blur-md border-b`}>
+          <div 
+            onClick={() => setView(isSystemAdmin ? 'super-account' : 'account')}
+            className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer active:opacity-80 transition-opacity"
+            title={lang === 'bn' ? 'একাউন্ট দেখুন' : 'View Account'}
+          >
             <div className="relative shrink-0">
               <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-sm border overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                {isSuperAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
+                {isSystemAdmin ? <ShieldCheck size={24} className="text-[#0fb5ab]" /> : (madrasah?.logo_url ? <img src={madrasah.logo_url} className="w-full h-full object-contain" alt="Logo" /> : <img src="/icon.svg" className="w-full h-full object-contain p-1" alt="Logo" />)}
               </div>
               <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${madrasah?.theme === 'dark' ? 'border-slate-900' : 'border-white'} ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></div>
             </div>
@@ -282,13 +287,21 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
         </header>
 
         {/* Desktop Header */}
-        <header className={`hidden md:flex flex-none h-16 px-8 items-center justify-between border-b relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-brand-lavender/20'}`}>
+        <header className={`hidden md:flex flex-none h-16 px-8 items-center justify-between border-b relative z-10 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex-1 min-w-0">
             <h2 className={`text-base font-black font-noto truncate ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
               {isSuperAdmin ? (lang === 'bn' ? 'সুপার অ্যাডমিন পোর্টাল' : 'Super Admin Portal') : (madrasah?.name || 'Committee Manager')}
             </h2>
           </div>
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setView(isSystemAdmin ? 'super-account' : 'account')}
+              title={lang === 'bn' ? 'একাউন্ট' : 'Account'}
+              className={`px-3 py-2 rounded-xl transition-all border shadow-sm flex items-center gap-2 active:scale-95 ${isTabActive('account') ? 'bg-[#0fb5ab] text-white border-[#0fb5ab]' : madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+            >
+              <User size={16} />
+              <span className="text-xs font-bold font-noto">{lang === 'bn' ? 'একাউন্ট' : 'Account'}</span>
+            </button>
             <button onClick={() => setShowNotifications(true)} className={`relative p-2.5 rounded-xl transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9] border-slate-700 hover:bg-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20 hover:bg-[#42f5e9]/20'}`}>
               <Bell size={18} />
               {notifications.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
@@ -311,38 +324,73 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
           {children}
         </main>
 
-        {/* Mobile Bottom Nav */}
-        <div className="fixed md:hidden bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-[200]">
-        <nav className={`backdrop-blur-[25px] border flex justify-around items-center py-4 px-1 rounded-[2.5rem] shadow-bubble ${madrasah?.theme === 'dark' ? 'bg-slate-800/95 border-slate-700' : 'bg-white/95 border-slate-200'}`}>
+        {/* Mobile Bottom Nav (6 Tabs) */}
+        <div className="fixed md:hidden bottom-8 left-1/2 -translate-x-1/2 w-[95%] max-w-lg z-[200]">
+        <nav className={`backdrop-blur-[25px] border flex justify-around items-center py-3.5 px-1 rounded-[2.5rem] shadow-bubble ${madrasah?.theme === 'dark' ? 'bg-slate-800/95 border-slate-700' : 'bg-white/95 border-slate-200'}`}>
           {isSystemAdmin ? (
             <>
-              {canAccess('dashboard') && (
-                <button onClick={() => setView('admin-dashboard')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
-                  <BarChart3 size={20} />
-                  <span className="text-[9px] font-black font-noto opacity-80">{t('dashboard', lang)}</span>
+              {/* 1. Dashboard */}
+              <button 
+                onClick={() => setView('admin-dashboard')} 
+                className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+              >
+                <BarChart3 size={20} strokeWidth={isTabActive('dashboard') ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('dashboard', lang)}</span>
+              </button>
+
+              {/* 2. Committee */}
+              <button 
+                onClick={() => setView('admin-panel')} 
+                className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+              >
+                <Users size={20} strokeWidth={isTabActive('list') ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'কমিটি' : 'Committee'}</span>
+              </button>
+
+              {/* 3. Approvals */}
+              <button 
+                onClick={() => setView('admin-approvals')} 
+                className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+              >
+                <CreditCard size={20} strokeWidth={isTabActive('approvals') ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('approvals', lang)}</span>
+              </button>
+
+              {/* 4. Managers / Tutorials */}
+              {canAccess('managers') ? (
+                <button 
+                  onClick={() => setView('admin-managers')} 
+                  className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('managers') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+                >
+                  <ShieldCheck size={20} strokeWidth={isTabActive('managers') ? 3 : 2} />
+                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'ম্যানেজার' : 'Managers'}</span>
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setView('admin-tutorials')} 
+                  className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${currentView === 'admin-tutorials' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+                >
+                  <BookOpen size={20} strokeWidth={currentView === 'admin-tutorials' ? 3 : 2} />
+                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'টিউটোরিয়াল' : 'Tutorials'}</span>
                 </button>
               )}
-              {canAccess('organizations') && (
-                <button onClick={() => setView('admin-panel')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
-                  <Users size={20} />
-                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'কমিটি' : 'Committee'}</span>
-                </button>
-              )}
-              {canAccess('approvals') && (
-                <button onClick={() => setView('admin-approvals')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
-                  <CreditCard size={20} />
-                  <span className="text-[9px] font-black font-noto opacity-80">{t('approvals', lang)}</span>
-                </button>
-              )}
-              {canAccess('managers') && (
-                <button onClick={() => setView('admin-managers')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('admin-managers') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
-                  <ShieldCheck size={20} />
-                  <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'ম্যানেজার' : 'Manager'}</span>
-                </button>
-              )}
-              <button onClick={() => setView('sms-voice-menu')} className={`relative flex flex-col items-center gap-1 transition-all flex-1 ${isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}>
-                <MessageSquare size={20} />
-                <span className="text-[9px] font-black font-noto opacity-80">{lang === 'bn' ? 'যোগাযোগ' : 'Communication'}</span>
+
+              {/* 5. Communication */}
+              <button 
+                onClick={() => setView('sms-voice-menu')} 
+                className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+              >
+                <MessageSquare size={20} strokeWidth={isTabActive('sms-voice-menu') ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'যোগাযোগ' : 'SMS / Call'}</span>
+              </button>
+
+              {/* 6. Account */}
+              <button 
+                onClick={() => setView('super-account')} 
+                className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+              >
+                <User size={20} strokeWidth={isTabActive('account') ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('account', lang)}</span>
               </button>
             </>
           ) : (
@@ -353,7 +401,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('home') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
               >
                 <Home size={20} strokeWidth={isTabActive('home') ? 3 : 2} />
-                <span className="text-[10px] font-bold font-noto opacity-90">{t('home', lang)}</span>
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('home', lang)}</span>
               </button>
 
               {/* 2. Members Tab */}
@@ -361,8 +409,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 onClick={() => { setShowMoreMenu(false); setView(modules.modules.departments !== false ? 'departments' : 'members'); }} 
                 className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('departments') || currentView === 'members' || currentView === 'member-details' || currentView === 'member-form' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
               >
-                <Users size={20} />
-                <span className="text-[10px] font-bold font-noto opacity-90">{lang === 'bn' ? 'সদস্য' : 'Members'}</span>
+                <Users size={20} strokeWidth={isTabActive('departments') || currentView === 'members' || currentView === 'member-details' || currentView === 'member-form' ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'সদস্য' : 'Members'}</span>
               </button>
 
               {/* 3. Accounting Tab */}
@@ -370,8 +418,8 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 onClick={() => { setShowMoreMenu(false); setView('accounting'); }} 
                 className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('accounting') || currentView === 'member-accounting' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
               >
-                <Banknote size={20} />
-                <span className="text-[10px] font-bold font-noto opacity-90">{lang === 'bn' ? 'হিসাব' : 'Accounts'}</span>
+                <Banknote size={20} strokeWidth={isTabActive('accounting') || currentView === 'member-accounting' ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'হিসাব' : 'Accounts'}</span>
               </button>
 
               {/* 4. Meetings Tab */}
@@ -379,17 +427,31 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 onClick={() => { setShowMoreMenu(false); setView('meetings'); }} 
                 className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('meetings') || currentView === 'minutes' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
               >
-                <Calendar size={20} />
-                <span className="text-[10px] font-bold font-noto opacity-90">{lang === 'bn' ? 'মিটিং' : 'Meetings'}</span>
+                <Calendar size={20} strokeWidth={isTabActive('meetings') || currentView === 'minutes' ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'মিটিং' : 'Meetings'}</span>
               </button>
 
-              {/* 5. More / আরও Tab */}
+              {/* 5. Communication (SMS / Voice) Tab */}
+              <button 
+                onClick={() => {
+                  setShowMoreMenu(false);
+                  if (modules.modules.sms !== false && modules.modules.voice_broadcast) setView('sms-voice-menu');
+                  else if (modules.modules.sms !== false) setView('wallet-sms');
+                  else setView('voice-broadcast');
+                }} 
+                className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+              >
+                <MessageSquare size={20} strokeWidth={isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? 3 : 2} />
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'যোগাযোগ' : 'SMS/Voice'}</span>
+              </button>
+
+              {/* 6. More / আরও Tab */}
               <button 
                 onClick={() => setShowMoreMenu(prev => !prev)} 
-                className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${showMoreMenu || isTabActive('account') || isTabActive('events') || isTabActive('attendance') || isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') || currentView === 'polls' || currentView === 'notice-board' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
+                className={`relative flex flex-col items-center justify-center min-h-[44px] gap-1 transition-all flex-1 ${showMoreMenu || isTabActive('account') || isTabActive('events') || isTabActive('attendance') || currentView === 'polls' || currentView === 'notice-board' || currentView === 'subscriptions' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-500' : 'text-[#94A3B8]')}`}
               >
                 <MoreHorizontal size={20} strokeWidth={showMoreMenu ? 3 : 2} />
-                <span className="text-[10px] font-bold font-noto opacity-90">{lang === 'bn' ? 'আরও' : 'More'}</span>
+                <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'আরও' : 'More'}</span>
               </button>
             </>
           )}
@@ -413,26 +475,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               </button>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {/* Communication (SMS / Voice) */}
-              {(modules.modules.sms !== false || modules.modules.voice_broadcast) && (
-                <button 
-                  onClick={() => {
-                    setShowMoreMenu(false);
-                    if (modules.modules.sms !== false && modules.modules.voice_broadcast) setView('sms-voice-menu');
-                    else if (modules.modules.sms !== false) setView('wallet-sms');
-                    else setView('voice-broadcast');
-                  }}
-                  className={`p-3 rounded-2xl flex flex-col items-center gap-1.5 transition-all text-center ${
-                    isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu')
-                      ? 'bg-[#0fb5ab]/15 text-[#0fb5ab]'
-                      : madrasah?.theme === 'dark' ? 'bg-slate-800 hover:bg-slate-750' : 'bg-slate-50 hover:bg-slate-100'
-                  }`}
-                >
-                  <MessageSquare size={18} className="text-[#0fb5ab]" />
-                  <span className="text-[10px] font-bold font-noto truncate w-full">{lang === 'bn' ? 'যোগাযোগ' : 'SMS / Call'}</span>
-                </button>
-              )}
-
               {/* Attendance */}
               {modules.modules.attendance && (
                 <button 
@@ -485,6 +527,19 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               >
                 <Vote size={18} className="text-[#0fb5ab]" />
                 <span className="text-[10px] font-bold font-noto truncate w-full">{lang === 'bn' ? 'পোলস' : 'Polls'}</span>
+              </button>
+
+              {/* Subscriptions */}
+              <button 
+                onClick={() => { setShowMoreMenu(false); setView('subscriptions'); }}
+                className={`p-3 rounded-2xl flex flex-col items-center gap-1.5 transition-all text-center ${
+                  currentView === 'subscriptions'
+                    ? 'bg-[#0fb5ab]/15 text-[#0fb5ab]'
+                    : madrasah?.theme === 'dark' ? 'bg-slate-800 hover:bg-slate-750' : 'bg-slate-50 hover:bg-slate-100'
+                }`}
+              >
+                <CreditCard size={18} className="text-[#0fb5ab]" />
+                <span className="text-[10px] font-bold font-noto truncate w-full">{lang === 'bn' ? 'চাঁদা' : 'Subscriptions'}</span>
               </button>
 
               {/* Account / Settings */}

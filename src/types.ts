@@ -81,8 +81,17 @@ export interface Institution {
     attendance_settings?: any;
     fee_engine?: 'standard' | 'school' | 'qawmi' | 'kindergarten' | 'simple';
     meeting_engine?: string;
-    accounting_mode?: 'qawmi_flexible' | 'school_system';
-    subscription_type?: 'monthly' | 'yearly' | 'lifetime';
+    accounting_mode?: 'committee_system' | 'flexible' | 'qawmi_flexible' | 'school_system';
+    subscription_type?: 'monthly' | 'quarterly' | 'yearly' | 'lifetime';
+    member_limit?: number;
+    sms_rate?: number;
+    voice_rate?: number;
+    custom_subscription_fee?: number | '';
+    package_name?: string;
+    package_rate?: number;
+    paid_months?: string[];
+    due_amount?: number;
+    subscription_note?: string;
     accounting_start_date?: string | null;
     accounting_end_date?: string | null;
   };
@@ -534,6 +543,8 @@ export interface Transaction {
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   sms_count?: number;
+  module?: string;
+  metadata?: Record<string, any>;
   institutions?: Institution;
 }
 

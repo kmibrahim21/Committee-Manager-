@@ -3,11 +3,25 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { createClient } from '@supabase/supabase-js';
 // Fix: Import icons from lucide-react instead of ../supabase
-import { Loader2, Search, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2, PlusCircle, BookOpen, Vote, Landmark, ClipboardList, Filter } from 'lucide-react';
+import { Loader2, Search, ChevronLeft, ChevronRight, User as UserIcon, ShieldCheck, Database, Globe, CheckCircle, XCircle, CreditCard, Save, X, Settings, Smartphone, MessageSquare, Key, Shield, ArrowLeft, ArrowRight, Copy, Check, Calendar, Users, Layers, MonitorSmartphone, Server, BarChart3, TrendingUp, RefreshCcw, Clock, Hash, History as HistoryIcon, Zap, Activity, PieChart, Users2, CheckCircle2, AlertCircle, AlertTriangle, RefreshCw, Trash2, Edit2, Sliders, ToggleLeft, ToggleRight, GraduationCap, Banknote, PhoneCall, Mic, Plus, Play, Building2, PlusCircle, BookOpen, Vote, Landmark, ClipboardList, Filter, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import { toPng } from 'html-to-image';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Transaction, AdminSMSStock } from 'types';
 import { COMMITTEE_TYPES as UTILITY_COMMITTEE_TYPES } from '../utils/committeeTypes';
 import { SONGHO_ACTIVITIES, getDefaultSonghoActivityIds } from '../utils/songhoActivities';
+
+const COMMITTEE_PACKAGES = [
+  { name: 'STARTER', rate: 200 },
+  { name: 'STANDARD', rate: 500 },
+  { name: 'PRO', rate: 1000 },
+  { name: 'Custom', rate: 0 }
+];
+
+const MONTH_NAMES_BN = [
+  'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+  'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+];
 
 const ALL_MODULE_META: Record<string, { labelBn: string; labelEn: string; icon: any }> = {
   departments: { labelBn: 'শাখা ও বিভাগ', labelEn: 'Departments / Branches', icon: BookOpen },
@@ -161,28 +175,60 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editSmsBalance, setEditSmsBalance] = useState<string>('0');
   const [editVoiceBalance, setEditVoiceBalance] = useState<string>('0');
   const [editReveApiKey, setEditReveApiKey] = useState('');
+  const [editReveSecretKey, setEditReveSecretKey] = useState('');
   const [editReveCallerId, setEditReveCallerId] = useState('');
+  const [editReveClientId, setEditReveClientId] = useState('');
   const [editVoiceSenderId, setEditVoiceSenderId] = useState('');
-  const [editModules, setEditModules] = useState({
+  const [editSmsRate, setEditSmsRate] = useState<number>(0.40);
+  const [editVoiceRate, setEditVoiceRate] = useState<number>(0.50);
+  const [editMemberLimit, setEditMemberLimit] = useState<number>(0);
+
+  const [editModules, setEditModules] = useState<Record<string, boolean>>({
     departments: true,
     attendance: true,
-    results: true,
+    meetings: true,
+    minutes: true,
     accounting: true,
     subscriptions: true,
+    sms: true,
     voice_broadcast: false,
-    sms: true
+    polls: true,
+    events: true,
+    notices: true,
+    qard_hasan: false,
   });
   const [editSubscriptionEnd, setEditSubscriptionEnd] = useState('');
-  const [editSubscriptionType, setEditSubscriptionType] = useState<'monthly' | 'yearly' | 'lifetime'>('monthly');
+  const [editSubscriptionType, setEditSubscriptionType] = useState<'monthly' | 'quarterly' | 'yearly' | 'lifetime'>('monthly');
   const [editStatus, setEditStatus] = useState<'active' | 'suspended' | 'trial'>('active');
-  const [editAttendanceType, setEditAttendanceType] = useState<'daily' | 'period'>('daily');
+  const [editAttendanceType, setEditAttendanceType] = useState<'meeting' | 'daily'>('meeting');
   const [editFeeStructure, setEditFeeStructure] = useState<'monthly' | 'session'>('monthly');
   const [editInstitutionType, setEditInstitutionType] = useState<any>('committee');
   const [editFeeEngine, setEditFeeEngine] = useState<'standard' | 'school' | 'qawmi' | 'kindergarten' | 'simple'>('standard');
-  const [editAccountingMode, setEditAccountingMode] = useState<'qawmi_flexible' | 'school_system'>('school_system');
+  const [editAccountingMode, setEditAccountingMode] = useState<'committee_system' | 'flexible'>('committee_system');
   const [editSonghoActivities, setEditSonghoActivities] = useState<string[]>(getDefaultSonghoActivityIds());
 
-  const [detailsTab, setDetailsTab] = useState<'basic' | 'advanced' | 'subscription' | 'settings'>('basic');
+  // Subscription & Billing States
+  const [editCustomSubscriptionFee, setEditCustomSubscriptionFee] = useState<number | ''>('');
+  const [editPackageName, setEditPackageName] = useState<string>('STANDARD');
+  const [editPackageRate, setEditPackageRate] = useState<number>(500);
+  const [editPaidMonths, setEditPaidMonths] = useState<string[]>([]);
+  const [selectedMonthsForPayment, setSelectedMonthsForPayment] = useState<string[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [editDiscount, setEditDiscount] = useState<number>(0);
+  const [editDueAmount, setEditDueAmount] = useState<number>(0);
+  const [overrideTotal, setOverrideTotal] = useState<number | ''>('');
+  const [editSubscriptionNote, setEditSubscriptionNote] = useState<string>('');
+  const [isProcessingSubPayment, setIsProcessingSubPayment] = useState<boolean>(false);
+
+  // History & Point-in-Time Balance Audit States
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
+  const [historyFilterModule, setHistoryFilterModule] = useState<'all' | 'sms' | 'voice' | 'subscription'>('all');
+  const [auditDate, setAuditDate] = useState<string>('');
+  const [auditResult, setAuditResult] = useState<any>(null);
+  const [isCheckingAudit, setIsCheckingAudit] = useState<boolean>(false);
+
+  const [detailsTab, setDetailsTab] = useState<'committee' | 'api' | 'permissions' | 'subscription' | 'history'>('committee');
 
   const [editPassword, setEditPassword] = useState('');
   const [isDeletingUser, setIsDeletingUser] = useState(false);
@@ -360,6 +406,400 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     else if (currentView === 'list') setView('list');
   }, [currentView]);
 
+  const fetchPaymentHistory = useCallback(async (
+    institutionId: string,
+    filterModule: 'all' | 'sms' | 'voice' | 'subscription' = 'all'
+  ) => {
+    if (!institutionId) return;
+    setIsLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('institution_id', institutionId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      const rows = Array.isArray(data) ? data : [];
+
+      const filteredRows = rows.filter((tr: any) => {
+        if (filterModule === 'all') return true;
+        const desc = (tr.description || '').toLowerCase();
+        const trxId = (tr.transaction_id || '').toUpperCase();
+        if (filterModule === 'subscription') {
+          return tr.module === 'subscription' || desc.includes('subscription') || trxId.startsWith('SUB_');
+        }
+        if (filterModule === 'voice') {
+          return tr.module === 'voice' || desc.includes('voice');
+        }
+        if (filterModule === 'sms') {
+          return tr.module === 'sms' || (Number(tr.sms_count) || 0) > 0 || desc.includes('sms');
+        }
+        return true;
+      });
+
+      setPaymentHistory(filteredRows);
+    } catch (err) {
+      console.error('Error fetching payment history:', err);
+      setPaymentHistory([]);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, []);
+
+  const handleCheckHistoricalBalance = async () => {
+    if (!selectedUser || !auditDate) return;
+    setIsCheckingAudit(true);
+    try {
+      const targetIso = new Date(auditDate).toISOString();
+      const { data: postTx, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('institution_id', selectedUser.id)
+        .eq('status', 'approved')
+        .gt('created_at', targetIso)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const { data: preTx } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('institution_id', selectedUser.id)
+        .eq('status', 'approved')
+        .lte('created_at', targetIso)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const currentVoice = Number(selectedUser.balance || 0);
+      const currentSms = Number(selectedUser.sms_balance || 0);
+
+      let historicalVoice = currentVoice;
+      let historicalSms = currentSms;
+
+      if (preTx?.metadata && (preTx.metadata.balance_after !== undefined || preTx.metadata.sms_balance_after !== undefined)) {
+        if (preTx.metadata.balance_after !== undefined) {
+          historicalVoice = Number(preTx.metadata.balance_after);
+        }
+        if (preTx.metadata.sms_balance_after !== undefined) {
+          historicalSms = Number(preTx.metadata.sms_balance_after);
+        }
+      } else {
+        (postTx || []).forEach((tr: any) => {
+          const desc = (tr.description || '').toLowerCase();
+          const trxId = (tr.transaction_id || '').toUpperCase();
+          const isDebit = tr.type === 'debit';
+          const isSub = tr.module === 'subscription' || desc.includes('subscription') || trxId.startsWith('SUB_');
+          const smsCnt = Number(tr.sms_count) || 0;
+          const isSms = tr.module === 'sms' || smsCnt > 0 || desc.includes('sms');
+          const isVoice = tr.module === 'voice' || desc.includes('voice');
+
+          if (isSub) return;
+
+          if (isSms && smsCnt > 0) {
+            historicalSms += isDebit ? smsCnt : -smsCnt;
+          }
+          if (isVoice || (!isSms && Number(tr.amount) > 0)) {
+            const amt = Number(tr.amount) || 0;
+            historicalVoice += isDebit ? amt : -amt;
+          }
+        });
+      }
+
+      setAuditResult({
+        targetDate: auditDate,
+        historicalVoice: Math.max(0, historicalVoice),
+        historicalSms: Math.max(0, historicalSms),
+        currentVoice,
+        currentSms,
+        transactionsAfterCount: (postTx || []).length
+      });
+    } catch (err: any) {
+      console.error('Historical balance check failed:', err);
+      setStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'ত্রুটি' : 'Error',
+        message: err.message || 'Failed to check historical balance'
+      });
+    } finally {
+      setIsCheckingAudit(false);
+    }
+  };
+
+  const handleReceiveSubscriptionPayment = async () => {
+    if (!selectedUser) return;
+    if (selectedMonthsForPayment.length === 0 && overrideTotal === '') {
+      setStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'মাস নির্বাচন করুন' : 'Select Months',
+        message: lang === 'bn' ? 'পেমেন্ট গ্রহণের জন্য অন্তত একটি মাস বা কাস্টম মোট টাকা লিখুন।' : 'Please select at least one month or enter a custom total amount.'
+      });
+      return;
+    }
+
+    setIsProcessingSubPayment(true);
+    try {
+      const effectiveRate = editCustomSubscriptionFee !== '' ? Number(editCustomSubscriptionFee) : Number(editPackageRate || 0);
+      const calculatedTotal = Math.max(0, (effectiveRate * selectedMonthsForPayment.length) - Number(editDiscount || 0));
+      const finalAmount = overrideTotal !== '' ? Math.max(0, Number(overrideTotal)) : calculatedTotal;
+
+      const mergedPaidMonths = Array.from(new Set([...editPaidMonths, ...selectedMonthsForPayment])).sort();
+
+      // Compute new subscription_end from latest paid month or +1 month
+      let newSubEnd = editSubscriptionEnd;
+      if (mergedPaidMonths.length > 0) {
+        const latestYm = mergedPaidMonths[mergedPaidMonths.length - 1];
+        const [yr, mo] = latestYm.split('-').map(Number);
+        if (yr && mo) {
+          const lastDay = new Date(yr, mo, 0);
+          newSubEnd = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+        }
+      } else {
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        newSubEnd = nextMonth.toISOString().split('T')[0];
+      }
+
+      const trxId = `SUB_${Date.now()}`;
+      const monthsLabel = selectedMonthsForPayment.length > 0 ? selectedMonthsForPayment.join(', ') : 'Custom Payment';
+      const description = `Subscription Payment (${editPackageName}) - ${monthsLabel}`;
+
+      const baseInsertPayload = {
+        institution_id: selectedUser.id,
+        amount: finalAmount,
+        transaction_id: trxId,
+        sender_phone: 'Admin Direct',
+        description,
+        type: 'credit',
+        status: 'approved',
+        sms_count: 0
+      };
+
+      const fullInsertPayload = {
+        ...baseInsertPayload,
+        module: 'subscription',
+        metadata: {
+          months: selectedMonthsForPayment,
+          package_name: editPackageName,
+          subscription_type: editSubscriptionType,
+          discount: Number(editDiscount || 0),
+          due_amount: Number(editDueAmount || 0),
+          balance_after: Number(editVoiceBalance || 0),
+          sms_balance_after: Number(editSmsBalance || 0)
+        }
+      };
+
+      const { error: txErr } = await supabase.from('transactions').insert(fullInsertPayload);
+      if (txErr) {
+        const errMsg = `${txErr.message || ''} ${txErr.code || ''}`.toLowerCase();
+        if (errMsg.includes('42703') || errMsg.includes('column') || errMsg.includes('schema cache')) {
+          const { error: retryErr } = await supabase.from('transactions').insert(baseInsertPayload);
+          if (retryErr) throw retryErr;
+        } else {
+          throw txErr;
+        }
+      }
+
+      let existingConfig: any = selectedUser.config_json;
+      if (typeof existingConfig === 'string') {
+        try {
+          existingConfig = JSON.parse(existingConfig);
+        } catch {
+          existingConfig = {};
+        }
+      }
+
+      const updatedConfig = {
+        ...(typeof existingConfig === 'object' && existingConfig !== null ? existingConfig : {}),
+        modules: editModules,
+        paid_months: mergedPaidMonths,
+        package_name: editPackageName,
+        package_rate: editPackageRate,
+        custom_subscription_fee: editCustomSubscriptionFee,
+        due_amount: Number(editDueAmount || 0),
+        subscription_note: editSubscriptionNote,
+        subscription_type: editSubscriptionType
+      };
+
+      const { data: updatedInst, error: instErr } = await supabase
+        .from('institutions')
+        .update({
+          is_active: true,
+          status: 'active',
+          subscription_end: newSubEnd || null,
+          config_json: updatedConfig
+        })
+        .eq('id', selectedUser.id)
+        .select()
+        .single();
+
+      if (instErr) throw instErr;
+
+      setEditPaidMonths(mergedPaidMonths);
+      setEditActive(true);
+      setEditStatus('active');
+      setEditSubscriptionEnd(newSubEnd);
+      if (updatedInst) {
+        setSelectedUser(prev => prev ? { ...prev, ...updatedInst } : prev);
+      }
+      setSelectedMonthsForPayment([]);
+      setEditDiscount(0);
+      setOverrideTotal('');
+
+      await fetchPaymentHistory(selectedUser.id, historyFilterModule);
+      initData(true);
+
+      setStatusModal({
+        show: true,
+        type: 'success',
+        title: lang === 'bn' ? 'পেমেন্ট সফল' : 'Payment Received',
+        message: lang === 'bn'
+          ? `${selectedUser.name}-এর সাবস্ক্রিপশন পেমেন্ট (৳${finalAmount}) সফলভাবে রেকর্ড হয়েছে।`
+          : `Subscription payment of ৳${finalAmount} recorded for ${selectedUser.name}.`
+      });
+    } catch (err: any) {
+      console.error('Subscription payment error:', err);
+      setStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'ব্যর্থ' : 'Failed',
+        message: err.message || 'Failed to record subscription payment'
+      });
+    } finally {
+      setIsProcessingSubPayment(false);
+    }
+  };
+
+  const handleDeleteHistory = (tr: any) => {
+    if (!selectedUser) return;
+    setShowConfirm({
+      show: true,
+      title: lang === 'bn' ? 'লেনদেন ডিলিট নিশ্চিত করুন' : 'Delete Transaction',
+      message: lang === 'bn'
+        ? `আপনি কি "${tr.transaction_id || tr.id}" (${tr.amount} ৳) লেনদেনটি মুছে ফেলতে চান?`
+        : `Are you sure you want to delete transaction "${tr.transaction_id || tr.id}" (${tr.amount} ৳)?`,
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('transactions').delete().eq('id', tr.id);
+          if (error) throw error;
+          await fetchPaymentHistory(selectedUser.id, historyFilterModule);
+          setStatusModal({
+            show: true,
+            type: 'success',
+            title: lang === 'bn' ? 'সফল' : 'Deleted',
+            message: lang === 'bn' ? 'লেনদেনটি ইতিহাস থেকে মুছে ফেলা হয়েছে।' : 'Transaction removed from history.'
+          });
+        } catch (err: any) {
+          setStatusModal({
+            show: true,
+            type: 'error',
+            title: lang === 'bn' ? 'ত্রুটি' : 'Error',
+            message: err.message || 'Failed to delete transaction'
+          });
+        }
+      }
+    });
+  };
+
+  const handleDownloadReceipt = async (tr: any) => {
+    if (!selectedUser) return;
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '680px';
+    container.style.backgroundColor = '#ffffff';
+    container.style.color = '#0f172a';
+    container.style.fontFamily = "'Noto Sans Bengali', 'Inter', sans-serif";
+    container.style.padding = '36px';
+    container.style.boxSizing = 'border-box';
+
+    const escapeHtml = (val: any) =>
+      String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const formattedDate = escapeHtml(new Date(tr.created_at).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'));
+    const monthsText = Array.isArray(tr.metadata?.months) && tr.metadata.months.length > 0
+      ? escapeHtml(tr.metadata.months.join(', '))
+      : '';
+    const pkgText = tr.metadata?.package_name ? ` (${escapeHtml(tr.metadata.package_name)})` : '';
+
+    container.innerHTML = `
+      <div style="border: 2px solid #0fb5ab; border-radius: 20px; padding: 32px; background: #ffffff; position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px dashed #cbd5e1; padding-bottom: 20px; margin-bottom: 24px;">
+          <div>
+            <div style="font-size: 24px; font-weight: 900; color: #0fb5ab; letter-spacing: -0.5px;">Committee Manager</div>
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px;">Official Payment Receipt</div>
+          </div>
+          <div style="text-align: right;">
+            <span style="display: inline-block; padding: 6px 14px; border-radius: 999px; background: #ecfdf5; color: #059669; border: 1.5px solid #10b981; font-size: 12px; font-weight: 900; letter-spacing: 1px;">PAID</span>
+            <div style="font-size: 10px; color: #64748b; font-weight: 700; margin-top: 8px;">${formattedDate}</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; background: #f8fafc; padding: 18px; border-radius: 14px; border: 1px solid #e2e8f0;">
+          <div>
+            <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Committee / Organization</div>
+            <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 4px;">${escapeHtml(selectedUser.name)}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${escapeHtml(selectedUser.phone || '')}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Transaction ID</div>
+            <div style="font-size: 13px; font-weight: 800; color: #0fb5ab; margin-top: 4px;">${escapeHtml(tr.transaction_id || tr.id)}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Method: ${escapeHtml(tr.sender_phone || 'Admin Direct')}</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">Payment Details</div>
+          <div style="font-size: 14px; font-weight: 700; color: #1e293b; padding: 14px 16px; background: #f0fdfa; border-radius: 12px; border: 1px solid #ccfbf1;">
+            ${escapeHtml(tr.description || 'Platform Payment')}${pkgText}
+            ${monthsText ? `<div style="font-size: 11px; color: #0f766e; margin-top: 6px;">Months: ${monthsText}</div>` : ''}
+            ${tr.sms_count ? `<div style="font-size: 11px; color: #0f766e; margin-top: 4px;">SMS Credited: ${escapeHtml(tr.sms_count)} SMS</div>` : ''}
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #0fb5ab; color: #ffffff; padding: 18px 24px; border-radius: 14px;">
+          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Total Amount Paid</div>
+          <div style="font-size: 24px; font-weight: 900;">৳ ${Number(tr.amount || 0).toFixed(2)}</div>
+        </div>
+
+        <div style="margin-top: 24px; text-align: center; font-size: 10px; color: #94a3b8; font-weight: 600;">
+          Generated by Committee Manager Super Admin Panel
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(container);
+    try {
+      const imgData = await toPng(container, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData, 'PNG', 10, 15, pdfWidth, pdfHeight);
+      pdf.save(`Committee_Receipt_${tr.transaction_id || tr.id}.pdf`);
+    } catch (err) {
+      console.error('Receipt generation error:', err);
+      setStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'ত্রুটি' : 'Error',
+        message: lang === 'bn' ? 'রসিদ ডাউনলোড করতে সমস্যা হয়েছে।' : 'Failed to generate receipt PDF.'
+      });
+    } finally {
+      document.body.removeChild(container);
+    }
+  };
+
   // Fix: Add missing handleUserClick function to manage details view and stats
   const handleUserClick = async (user: InstitutionWithStats) => {
     setSelectedUser(user);
@@ -372,8 +812,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     setEditSmsBalance(String(user.sms_balance ?? 0));
     setEditVoiceBalance(String(user.balance ?? 0));
     setEditReveApiKey(user.reve_api_key || '');
+    setEditReveSecretKey(user.reve_secret_key || '');
     setEditReveCallerId(user.reve_caller_id || '');
+    setEditReveClientId(user.reve_client_id || '');
     setEditVoiceSenderId(user.voice_sender_id || '');
+
     let userConfig: any = user.config_json;
     if (typeof userConfig === 'string') {
       try {
@@ -383,21 +826,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       }
     }
 
+    setEditSmsRate(userConfig?.sms_rate ?? 0.40);
+    setEditVoiceRate(userConfig?.voice_rate ?? 0.50);
+    setEditMemberLimit(Number(userConfig?.member_limit) || 0);
+
     const userModules = { ...(userConfig?.modules || {}) };
     delete userModules.fees;
     delete userModules.admit_card;
     delete userModules.seat_plan;
+    delete userModules.results;
 
-    setEditModules({
-      departments: true,
-      attendance: true,
-      results: true,
-      accounting: true,
-      subscriptions: true,
-      voice_broadcast: true,
-      sms: true,
-      ...userModules
+    const baseDefaults = ACCOUNT_TYPE_DEFAULT_MODULES[user.institution_type || 'committee'] || ACCOUNT_TYPE_DEFAULT_MODULES.committee;
+    const mergedModules: Record<string, boolean> = {};
+    Object.keys(ALL_MODULE_META).forEach((key) => {
+      mergedModules[key] = userModules[key] !== undefined ? Boolean(userModules[key]) : Boolean(baseDefaults[key]);
     });
+    Object.entries(userModules).forEach(([key, val]) => {
+      if (!(key in mergedModules)) {
+        mergedModules[key] = Boolean(val);
+      }
+    });
+    setEditModules(mergedModules);
 
     const createdAtDate = new Date(user.created_at);
     const oneYearLater = new Date(createdAtDate);
@@ -406,20 +855,42 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
     setEditSubscriptionEnd(user.subscription_end || defaultEndDate);
     setEditSubscriptionType(userConfig?.subscription_type || 'monthly');
+    setEditCustomSubscriptionFee(userConfig?.custom_subscription_fee ?? '');
+    setEditPackageName(userConfig?.package_name || 'STANDARD');
+    setEditPackageRate(Number(userConfig?.package_rate) || 500);
+    setEditPaidMonths(Array.isArray(userConfig?.paid_months) ? userConfig.paid_months : []);
+    setSelectedMonthsForPayment([]);
+    setSelectedYear(new Date().getFullYear());
+    setEditDiscount(0);
+    setEditDueAmount(Number(userConfig?.due_amount) || 0);
+    setOverrideTotal('');
+    setEditSubscriptionNote(userConfig?.subscription_note || '');
+
     setEditStatus(user.status || 'active');
-    setEditAttendanceType(userConfig?.attendance_type || 'daily');
+    setEditAttendanceType(userConfig?.attendance_type === 'daily' ? 'daily' : 'meeting');
     setEditFeeStructure(userConfig?.fee_structure || 'monthly');
     setEditInstitutionType(user.institution_type || 'committee');
     setEditFeeEngine(userConfig?.fee_engine || 'standard');
-    setEditAccountingMode(userConfig?.accounting_mode || 'school_system');
+    setEditAccountingMode(
+      userConfig?.accounting_mode === 'flexible' || userConfig?.accounting_mode === 'qawmi_flexible'
+        ? 'flexible'
+        : 'committee_system'
+    );
     setEditSonghoActivities(
       Array.isArray(userConfig?.songho_activities) && userConfig.songho_activities.length > 0
         ? userConfig.songho_activities
         : getDefaultSonghoActivityIds()
     );
-    
+
+    setDetailsTab('committee');
+    setHistoryFilterModule('all');
+    setAuditDate('');
+    setAuditResult(null);
+    setEditPassword('');
     setView('details');
-    
+
+    fetchPaymentHistory(user.id, 'all');
+
     // Fetch user stats
     setUserStats({ students: 0, departments: 0 });
     try {
@@ -450,13 +921,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         }
       }
 
-      console.log('Saving config_json:', {
-        modules: editModules,
-        attendance_type: editAttendanceType,
-        fee_structure: editFeeStructure,
-        fee_engine: editFeeEngine,
-        accounting_mode: editAccountingMode
-      });
       const parsedSmsBalance = Math.max(0, parseInt(editSmsBalance, 10) || 0);
       const parsedVoiceBalance = Math.max(0, parseFloat(editVoiceBalance) || 0);
 
@@ -470,7 +934,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         sms_balance: parsedSmsBalance,
         balance: parsedVoiceBalance,
         reve_api_key: editReveApiKey.trim() || null,
+        reve_secret_key: editReveSecretKey.trim() || null,
         reve_caller_id: editReveCallerId.trim() || null,
+        reve_client_id: editReveClientId.trim() || null,
         voice_sender_id: editVoiceSenderId.trim() || null,
         institution_type: editInstitutionType,
         subscription_end: editSubscriptionEnd || null,
@@ -478,16 +944,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         config_json: {
           ...(typeof userConfig === 'object' && userConfig !== null ? userConfig : {}),
           modules: editModules,
+          member_limit: Number(editMemberLimit) || 0,
+          sms_rate: Number(editSmsRate) || 0.40,
+          voice_rate: Number(editVoiceRate) || 0.50,
           attendance_type: editAttendanceType,
           fee_structure: editFeeStructure,
           subscription_type: editSubscriptionType,
+          custom_subscription_fee: editCustomSubscriptionFee,
+          package_name: editPackageName,
+          package_rate: Number(editPackageRate) || 0,
+          paid_months: editPaidMonths,
+          due_amount: Number(editDueAmount) || 0,
+          subscription_note: editSubscriptionNote,
           fee_engine: editFeeEngine,
           accounting_mode: editAccountingMode,
           ...((editInstitutionType === 'sangha' || editInstitutionType === 'union') ? { songho_activities: editSonghoActivities } : {})
         }
       }).eq('id', selectedUser.id).select();
-      
-      console.log('Update result data:', data, 'error:', error);
       
       if (error) throw error;
       if (!data || data.length === 0) throw new Error('Update failed: No rows updated. Check permissions or if the institution exists.');
@@ -1466,529 +1939,1071 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
             </div>
           )}
 
-          {view === 'details' && selectedUser && (
-             <div className="animate-in slide-in-from-right-10 duration-500 pb-20 space-y-8 pt-2">
-                <div className="flex items-center gap-5 px-1">
-                   <button onClick={() => setView('list')} className={`w-12 h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'} rounded-2xl flex items-center justify-center active:scale-90 transition-all border shadow-sm`}>
-                      <ArrowLeft size={24} strokeWidth={3} />
-                   </button>
-                   <div className="min-w-0">
-                      <h1 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E293B]'} font-noto truncate leading-tight`}>
+          {view === 'details' && selectedUser && (() => {
+             const isDark = madrasah?.theme === 'dark';
+             const activeTypeMeta = DISPLAY_COMMITTEE_TYPES.find(t => t.id === editInstitutionType);
+             const effectiveRate = editCustomSubscriptionFee !== '' ? Number(editCustomSubscriptionFee) : Number(editPackageRate || 0);
+             const calculatedTotal = Math.max(0, (effectiveRate * selectedMonthsForPayment.length) - Number(editDiscount || 0));
+             const displayTotal = overrideTotal !== '' ? Math.max(0, Number(overrideTotal)) : calculatedTotal;
+             const trialExpiryDate = new Date(new Date(selectedUser.created_at).getTime() + 3 * 24 * 60 * 60 * 1000);
+             const activeModuleCount = Object.values(editModules || {}).filter(Boolean).length;
+
+             return (
+              <div className="animate-in slide-in-from-right-10 duration-500 pb-20 space-y-6 pt-2">
+                {/* Top Header */}
+                <div className="flex flex-wrap items-center justify-between gap-4 px-1">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setView('list')}
+                      className={`w-12 h-12 shrink-0 ${isDark ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/15 text-[#0fb5ab] border-[#42f5e9]/30'} rounded-2xl flex items-center justify-center active:scale-90 transition-all border shadow-sm`}
+                    >
+                      <ArrowLeft size={22} strokeWidth={2.5} />
+                    </button>
+                    <div className="min-w-0">
+                      <h1 className={`text-xl md:text-2xl font-black ${isDark ? 'text-white' : 'text-[#1E293B]'} font-noto truncate leading-tight`}>
                         {lang === 'bn' ? 'কমিটির বিস্তারিত বিবরণ' : 'Committee Details'}
                       </h1>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">UUID: {selectedUser.id}</p>
-                   </div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 truncate">
+                        ID: {selectedUser.id}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDeleteUser}
+                    disabled={isDeletingUser}
+                    className={`px-4 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 border transition-all active:scale-95 disabled:opacity-50 ${isDark ? 'bg-red-900/30 border-red-800/60 text-red-400 hover:bg-red-900/50' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-100'}`}
+                  >
+                    {isDeletingUser ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                    <span>{lang === 'bn' ? 'কমিটি ডিলিট' : 'Delete Committee'}</span>
+                  </button>
                 </div>
 
-                <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} rounded-[3.5rem] p-8 border space-y-8`}>
-                   <div className="flex flex-col items-center text-center">
-                      <div className={`w-24 h-24 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-white'} rounded-[2rem] flex items-center justify-center border-4 shadow-bubble overflow-hidden mb-4`}>
-                         {selectedUser.logo_url ? <img src={selectedUser.logo_url} className="w-full h-full object-contain" /> : <UserIcon size={40} className="text-slate-300" />}
+                {/* Main Container */}
+                <div className={`${isDark ? 'bg-slate-900 border-slate-800 shadow-none' : 'bg-white border-slate-100 shadow-bubble'} rounded-[3rem] p-6 md:p-10 border space-y-8`}>
+                  {/* Horizontal Profile Header */}
+                  <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 text-center md:text-left">
+                    <div className={`w-28 h-28 md:w-32 md:h-32 shrink-0 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-white'} rounded-[2.5rem] flex items-center justify-center border-4 shadow-bubble overflow-hidden`}>
+                      {selectedUser.logo_url ? (
+                        <img src={selectedUser.logo_url} alt={selectedUser.name} className="w-full h-full object-contain" />
+                      ) : (
+                        <UserIcon size={46} className="text-slate-300" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <h2 className={`text-2xl md:text-3xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'} font-noto break-words`}>
+                        {editName || selectedUser.name}
+                      </h2>
+                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border ${editActive ? (isDark ? 'bg-emerald-900/30 text-emerald-400 border-emerald-900/50' : 'bg-emerald-50 text-emerald-600 border-emerald-100') : (isDark ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-50 text-red-600 border-red-100')}`}>
+                          <Activity size={12} />
+                          {editActive ? (lang === 'bn' ? 'সচল পোর্টাল' : 'Active Portal') : (lang === 'bn' ? 'বন্ধ পোর্টাল' : 'Access Restricted')}
+                        </span>
+                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9] border-[#42f5e9]/30' : 'bg-[#42f5e9]/15 text-[#0fb5ab] border-[#0fb5ab]/20'}`}>
+                          {activeTypeMeta ? (lang === 'bn' ? activeTypeMeta.label : activeTypeMeta.labelEn) : editInstitutionType}
+                        </span>
+                        {editPackageName && (
+                          <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${isDark ? 'bg-amber-900/30 text-amber-300 border-amber-800/50' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                            {editPackageName} {lang === 'bn' ? 'প্ল্যান' : 'PLAN'}
+                          </span>
+                        )}
                       </div>
-                      <h2 className={`text-2xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'} font-noto`}>{selectedUser.name}</h2>
-                      <div className={`mt-3 px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${editActive ? (madrasah?.theme === 'dark' ? 'bg-emerald-900/30 text-emerald-400 border-emerald-900/50' : 'bg-emerald-50 text-emerald-600 border-emerald-100') : (madrasah?.theme === 'dark' ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-50 text-red-600 border-red-100')}`}>
-                         <Activity size={12} /> {editActive ? (lang === 'bn' ? 'সচল পোর্টাল' : 'Active Portal') : (lang === 'bn' ? 'বন্ধ পোর্টাল' : 'Access Restricted')}
-                      </div>
-                   </div>
+                    </div>
+                  </div>
 
-                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                      <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{userStats.students}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'সদস্য' : 'Members'}</p>
-                      </div>
-                      <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{userStats.departments}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'কমিটি' : 'Committees'}</p>
-                      </div>
-                      <div className={`${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 border-[#42f5e9]/50' : 'bg-[#42f5e9]/10 border-[#42f5e9]/20'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{editSmsBalance || 0}</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'এসএমএস ব্যালেন্স' : 'SMS Bal'}</p>
-                      </div>
-                      <div className={`${madrasah?.theme === 'dark' ? 'bg-emerald-900/30 border-emerald-900/50' : 'bg-emerald-50 border-emerald-100'} p-4 rounded-3xl text-center border`}>
-                         <h5 className={`text-xl font-black ${madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>{Number(editVoiceBalance || 0).toFixed(2)} ৳</h5>
-                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'ভয়েস ব্যালেন্স' : 'Voice Bal'}</p>
-                      </div>
-                   </div>
+                  {/* 4-Card Stats Grid */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-5 rounded-3xl text-center border`}>
+                      <h5 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                        {userStats.students}
+                        {editMemberLimit > 0 && <span className="text-xs font-bold text-slate-400 ml-1">/ {editMemberLimit}</span>}
+                      </h5>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 font-noto">
+                        {lang === 'bn' ? 'মোট সদস্য / Members' : 'Members'}
+                      </p>
+                    </div>
+                    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} p-5 rounded-3xl text-center border`}>
+                      <h5 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{userStats.departments}</h5>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 font-noto">
+                        {lang === 'bn' ? 'কমিটি / শাখা' : 'Committees'}
+                      </p>
+                    </div>
+                    <div className={`${isDark ? 'bg-[#42f5e9]/15 border-[#42f5e9]/40' : 'bg-[#42f5e9]/10 border-[#42f5e9]/30'} p-5 rounded-3xl text-center border`}>
+                      <h5 className={`text-2xl font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{editSmsBalance || 0}</h5>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">SMS Balance</p>
+                    </div>
+                    <div className={`${isDark ? 'bg-emerald-900/30 border-emerald-800/60' : 'bg-emerald-50 border-emerald-100'} p-5 rounded-3xl text-center border`}>
+                      <h5 className={`text-2xl font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>৳ {Number(editVoiceBalance || 0).toFixed(2)}</h5>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Voice Balance</p>
+                    </div>
+                  </div>
 
-                   <div className={`space-y-6 pt-4 border-t ${madrasah?.theme === 'dark' ? 'border-slate-800' : 'border-slate-50'}`}>
-                      {/* Tab Selectors */}
-                      <div className="flex flex-wrap gap-2 pb-4 border-b border-dashed border-slate-200 dark:border-slate-800">
-                        <button
-                          type="button"
-                          onClick={() => setDetailsTab('basic')}
-                          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'basic' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
-                        >
-                          <UserIcon size={14} />
-                          <span>{lang === 'bn' ? 'প্রাথমিক ও ব্যালেন্স তথ্য' : 'General & Balance'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDetailsTab('advanced')}
-                          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'advanced' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
-                        >
-                          <Sliders size={14} />
-                          <span>{lang === 'bn' ? 'অ্যাডভান্সড কনফিগ' : 'Advanced Config'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDetailsTab('subscription')}
-                          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'subscription' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
-                        >
-                          <CreditCard size={14} />
-                          <span>{lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscription'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDetailsTab('settings')}
-                          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black transition-all active:scale-95 ${detailsTab === 'settings' ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] text-white shadow-lg' : 'bg-[#0fb5ab] text-white shadow-md') : (madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 hover:bg-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100')}`}
-                        >
-                          <Settings size={14} />
-                          <span>{lang === 'bn' ? 'সিস্টেম সেটিংস' : 'System Settings'}</span>
-                        </button>
-                      </div>
+                  {/* Horizontal 5-Tab Navigation Bar */}
+                  <div className={`pt-4 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'} space-y-6`}>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+                      {[
+                        { id: 'committee', labelBn: 'কমিটি তথ্য', labelEn: 'Committee Info', icon: Building2 },
+                        { id: 'api', labelBn: 'এপিআই ও সিকিউরিটি', labelEn: 'API & Security', icon: Key },
+                        { id: 'permissions', labelBn: 'পারমিশন', labelEn: 'Permissions', icon: Shield },
+                        { id: 'subscription', labelBn: 'সাবস্ক্রিপশন', labelEn: 'Subscription', icon: CreditCard },
+                        { id: 'history', labelBn: 'ইতিহাস', labelEn: 'History', icon: HistoryIcon },
+                      ].map(tab => {
+                        const TabIcon = tab.icon;
+                        const isActiveTab = detailsTab === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => {
+                              setDetailsTab(tab.id as any);
+                              if (tab.id === 'history') {
+                                fetchPaymentHistory(selectedUser.id, historyFilterModule);
+                              }
+                            }}
+                            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black whitespace-nowrap shrink-0 transition-all active:scale-95 ${
+                              isActiveTab
+                                ? 'bg-[#0fb5ab] text-white shadow-md'
+                                : isDark
+                                  ? 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <TabIcon size={18} />
+                            <span className="font-noto">{lang === 'bn' ? tab.labelBn : tab.labelEn}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                      {/* Tab Contents */}
-                      {detailsTab === 'basic' && (
-                        <div className="space-y-6 animate-in fade-in duration-300">
-                          {/* Balance & Wallet Management Section */}
-                          <div className={`p-6 rounded-[2.5rem] border ${madrasah?.theme === 'dark' ? 'bg-slate-800/60 border-slate-700' : 'bg-gradient-to-br from-teal-50/70 via-cyan-50/40 to-emerald-50/60 border-[#0fb5ab]/20'} space-y-6 shadow-sm`}>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-[#0fb5ab] text-white flex items-center justify-center shadow-md">
-                                  <CreditCard size={20} />
-                                </div>
-                                <div>
-                                  <h4 className={`text-sm font-black font-noto ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-                                    {lang === 'bn' ? 'ব্যালেন্স ও ওয়ালেট ম্যানেজমেন্ট' : 'SMS & Voice Balance Management'}
-                                  </h4>
-                                  <p className="text-[10px] text-slate-500 font-bold font-noto">
-                                    {lang === 'bn' ? 'ইউজারের অ্যাকাউন্টে সরাসরি ব্যালেন্স ও এসএমএস পরিবর্তন বা রিচার্জ করুন' : 'Directly adjust user SMS and Voice balance'}
-                                  </p>
-                                </div>
-                              </div>
+                    {/* TAB 1: COMMITTEE INFO */}
+                    {detailsTab === 'committee' && (
+                      <div className="space-y-6 animate-in fade-in duration-300">
+                        {/* SMS & Voice Balance Quick-Adjust Box */}
+                        <div className={`p-6 rounded-[2.5rem] border ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-gradient-to-br from-teal-50/70 via-cyan-50/40 to-emerald-50/60 border-[#0fb5ab]/20'} space-y-6 shadow-sm`}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-[#0fb5ab] text-white flex items-center justify-center shadow-md">
+                              <CreditCard size={20} />
                             </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                              {/* SMS Balance Box */}
-                              <div className={`p-5 rounded-3xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-100'} shadow-sm space-y-4`}>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                                      <MessageSquare size={18} />
-                                    </div>
-                                    <span className="text-xs font-black font-noto">
-                                      {lang === 'bn' ? 'এসএমএস ব্যালেন্স (সংখ্যা / কাউন্ট)' : 'SMS Balance (Count)'}
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300">
-                                    {Number(editSmsBalance) || 0} SMS
-                                  </span>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    {lang === 'bn' ? 'ব্যালেন্স সংখ্যা লিখুন' : 'Enter SMS Count'}
-                                  </label>
-                                  <div className="relative">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="1"
-                                      value={editSmsBalance}
-                                      onChange={(e) => setEditSmsBalance(e.target.value)}
-                                      placeholder="0"
-                                      className={`w-full h-13 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-2xl px-4 font-black text-base outline-none focus:border-[#0fb5ab] transition-all`}
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 font-noto">
-                                      {lang === 'bn' ? 'টি' : 'SMS'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Quick SMS Add Buttons */}
-                                <div className="flex flex-wrap gap-1.5 pt-1">
-                                  {[10, 50, 100, 500, 1000].map((amt) => (
-                                    <button
-                                      type="button"
-                                      key={amt}
-                                      onClick={() => setEditSmsBalance(prev => String(Math.max(0, (parseInt(prev, 10) || 0) + amt)))}
-                                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border ${madrasah?.theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-cyan-400' : 'bg-cyan-50 hover:bg-cyan-100 border-cyan-100 text-cyan-700'}`}
-                                    >
-                                      +{amt}
-                                    </button>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditSmsBalance('0')}
-                                    className="px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"
-                                  >
-                                    {lang === 'bn' ? 'রিসেট ০' : 'Reset 0'}
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Voice Balance Box */}
-                              <div className={`p-5 rounded-3xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-100'} shadow-sm space-y-4`}>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                      <PhoneCall size={18} />
-                                    </div>
-                                    <span className="text-xs font-black font-noto">
-                                      {lang === 'bn' ? 'ভয়েস কল ব্যালেন্স (টাকা ৳)' : 'Voice Call Balance (BDT)'}
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-                                    ৳{Number(editVoiceBalance || 0).toFixed(2)}
-                                  </span>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">
-                                    {lang === 'bn' ? 'ব্যালেন্স পরিমাণ লিখুন (টাকা)' : 'Enter Balance Amount (৳)'}
-                                  </label>
-                                  <div className="relative">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.5"
-                                      value={editVoiceBalance}
-                                      onChange={(e) => setEditVoiceBalance(e.target.value)}
-                                      placeholder="0.00"
-                                      className={`w-full h-13 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-2xl px-4 font-black text-base outline-none focus:border-[#0fb5ab] transition-all`}
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 font-noto">
-                                      ৳
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Quick Voice Balance Add Buttons */}
-                                <div className="flex flex-wrap gap-1.5 pt-1">
-                                  {[10, 50, 100, 500, 1000].map((amt) => (
-                                    <button
-                                      type="button"
-                                      key={amt}
-                                      onClick={() => setEditVoiceBalance(prev => String(Math.max(0, (parseFloat(prev) || 0) + amt)))}
-                                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border ${madrasah?.theme === 'dark' ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-emerald-400' : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-100 text-emerald-700'}`}
-                                    >
-                                      +৳{amt}
-                                    </button>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditVoiceBalance('0')}
-                                    className="px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"
-                                  >
-                                    {lang === 'bn' ? 'রিসেট ০' : 'Reset 0'}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-
-                            <p className="text-[10px] text-slate-400 font-bold font-noto flex items-center gap-1.5">
-                              <CheckCircle2 size={12} className="text-emerald-500" />
-                              {lang === 'bn' ? 'নিচের "Save Profile Changes" বাটনে ক্লিক করলে ইউজারের অ্যাকাউন্টে ব্যালেন্স অবিলম্বে আপডেট হয়ে যাবে।' : 'Clicking "Save Profile Changes" below will immediately update the balance in their account.'}
-                            </p>
-                          </div>
-
-                          {/* Basic Profile Details */}
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Committee / Org Name</label>
-                              <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editName} onChange={(e) => setEditName(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Gmail / Email</label>
-                              <input type="email" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Phone</label>
-                              <input type="tel" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Login Code</label>
-                              <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editLoginCode} onChange={(e) => setEditLoginCode(e.target.value)} />
-                            </div>
-                            <div className="space-y-2 lg:col-span-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 flex items-center justify-between">
-                                <span>{lang === 'bn' ? 'লগইন পাসওয়ার্ড (পরিবর্তন করতে চাইলে লিখুন)' : 'Login Password (leave blank to keep current)'}</span>
-                                {editPassword && <span className="text-xs text-[#0fb5ab] font-bold">{lang === 'bn' ? '✓ নতুন পাসওয়ার্ড সেট হবে' : '✓ Password will update'}</span>}
-                              </label>
-                              <div className="relative">
-                                <input 
-                                  type="text" 
-                                  className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 pr-14 font-black outline-none focus:border-[#42f5e9]/50`} 
-                                  value={editPassword} 
-                                  onChange={(e) => setEditPassword(e.target.value)} 
-                                  placeholder={lang === 'bn' ? 'নতুন পাসওয়ার্ড দিন (যেমন: 123456)' : 'Enter new password'} 
-                                />
-                                {editPassword && (
-                                  <button 
-                                    type="button" 
-                                    onClick={() => setEditPassword('')} 
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 text-xs font-bold px-2 py-1"
-                                  >
-                                    মুছুন
-                                  </button>
-                                )}
-                              </div>
-                              <p className="text-[10px] text-slate-400 font-bold px-2">
-                                {lang === 'bn' ? 'ইউজারের লগইন পাসওয়ার্ড পরিবর্তন করতে চাইলে এখানে নতুন পাসওয়ার্ড দিন এবং "Save Profile Changes" চাপুন।' : 'To update user login password, enter new password and save.'}
+                            <div>
+                              <h4 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                {lang === 'bn' ? 'ব্যালেন্স ও ওয়ালেট ম্যানেজমেন্ট' : 'SMS & Voice Balance Management'}
+                              </h4>
+                              <p className="text-[10px] text-slate-500 font-bold font-noto">
+                                {lang === 'bn' ? 'ইউজারের অ্যাকাউন্টে সরাসরি ব্যালেন্স ও এসএমএস পরিবর্তন বা রিচার্জ করুন' : 'Directly adjust user SMS and Voice balance'}
                               </p>
                             </div>
-                            <div className="space-y-2 lg:col-span-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Address</label>
-                              <input type="text" className={`w-full h-14 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#42f5e9]/50`} value={editAddress} onChange={(e) => setEditAddress(e.target.value)} placeholder="Full Address" />
+                          </div>
+
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* SMS Balance Box */}
+                            <div className={`p-5 rounded-3xl border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-100'} shadow-sm space-y-4`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                                    <MessageSquare size={18} />
+                                  </div>
+                                  <span className="text-xs font-black font-noto">
+                                    {lang === 'bn' ? 'এসএমএস ব্যালেন্স (সংখ্যা / কাউন্ট)' : 'SMS Balance (Count)'}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300">
+                                  {Number(editSmsBalance) || 0} SMS
+                                </span>
+                              </div>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={editSmsBalance}
+                                  onChange={(e) => setEditSmsBalance(e.target.value)}
+                                  placeholder="0"
+                                  className={`w-full h-12 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-2xl px-4 font-black text-base outline-none focus:border-[#0fb5ab] transition-all`}
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 font-noto">
+                                  {lang === 'bn' ? 'টি' : 'SMS'}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {[10, 50, 100, 500, 1000].map((amt) => (
+                                  <button
+                                    type="button"
+                                    key={amt}
+                                    onClick={() => setEditSmsBalance(prev => String(Math.max(0, (parseInt(prev, 10) || 0) + amt)))}
+                                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border ${isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-cyan-400' : 'bg-cyan-50 hover:bg-cyan-100 border-cyan-100 text-cyan-700'}`}
+                                  >
+                                    +{amt}
+                                  </button>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setEditSmsBalance('0')}
+                                  className="px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"
+                                >
+                                  {lang === 'bn' ? 'রিসেট ০' : 'Reset 0'}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Voice Balance Box */}
+                            <div className={`p-5 rounded-3xl border ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-100'} shadow-sm space-y-4`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                    <PhoneCall size={18} />
+                                  </div>
+                                  <span className="text-xs font-black font-noto">
+                                    {lang === 'bn' ? 'ভয়েস কল ব্যালেন্স (টাকা ৳)' : 'Voice Call Balance (BDT)'}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                                  ৳{Number(editVoiceBalance || 0).toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.5"
+                                  value={editVoiceBalance}
+                                  onChange={(e) => setEditVoiceBalance(e.target.value)}
+                                  placeholder="0.00"
+                                  className={`w-full h-12 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-2xl px-4 font-black text-base outline-none focus:border-[#0fb5ab] transition-all`}
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 font-noto">৳</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {[10, 50, 100, 500, 1000].map((amt) => (
+                                  <button
+                                    type="button"
+                                    key={amt}
+                                    onClick={() => setEditVoiceBalance(prev => String(Math.max(0, (parseFloat(prev) || 0) + amt)))}
+                                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border ${isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-emerald-400' : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-100 text-emerald-700'}`}
+                                  >
+                                    +৳{amt}
+                                  </button>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setEditVoiceBalance('0')}
+                                  className="px-3 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100"
+                                >
+                                  {lang === 'bn' ? 'রিসেট ০' : 'Reset 0'}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      )}
 
-                      {detailsTab === 'advanced' && (
-                        <div className="space-y-6 animate-in fade-in duration-300">
-                           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
-                              <div className="flex items-center justify-between px-1">
-                                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Sliders size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> Advanced Config
-                                 </h4>
-                            <button onClick={() => setEditActive(!editActive)} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${editActive ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
-                               {editActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                               <span className="text-[10px] font-black uppercase tracking-widest">{editActive ? 'Active' : 'Inactive'}</span>
+                        {/* Basic Profile Fields */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Committee / Org Name</label>
+                            <input type="text" className={`w-full h-14 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#0fb5ab]`} value={editName} onChange={(e) => setEditName(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Gmail / Email</label>
+                            <input type="email" className={`w-full h-14 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#0fb5ab]`} value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Phone</label>
+                            <input type="tel" className={`w-full h-14 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#0fb5ab]`} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 flex items-center justify-between">
+                              <span>{lang === 'bn' ? 'লগইন পাসওয়ার্ড / PIN' : 'Login Password / PIN'}</span>
+                              {editPassword && <span className="text-[10px] text-[#0fb5ab] font-bold">{lang === 'bn' ? '✓ আপডেট হবে' : '✓ Will update'}</span>}
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                className={`w-full h-14 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 pr-16 font-black outline-none focus:border-[#0fb5ab]`}
+                                value={editPassword}
+                                onChange={(e) => setEditPassword(e.target.value)}
+                                placeholder="নতুন পাসওয়ার্ড দিন (পরিবর্তন করতে চাইলে)"
+                              />
+                              {editPassword && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditPassword('')}
+                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 text-xs font-bold px-2 py-1"
+                                >
+                                  {lang === 'bn' ? 'মুছুন' : 'Clear'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Login Code</label>
+                            <input type="text" className={`w-full h-14 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 font-black outline-none focus:border-[#0fb5ab]`} value={editLoginCode} onChange={(e) => setEditLoginCode(e.target.value)} />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Address</label>
+                            <textarea
+                              rows={2}
+                              className={`w-full ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border rounded-2xl px-6 py-4 font-black outline-none focus:border-[#0fb5ab] resize-none`}
+                              value={editAddress}
+                              onChange={(e) => setEditAddress(e.target.value)}
+                              placeholder="Full Address"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Basic Config Card */}
+                        <div className={`${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'} p-6 rounded-[2.5rem] border space-y-6`}>
+                          <div className="flex items-center justify-between px-1">
+                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                              <Sliders size={14} className={isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> Basic Config
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={() => setEditActive(!editActive)}
+                              className={`flex items-center gap-2 px-4 py-1.5 rounded-xl transition-all active:scale-95 ${editActive ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}
+                            >
+                              {editActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                              <span className="text-[10px] font-black uppercase tracking-widest">{editActive ? 'Active' : 'Inactive'}</span>
                             </button>
-                         </div>
-                         <div className="space-y-4">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">MRAM API Key</label>
-                                  <input type="text" className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-bold text-xs`} value={editReveApiKey} onChange={(e) => setEditReveApiKey(e.target.value)} placeholder="System Default Used" />
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">MRAM Sender ID</label>
-                                  <input type="text" className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm`} value={editReveCallerId} onChange={(e) => setEditReveCallerId(e.target.value)} placeholder="e.g. 12345" />
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Voice Sender ID</label>
-                                  <input type="text" className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm`} value={editVoiceSenderId} onChange={(e) => setEditVoiceSenderId(e.target.value)} placeholder="e.g. 8801..." />
-                               </div>
+                          </div>
 
-                               <div className="space-y-3 lg:col-span-2">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Committee Type</label>
-                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                                    {DISPLAY_COMMITTEE_TYPES.map(type => (
-                                      <button
-                                        key={type.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setEditInstitutionType(type.id);
-                                          const defaultMods = ACCOUNT_TYPE_DEFAULT_MODULES[type.id] || ACCOUNT_TYPE_DEFAULT_MODULES.committee;
-                                          setEditModules(defaultMods as any);
-                                        }}
-                                        className={`px-3 py-2.5 rounded-xl border text-[10px] font-black transition-all ${
-                                          editInstitutionType === type.id 
-                                            ? (madrasah?.theme === 'dark' ? 'bg-[#0fb5ab] border-[#42f5e9]/50 text-white shadow-lg' : 'bg-[#0fb5ab] border-[#0fb5ab] text-white shadow-md')
-                                            : (madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50')
-                                        }`}
-                                      >
-                                        <div className="flex flex-col items-center">
-                                          <span>{type.label}</span>
-                                          <span className="text-[7px] opacity-60 uppercase tracking-tighter mt-0.5">{type.labelEn}</span>
-                                        </div>
-                                      </button>
-                                    ))}
+                          <div className="space-y-2 max-w-sm">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Member Limit (0 for unlimited)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`}
+                              value={editMemberLimit}
+                              onChange={(e) => setEditMemberLimit(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Committee Type</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                              {DISPLAY_COMMITTEE_TYPES.map(type => (
+                                <button
+                                  key={type.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setEditInstitutionType(type.id);
+                                    const defaultMods = ACCOUNT_TYPE_DEFAULT_MODULES[type.id] || ACCOUNT_TYPE_DEFAULT_MODULES.committee;
+                                    const nextMods: Record<string, boolean> = {};
+                                    Object.keys(ALL_MODULE_META).forEach(k => {
+                                      nextMods[k] = Boolean(defaultMods[k]);
+                                    });
+                                    setEditModules(nextMods);
+                                  }}
+                                  className={`px-3 py-2.5 rounded-xl border text-[10px] font-black transition-all ${
+                                    editInstitutionType === type.id
+                                      ? 'bg-[#0fb5ab] border-[#0fb5ab] text-white shadow-md'
+                                      : isDark
+                                        ? 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                                        : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  <div className="flex flex-col items-center">
+                                    <span>{type.label}</span>
+                                    <span className="text-[7px] opacity-60 uppercase tracking-tighter mt-0.5">{type.labelEn}</span>
                                   </div>
-                               </div>
-
-                               {(editInstitutionType === 'sangha' || editInstitutionType === 'union') && (
-                                 <div className="space-y-3 lg:col-span-2 p-4 rounded-2xl border bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
-                                   <div className="flex items-center justify-between">
-                                     <label className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest flex items-center gap-2">
-                                       <Activity size={14} /> সংঘের কার্যক্রমসমূহ (মাল্টি-সিলেক্ট)
-                                     </label>
-                                     <span className="text-[9px] font-bold text-slate-400">{editSonghoActivities.length} টি নির্বাচিত</span>
-                                   </div>
-                                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                                     {SONGHO_ACTIVITIES.map(act => {
-                                       const isSel = editSonghoActivities.includes(act.id);
-                                       const ActIcon = act.icon;
-                                       return (
-                                         <button
-                                           key={act.id}
-                                           type="button"
-                                           onClick={() => {
-                                             setEditSonghoActivities(prev => 
-                                               isSel 
-                                                 ? (prev.length > 1 ? prev.filter(x => x !== act.id) : prev) 
-                                                 : [...prev, act.id]
-                                             );
-                                           }}
-                                           className={`p-2.5 rounded-xl border text-left flex items-center gap-2 text-xs transition-all ${
-                                             isSel
-                                               ? 'bg-[#0fb5ab] text-white border-[#0fb5ab] font-black shadow-sm'
-                                               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-medium'
-                                           }`}
-                                         >
-                                           <span className="shrink-0"><ActIcon size={14} /></span>
-                                           <span className="text-[10px] font-noto truncate">{act.labelBn}</span>
-                                         </button>
-                                       );
-                                     })}
-                                   </div>
-                                 </div>
-                               )}
+                                </button>
+                              ))}
                             </div>
-                            
-                            <div className={`space-y-3 pt-4 border-t ${madrasah?.theme === 'dark' ? 'border-slate-800' : 'border-slate-100'}`}>
-                               <div className="flex items-center justify-between px-1">
-                                 <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                   <Layers size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
-                                   {lang === 'bn' ? 'সক্রিয় মডিউলসমূহ (Enabled Modules)' : 'Enabled Modules'}
-                                 </h5>
-                                 <span className="text-[10px] font-bold text-slate-400 font-noto">
-                                   {Object.values(editModules || {}).filter(Boolean).length} {lang === 'bn' ? 'টি সক্রিয়' : 'Active'}
-                                 </span>
-                               </div>
-                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                                  {Object.entries(editModules || {}).map(([key, value]) => {
-                                    const meta = ALL_MODULE_META[key] || {
-                                      labelBn: key.replace(/_/g, ' '),
-                                      labelEn: key.replace(/_/g, ' '),
-                                      icon: Layers
-                                    };
-                                    const ModIcon = meta.icon;
-                                    return (
-                                      <button 
-                                        type="button"
-                                        key={key}
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          setEditModules({...editModules, [key]: !value});
+                          </div>
+
+                          {(editInstitutionType === 'sangha' || editInstitutionType === 'union') && (
+                            <div className={`space-y-3 p-4 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-white border-slate-200'}`}>
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-widest flex items-center gap-2">
+                                  <Activity size={14} /> সংঘের কার্যক্রমসমূহ (মাল্টি-সিলেক্ট)
+                                </label>
+                                <span className="text-[9px] font-bold text-slate-400">{editSonghoActivities.length} টি নির্বাচিত</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                {SONGHO_ACTIVITIES.map(act => {
+                                  const isSel = editSonghoActivities.includes(act.id);
+                                  const ActIcon = act.icon;
+                                  return (
+                                    <button
+                                      key={act.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setEditSonghoActivities(prev =>
+                                          isSel
+                                            ? (prev.length > 1 ? prev.filter(x => x !== act.id) : prev)
+                                            : [...prev, act.id]
+                                        );
+                                      }}
+                                      className={`p-2.5 rounded-xl border text-left flex items-center gap-2 text-xs transition-all ${
+                                        isSel
+                                          ? 'bg-[#0fb5ab] text-white border-[#0fb5ab] font-black shadow-sm'
+                                          : isDark
+                                            ? 'bg-slate-900 border-slate-800 text-slate-400 font-medium'
+                                            : 'bg-slate-50 border-slate-200 text-slate-600 font-medium'
+                                      }`}
+                                    >
+                                      <span className="shrink-0"><ActIcon size={14} /></span>
+                                      <span className="text-[10px] font-noto truncate">{act.labelBn}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* System Settings Card */}
+                        <div className={`${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'} p-6 rounded-[2.5rem] border space-y-6`}>
+                          <div className="flex items-center justify-between px-1">
+                            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                              <Settings size={14} className={isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> System Settings
+                            </h4>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Attendance Type</label>
+                              <select
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none`}
+                                value={editAttendanceType}
+                                onChange={(e) => setEditAttendanceType(e.target.value as any)}
+                              >
+                                <option value="meeting">Meeting Based (মিটিং ভিত্তিক)</option>
+                                <option value="daily">Daily / Program Wise (দৈনিক / প্রোগ্রাম)</option>
+                              </select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Accounting Mode</label>
+                              <select
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none`}
+                                value={editAccountingMode}
+                                onChange={(e) => setEditAccountingMode(e.target.value as any)}
+                              >
+                                <option value="committee_system">Standard Committee System (স্ট্যান্ডার্ড কমিটি সিস্টেম)</option>
+                                <option value="flexible">Flexible Contribution Mode (ফ্লেক্সিবল চাঁদা মোড)</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 2: API & SECURITY */}
+                    {detailsTab === 'api' && (
+                      <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className={`${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'} p-6 md:p-8 rounded-[2.5rem] border space-y-6`}>
+                          <div className="flex items-center gap-2 px-1">
+                            <Key size={16} className={isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">API & Security</h4>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Voice Sender ID</label>
+                              <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editVoiceSenderId} onChange={(e) => setEditVoiceSenderId(e.target.value)} placeholder="e.g. 8801..." />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">MRAM / REVE API Key</label>
+                              <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-bold text-xs outline-none focus:border-[#0fb5ab]`} value={editReveApiKey} onChange={(e) => setEditReveApiKey(e.target.value)} placeholder="System Default Used" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Secret Key</label>
+                              <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-bold text-xs outline-none focus:border-[#0fb5ab]`} value={editReveSecretKey} onChange={(e) => setEditReveSecretKey(e.target.value)} placeholder="Secret Key" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Caller / Sender ID</label>
+                              <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editReveCallerId} onChange={(e) => setEditReveCallerId(e.target.value)} placeholder="e.g. 12345" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Masking / Client ID</label>
+                              <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editReveClientId} onChange={(e) => setEditReveClientId(e.target.value)} placeholder="e.g. COMMITTEE" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">SMS Rate (BDT)</label>
+                              <input type="number" step="0.01" min="0" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editSmsRate} onChange={(e) => setEditSmsRate(parseFloat(e.target.value) || 0)} placeholder="0.40" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Voice Rate (BDT)</label>
+                              <input type="number" step="0.01" min="0" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editVoiceRate} onChange={(e) => setEditVoiceRate(parseFloat(e.target.value) || 0)} placeholder="0.50" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 3: PERMISSIONS */}
+                    {detailsTab === 'permissions' && (
+                      <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className={`${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'} p-6 md:p-8 rounded-[2.5rem] border space-y-6`}>
+                          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                            <h4 className={`text-sm font-black font-noto flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                              <ShieldCheck size={18} className={isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
+                              <span>মডিউল পারমিশন (Module Permissions)</span>
+                            </h4>
+                            <span className={`px-3.5 py-1 rounded-full text-[11px] font-black font-noto ${isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-[#0fb5ab]/10 text-[#0fb5ab]'}`}>
+                              {activeModuleCount} টি সক্রিয়
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            {Array.from(new Set([...Object.keys(ALL_MODULE_META), ...Object.keys(editModules || {})])).map((key) => {
+                              const value = Boolean(editModules?.[key]);
+                              const meta = ALL_MODULE_META[key] || {
+                                labelBn: key.replace(/_/g, ' '),
+                                labelEn: key.replace(/_/g, ' '),
+                                icon: Layers
+                              };
+                              const ModIcon = meta.icon;
+                              return (
+                                <button
+                                  type="button"
+                                  key={key}
+                                  onClick={() => setEditModules(prev => ({ ...prev, [key]: !value }))}
+                                  className={`p-4 rounded-2xl border flex items-center justify-between gap-3 text-left transition-all active:scale-[0.98] ${
+                                    value
+                                      ? isDark
+                                        ? 'bg-[#42f5e9]/10 border-[#42f5e9]/30 text-white shadow-sm'
+                                        : 'bg-white border-[#0fb5ab]/30 text-slate-800 shadow-sm'
+                                      : isDark
+                                        ? 'bg-slate-900 border-slate-800 text-slate-500 opacity-75'
+                                        : 'bg-white/60 border-slate-200/70 text-slate-400 opacity-80'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                      value
+                                        ? isDark ? 'bg-[#42f5e9]/20 text-[#42f5e9]' : 'bg-[#0fb5ab]/15 text-[#0fb5ab]'
+                                        : isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'
+                                    }`}>
+                                      <ModIcon size={17} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <span className="text-xs font-black font-noto truncate block">
+                                        {lang === 'bn' ? meta.labelBn : meta.labelEn}
+                                      </span>
+                                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight truncate block">
+                                        {meta.labelEn}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 flex items-center ${value ? 'bg-[#0fb5ab]' : isDark ? 'bg-slate-700' : 'bg-slate-300'}`}>
+                                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${value ? 'translate-x-6' : 'translate-x-0'}`} />
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 4: SUBSCRIPTION & BILLING */}
+                    {detailsTab === 'subscription' && (
+                      <div className="space-y-6 animate-in fade-in duration-300">
+                        <div className={`${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'} p-6 md:p-8 rounded-[2.5rem] border space-y-6`}>
+                          <div className="flex items-center gap-2 px-1">
+                            <CreditCard size={16} className={isDark ? 'text-emerald-400' : 'text-emerald-600'} />
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Subscription & Billing</h4>
+                          </div>
+
+                          {/* Top Settings Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">System Type</label>
+                              <select
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-bold text-xs outline-none`}
+                                value={editSubscriptionType}
+                                onChange={(e) => setEditSubscriptionType(e.target.value as any)}
+                              >
+                                <option value="monthly">Monthly</option>
+                                <option value="quarterly">Quarterly</option>
+                                <option value="yearly">Yearly</option>
+                                <option value="lifetime">Lifetime</option>
+                              </select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Portal Status</label>
+                              <select
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-bold text-xs outline-none`}
+                                value={editStatus}
+                                onChange={(e) => setEditStatus(e.target.value as any)}
+                              >
+                                <option value="active">Active</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="trial">Trial</option>
+                              </select>
+                              {editStatus === 'trial' && (
+                                <p className="text-[10px] font-bold text-amber-500 px-1">
+                                  {lang === 'bn'
+                                    ? `৩ দিনের ট্রায়াল শেষ: ${trialExpiryDate.toLocaleDateString('bn-BD')}`
+                                    : `3-day trial ends: ${trialExpiryDate.toLocaleDateString('en-US')}`}
+                                </p>
+                              )}
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Subscription End</label>
+                              <input
+                                type="date"
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-bold text-xs outline-none`}
+                                value={editSubscriptionEnd}
+                                onChange={(e) => setEditSubscriptionEnd(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Custom Monthly Rate (৳)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-xs outline-none`}
+                                value={editCustomSubscriptionFee}
+                                onChange={(e) => setEditCustomSubscriptionFee(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                                placeholder={String(editPackageRate)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Select Package Grid */}
+                          <div className="space-y-3">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Select Package</label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {COMMITTEE_PACKAGES.map(pkg => {
+                                const isPkgSelected = editPackageName === pkg.name;
+                                return (
+                                  <div
+                                    key={pkg.name}
+                                    onClick={() => {
+                                      setEditPackageName(pkg.name);
+                                      if (pkg.name !== 'Custom') {
+                                        setEditPackageRate(pkg.rate);
+                                        setEditCustomSubscriptionFee('');
+                                      }
+                                    }}
+                                    className={`cursor-pointer p-4 rounded-2xl border transition-all ${
+                                      isPkgSelected
+                                        ? 'bg-[#0fb5ab] border-[#0fb5ab] text-white shadow-md'
+                                        : isDark
+                                          ? 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                                          : 'bg-white border-slate-200 text-slate-700 hover:border-[#0fb5ab]/40'
+                                    }`}
+                                  >
+                                    <div className="text-[11px] font-black uppercase tracking-wider">{pkg.name}</div>
+                                    {pkg.name === 'Custom' ? (
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        onClick={(e) => e.stopPropagation()}
+                                        value={editPackageName === 'Custom' ? editPackageRate : ''}
+                                        onChange={(e) => {
+                                          setEditPackageName('Custom');
+                                          setEditPackageRate(Math.max(0, Number(e.target.value) || 0));
                                         }}
-                                        className={`p-3 rounded-2xl border flex items-center justify-between gap-2.5 text-left transition-all active:scale-95 ${
-                                          value 
-                                            ? (madrasah?.theme === 'dark' 
-                                                ? 'bg-[#42f5e9]/10 border-[#42f5e9]/30 text-[#42f5e9] shadow-sm' 
-                                                : 'bg-[#42f5e9]/10 border-[#0fb5ab]/30 text-[#0fb5ab] shadow-sm') 
-                                            : (madrasah?.theme === 'dark' 
-                                                ? 'bg-slate-900 border-slate-800 text-slate-500 opacity-60' 
-                                                : 'bg-slate-50 border-slate-200/60 text-slate-400 opacity-70')
-                                        }`}
-                                      >
-                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                                            value 
-                                              ? (madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/20 text-[#42f5e9]' : 'bg-[#0fb5ab]/15 text-[#0fb5ab]') 
-                                              : 'bg-slate-200/50 dark:bg-slate-800 text-slate-400'
-                                          }`}>
-                                            <ModIcon size={15} />
-                                          </div>
-                                          <div className="min-w-0 flex-1">
-                                            <span className="text-xs font-black font-noto truncate block">
-                                              {lang === 'bn' ? meta.labelBn : meta.labelEn}
-                                            </span>
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight truncate block">
-                                              {meta.labelEn}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div className="shrink-0">
-                                          {value ? (
-                                            <CheckCircle2 size={18} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
-                                          ) : (
-                                            <XCircle size={18} className="text-slate-300 dark:text-slate-600" />
-                                          )}
-                                        </div>
-                                      </button>
-                                    );
-                                  })}
-                               </div>
+                                        placeholder="Rate ৳"
+                                        className={`mt-2 w-full h-8 px-2.5 rounded-lg text-xs font-black outline-none ${isPkgSelected ? 'bg-white/20 text-white placeholder:text-white/70' : isDark ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-800'}`}
+                                      />
+                                    ) : (
+                                      <div className={`text-lg font-black mt-1 ${isPkgSelected ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                                        ৳{pkg.rate}<span className="text-[10px] opacity-75">/mo</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-                         </div>
-                      </div>
+                          </div>
 
-                        </div>
-                      )}
-
-                      {detailsTab === 'subscription' && (
-                        <div className="space-y-6 animate-in fade-in duration-300">
-                           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
-                              <div className="flex items-center justify-between px-1">
-                                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <CreditCard size={14} className={madrasah?.theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'} /> Subscription Info
-                                 </h4>
-                         </div>
-                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <div className="space-y-1.5">
-                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">System Type</label>
-                               <select className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-bold text-xs outline-none`} value={editSubscriptionType} onChange={(e) => setEditSubscriptionType(e.target.value as any)}>
-                                  <option value="monthly">Monthly Subscription</option>
-                                  <option value="yearly">Yearly Subscription</option>
-                                  <option value="lifetime">Lifetime Access</option>
-                               </select>
+                          {/* Select Months to Pay */}
+                          <div className={`p-5 rounded-3xl border ${isDark ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200/70'} space-y-4`}>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Select Months to Pay</span>
+                                <div className={`flex items-center gap-1 px-2 py-1 rounded-xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                                  <button type="button" onClick={() => setSelectedYear(y => y - 1)} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">
+                                    <ChevronLeft size={14} />
+                                  </button>
+                                  <span className="text-xs font-black px-2">{selectedYear}</span>
+                                  <button type="button" onClick={() => setSelectedYear(y => y + 1)} className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">
+                                    <ChevronRight size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const m = String(new Date().getMonth() + 1).padStart(2, '0');
+                                    setSelectedMonthsForPayment([`${selectedYear}-${m}`]);
+                                  }}
+                                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black border ${isDark ? 'bg-slate-800 border-slate-700 text-[#42f5e9]' : 'bg-[#42f5e9]/15 border-[#0fb5ab]/20 text-[#0fb5ab]'}`}
+                                >
+                                  Monthly
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const curM = new Date().getMonth();
+                                    const qMonths = [0, 1, 2].map(offset => {
+                                      const d = new Date(selectedYear, curM + offset, 1);
+                                      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                    });
+                                    setSelectedMonthsForPayment(qMonths);
+                                  }}
+                                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black border ${isDark ? 'bg-slate-800 border-slate-700 text-[#42f5e9]' : 'bg-[#42f5e9]/15 border-[#0fb5ab]/20 text-[#0fb5ab]'}`}
+                                >
+                                  Quarterly
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const allMonths = Array.from({ length: 12 }, (_, idx) => `${selectedYear}-${String(idx + 1).padStart(2, '0')}`);
+                                    setSelectedMonthsForPayment(allMonths);
+                                  }}
+                                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black border ${isDark ? 'bg-slate-800 border-slate-700 text-[#42f5e9]' : 'bg-[#42f5e9]/15 border-[#0fb5ab]/20 text-[#0fb5ab]'}`}
+                                >
+                                  Yearly
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedMonthsForPayment([])}
+                                  className="px-3 py-1.5 rounded-xl text-[10px] font-black border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-red-500"
+                                >
+                                  Clear
+                                </button>
+                              </div>
                             </div>
-                            <div className="space-y-1.5">
-                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Portal Status</label>
-                               <select className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-bold text-xs outline-none`} value={editStatus} onChange={(e) => setEditStatus(e.target.value as any)}>
-                                  <option value="active">Active</option>
-                                  <option value="suspended">Suspended</option>
-                                  <option value="trial">Trial Period</option>
-                               </select>
-                            </div>
-                            <div className="space-y-1.5">
-                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Subscription End</label>
-                               <input type="date" className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-bold text-xs`} value={editSubscriptionEnd} onChange={(e) => setEditSubscriptionEnd(e.target.value)} />
-                            </div>
-                         </div>
-                      </div>
 
-                        </div>
-                      )}
-
-                      {detailsTab === 'settings' && (
-                        <div className="space-y-6 animate-in fade-in duration-300">
-                           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50'} p-6 rounded-[2.5rem] space-y-6`}>
-                              <div className="flex items-center justify-between px-1">
-                                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Settings size={14} className={madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} /> System Settings
-                                 </h4>
-                         </div>
-                         <div className="space-y-4">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Attendance Type</label>
-                                  <select 
-                                    className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm outline-none`}
-                                    value={editAttendanceType}
-                                    onChange={(e) => setEditAttendanceType(e.target.value as any)}
+                            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                              {MONTH_NAMES_BN.map((mName, idx) => {
+                                const ym = `${selectedYear}-${String(idx + 1).padStart(2, '0')}`;
+                                const isPaid = editPaidMonths.includes(ym);
+                                const isSelected = selectedMonthsForPayment.includes(ym);
+                                return (
+                                  <button
+                                    key={ym}
+                                    type="button"
+                                    onClick={() => {
+                                      if (isPaid) {
+                                        setEditPaidMonths(prev => prev.filter(x => x !== ym));
+                                      } else {
+                                        setSelectedMonthsForPayment(prev =>
+                                          prev.includes(ym) ? prev.filter(x => x !== ym) : [...prev, ym]
+                                        );
+                                      }
+                                    }}
+                                    className={`relative p-3 rounded-2xl border text-center transition-all active:scale-95 ${
+                                      isPaid
+                                        ? isDark
+                                          ? 'bg-emerald-900/30 border-emerald-700 text-emerald-300'
+                                          : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                        : isSelected
+                                          ? 'bg-[#0fb5ab] border-[#0fb5ab] text-white shadow-md'
+                                          : isDark
+                                            ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'
+                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-[#0fb5ab]/40'
+                                    }`}
                                   >
-                                    <option value="daily">Daily</option>
-                                    <option value="period">Period Wise</option>
-                                  </select>
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Accounting Mode</label>
-                                  <select 
-                                    className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm outline-none`}
-                                    value={editAccountingMode}
-                                    onChange={(e) => setEditAccountingMode(e.target.value as any)}
-                                  >
-                                    <option value="qawmi_flexible">Qawmi Flexible</option>
-                                    <option value="school_system">School System</option>
-                                  </select>
-                               </div>
+                                    {isPaid && (
+                                      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-sm">
+                                        <Check size={11} strokeWidth={3} />
+                                      </span>
+                                    )}
+                                    <span className="text-xs font-black font-noto block">{mName}</span>
+                                    <span className="text-[9px] font-bold opacity-70 block mt-0.5">{ym}</span>
+                                  </button>
+                                );
+                              })}
                             </div>
-                         </div>
-                      </div>
-                        </div>
-                      )}
+                          </div>
 
-                      <button onClick={handleUserUpdate} disabled={isUpdatingUser} className="w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 text-lg">
-                         {isUpdatingUser ? <Loader2 className="animate-spin" size={24} /> : <><Save size={24} /> Save Profile Changes</>}
-                      </button>
-                   </div>
+                          {/* Price Calculation Card */}
+                          <div className={`p-5 rounded-3xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} space-y-5`}>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                              <div className={`p-3 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                                <p className="text-[9px] font-black text-slate-400 uppercase">Total Members</p>
+                                <p className="text-lg font-black mt-0.5">{userStats.students}</p>
+                              </div>
+                              <div className={`p-3 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                                <p className="text-[9px] font-black text-slate-400 uppercase">Months Selected</p>
+                                <p className="text-lg font-black text-[#0fb5ab] mt-0.5">{selectedMonthsForPayment.length}</p>
+                              </div>
+                              <div className={`p-3 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                                <p className="text-[9px] font-black text-slate-400 uppercase">Monthly Rate</p>
+                                <p className="text-lg font-black mt-0.5">৳{effectiveRate}</p>
+                              </div>
+                              <div className={`p-3 rounded-2xl ${isDark ? 'bg-emerald-900/30 border border-emerald-800' : 'bg-emerald-50 border border-emerald-100'}`}>
+                                <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Total Price</p>
+                                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">৳{displayTotal}</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Discount (৳)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editDiscount}
+                                  onChange={(e) => setEditDiscount(Math.max(0, Number(e.target.value) || 0))}
+                                  className={`w-full h-11 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none`}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">বকেয়া (Due ৳)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={editDueAmount}
+                                  onChange={(e) => setEditDueAmount(Math.max(0, Number(e.target.value) || 0))}
+                                  className={`w-full h-11 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none`}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Custom Total (৳)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={overrideTotal}
+                                  onChange={(e) => setOverrideTotal(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                                  placeholder={String(calculatedTotal)}
+                                  className={`w-full h-11 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none`}
+                                />
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleReceiveSubscriptionPayment}
+                              disabled={isProcessingSubPayment}
+                              className="w-full h-13 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60"
+                            >
+                              {isProcessingSubPayment ? <Loader2 size={18} className="animate-spin" /> : <Banknote size={18} />}
+                              <span>Receive Payment (৳{displayTotal})</span>
+                            </button>
+                          </div>
+
+                          {/* Subscription Note */}
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 font-noto">
+                              সাবস্ক্রিপশন নোট (Subscription Note)
+                            </label>
+                            <textarea
+                              rows={2}
+                              value={editSubscriptionNote}
+                              onChange={(e) => setEditSubscriptionNote(e.target.value)}
+                              placeholder="পেমেন্ট বা চুক্তি সংক্রান্ত নোট লিখুন..."
+                              className={`w-full ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-2xl px-4 py-3 font-bold text-xs outline-none focus:border-[#0fb5ab] resize-none`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 5: HISTORY & BALANCE AUDIT */}
+                    {detailsTab === 'history' && (
+                      <div className="space-y-6 animate-in fade-in duration-300">
+                        {/* Header + Module Filter Pills */}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <h4 className={`text-sm font-black font-noto flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            <HistoryIcon size={18} className="text-[#0fb5ab]" />
+                            <span>{lang === 'bn' ? 'লেনদেন ও রিচার্জ ইতিহাস' : 'Transaction & Recharge History'}</span>
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {[
+                              { id: 'all', label: 'সকল' },
+                              { id: 'sms', label: 'SMS' },
+                              { id: 'voice', label: 'ভয়েস' },
+                              { id: 'subscription', label: 'সাবস্ক্রিপশন' }
+                            ].map(pill => (
+                              <button
+                                key={pill.id}
+                                type="button"
+                                onClick={() => {
+                                  const mod = pill.id as any;
+                                  setHistoryFilterModule(mod);
+                                  fetchPaymentHistory(selectedUser.id, mod);
+                                }}
+                                className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black font-noto transition-all ${
+                                  historyFilterModule === pill.id
+                                    ? 'bg-[#0fb5ab] text-white shadow-sm'
+                                    : isDark
+                                      ? 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                }`}
+                              >
+                                {pill.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Point-in-Time Historical Balance Check Card */}
+                        <div className={`p-5 rounded-3xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-gradient-to-br from-slate-50 to-cyan-50/40 border-slate-200'} space-y-4`}>
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Clock size={16} className="text-[#0fb5ab]" />
+                              <span className="text-xs font-black font-noto">নির্দিষ্ট তারিখ ও সময়ে ব্যালেন্স কত ছিল?</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="datetime-local"
+                                value={auditDate}
+                                onChange={(e) => setAuditDate(e.target.value)}
+                                className={`h-10 px-3 rounded-xl border text-xs font-bold outline-none ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
+                              />
+                              <button
+                                type="button"
+                                onClick={handleCheckHistoricalBalance}
+                                disabled={!auditDate || isCheckingAudit}
+                                className="h-10 px-4 rounded-xl bg-[#0fb5ab] text-white text-xs font-black flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                              >
+                                {isCheckingAudit ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                                <span>চেক করুন</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {auditResult && (
+                            <div className="space-y-3 pt-2">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                  <p className="text-[10px] font-bold text-slate-400 font-noto">ঐ সময়ের ভয়েস ব্যালেন্স</p>
+                                  <p className="text-base font-black text-emerald-500 mt-1">৳ {Number(auditResult.historicalVoice).toFixed(2)}</p>
+                                </div>
+                                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                  <p className="text-[10px] font-bold text-slate-400 font-noto">ঐ সময়ের SMS ব্যালেন্স</p>
+                                  <p className="text-base font-black text-[#0fb5ab] mt-1">{auditResult.historicalSms} SMS</p>
+                                </div>
+                                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                  <p className="text-[10px] font-bold text-slate-400 font-noto">বর্তমান ভয়েস ব্যালেন্স</p>
+                                  <p className="text-base font-black mt-1">৳ {Number(auditResult.currentVoice).toFixed(2)}</p>
+                                </div>
+                                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                  <p className="text-[10px] font-bold text-slate-400 font-noto">বর্তমান SMS ব্যালেন্স</p>
+                                  <p className="text-base font-black mt-1">{auditResult.currentSms} SMS</p>
+                                </div>
+                              </div>
+                              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-[#42f5e9]/15 text-[#0fb5ab] font-noto">
+                                <Activity size={12} />
+                                <span>ঐ সময়ের পর {auditResult.transactionsAfterCount} টি লেনদেন হয়েছে</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Transaction List */}
+                        {isLoadingHistory ? (
+                          <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                            <Loader2 size={28} className="animate-spin text-[#0fb5ab] mb-2" />
+                            <span className="text-xs font-bold">{lang === 'bn' ? 'ইতিহাস লোড হচ্ছে...' : 'Loading history...'}</span>
+                          </div>
+                        ) : paymentHistory.length > 0 ? (
+                          <div className="space-y-3">
+                            {paymentHistory.map((tr: any) => {
+                              const desc = (tr.description || '').toLowerCase();
+                              const trxId = (tr.transaction_id || '').toUpperCase();
+                              const modLabel = tr.module
+                                || (trxId.startsWith('SUB_') || desc.includes('subscription')
+                                  ? 'subscription'
+                                  : desc.includes('voice')
+                                    ? 'voice'
+                                    : (Number(tr.sms_count) > 0 || desc.includes('sms'))
+                                      ? 'sms'
+                                      : 'wallet');
+                              const balAfter = tr.metadata?.balance_after;
+                              const smsAfter = tr.metadata?.sms_balance_after;
+
+                              return (
+                                <div
+                                  key={tr.id}
+                                  className={`p-4 md:p-5 rounded-3xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${isDark ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50/70 border-slate-200/70'}`}
+                                >
+                                  <div className="min-w-0 flex-1 space-y-1.5">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                                        tr.status === 'approved'
+                                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                          : tr.status === 'rejected'
+                                            ? 'bg-red-500/15 text-red-500'
+                                            : 'bg-amber-500/15 text-amber-600'
+                                      }`}>
+                                        {tr.status}
+                                      </span>
+                                      <span className="text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-[#0fb5ab]/15 text-[#0fb5ab]">
+                                        {modLabel}
+                                      </span>
+                                      {Number(tr.sms_count) > 0 && (
+                                        <span className="text-[9px] font-black px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300">
+                                          {tr.sms_count} SMS
+                                        </span>
+                                      )}
+                                      {balAfter !== undefined && (
+                                        <span className="text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                          Voice After: ৳{Number(balAfter).toFixed(2)}
+                                        </span>
+                                      )}
+                                      {smsAfter !== undefined && (
+                                        <span className="text-[9px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                          SMS After: {smsAfter}
+                                        </span>
+                                      )}
+                                      <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                        <Clock size={11} />
+                                        {new Date(tr.created_at).toLocaleString('bn-BD')}
+                                      </span>
+                                    </div>
+                                    <p className={`text-xs font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                      {tr.description || 'Transaction'}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-slate-400">
+                                      TrxID: <span className="text-[#0fb5ab]">{tr.transaction_id || tr.id}</span> • Sender: {tr.sender_phone || 'N/A'}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
+                                    <span className={`text-base font-black ${tr.type === 'debit' ? 'text-red-500' : 'text-emerald-500'}`}>
+                                      {tr.type === 'debit' ? '-' : '+'}{tr.amount} ৳
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDownloadReceipt(tr)}
+                                      className={`px-3 py-2 rounded-xl text-[11px] font-black flex items-center gap-1.5 border transition-all active:scale-95 ${isDark ? 'bg-slate-800 border-slate-700 text-[#42f5e9] hover:bg-slate-700' : 'bg-white border-slate-200 text-[#0fb5ab] hover:bg-slate-100'}`}
+                                    >
+                                      <Download size={13} />
+                                      <span>Receipt</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteHistory(tr)}
+                                      className={`p-2 rounded-xl border transition-all active:scale-95 ${isDark ? 'bg-red-900/20 border-red-900/40 text-red-400 hover:bg-red-900/40' : 'bg-red-50 border-red-100 text-red-500 hover:bg-red-100'}`}
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className={`text-center py-12 rounded-3xl border-2 border-dashed ${isDark ? 'bg-slate-800/30 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                            <p className="text-slate-400 text-xs font-black uppercase tracking-widest">
+                              {lang === 'bn' ? 'কোনো লেনদেন পাওয়া যায়নি' : 'No transactions found'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Global Save Button */}
+                    <button
+                      type="button"
+                      onClick={handleUserUpdate}
+                      disabled={isUpdatingUser}
+                      className="w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 text-lg disabled:opacity-60"
+                    >
+                      {isUpdatingUser ? <Loader2 className="animate-spin" size={24} /> : <><Save size={24} /> Save Profile Changes</>}
+                    </button>
+                  </div>
                 </div>
-             </div>
-          )}
+              </div>
+             );
+          })()}
         </>
       )}
 

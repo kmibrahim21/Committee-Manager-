@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from 'supabase';
 import { Institution, Department, Member, UserRole, Profile } from 'types';
-import { Loader2, Plus, X, DollarSign, Tag, CheckCircle2, Download, ChevronDown, RefreshCw, AlertCircle, Info, Users, CreditCard, Calendar, Settings } from 'lucide-react';
+import { Loader2, Plus, X, DollarSign, Tag, CheckCircle2, Download, ChevronDown, RefreshCw, AlertCircle, Info, Users, CreditCard, Calendar, Settings, Layers, Edit3, Trash2 } from 'lucide-react';
 import { sortMadrasahClasses } from 'pages/Departments';
 import { generateDepartmentSubscriptionReportPDF, generateSubscriptionReceiptPDF } from '../../utils/pdfGenerator';
+import { FeeCategoryManagerModal } from './FeeCategoryManagerModal';
+import {
+  FeeCategory,
+  FREQUENCY_LABELS,
+  CATEGORY_COLOR_CLASSES,
+  convertBnToEnNumberString,
+  getLastDayOfMonth,
+  formatMonthLabel,
+  getInstitutionFeeCategories,
+  getCategoryForStructure,
+  batchSaveFeeStructureCategories,
+  getStructureDateRange,
+  saveStructureDateRange,
+} from '../../utils/feeCategoryHelper';
 
 interface FlexibleSubscriptionEngineProps {
   activeTab: 'fees' | 'structures';
@@ -46,45 +60,140 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
   const [studentFeeHistory, setStudentFeeHistory] = useState<any[]>([]);
   const [historyYear, setHistoryYear] = useState(new Date().getFullYear().toString());
 
-  // Structure State
+  // Structure & Category State
+  const [feeCategories, setFeeCategories] = useState<FeeCategory[]>(() => getInstitutionFeeCategories(madrasah));
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showAddStructure, setShowAddStructure] = useState(false);
-  const [category, setCategory] = useState('');
-  const [amount, setAmount] = useState('');
-  const [structureStartDate, setStructureStartDate] = useState('');
-  const [structureEndDate, setStructureEndDate] = useState('');
-  const [customCategories, setCustomCategories] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(`custom_fee_categories_${madrasah.id}`);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return ['মাসিক চাঁদা', 'সদস্য ফি', 'বিশেষ অনুদান', 'অন্যান্য ফান্ড'];
-  });
-  const [showCategorySettings, setShowCategorySettings] = useState(false);
-  const [newCategoryInput, setNewCategoryInput] = useState('');
-  const [datesMap, setDatesMap] = useState<Record<string, { start_date?: string; end_date?: string }>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(`fee_structure_dates_${madrasah.id}`) || '{}');
-    } catch (e) {
-      return {};
-    }
-  });
+  const [editingStructure, setEditingStructure] = useState<any | null>(null);
+  const [structureDeptId, setStructureDeptId] = useState('');
+  const [structureCategoryId, setStructureCategoryId] = useState('');
+  const [structureAmount, setStructureAmount] = useState('');
+  const [useStructureDateRange, setUseStructureDateRange] = useState(false);
+  const [structureStartMonth, setStructureStartMonth] = useState('');
+  const [structureEndMonth, setStructureEndMonth] = useState('');
+  const [showStructureDeptDropdown, setShowStructureDeptDropdown] = useState(false);
+  const [showStructureCategoryDropdown, setShowStructureCategoryDropdown] = useState(false);
 
-  const handleAddCustomCategory = () => {
-    if (!newCategoryInput.trim()) return;
-    const trimmed = newCategoryInput.trim();
-    if (!customCategories.includes(trimmed)) {
-      const updated = [...customCategories, trimmed];
-      setCustomCategories(updated);
-      localStorage.setItem(`custom_fee_categories_${madrasah.id}`, JSON.stringify(updated));
-      setCategory(trimmed);
-    }
-    setNewCategoryInput('');
+  const openAddStructureModal = () => {
+    const cats = getInstitutionFeeCategories(madrasah);
+    setFeeCategories(cats);
+    setEditingStructure(null);
+    setStructureDeptId('');
+    setStructureCategoryId(cats[0]?.id || '');
+    setStructureAmount('');
+    setUseStructureDateRange(false);
+    setStructureStartMonth('');
+    setStructureEndMonth('');
+    setShowStructureDeptDropdown(false);
+    setShowStructureCategoryDropdown(false);
+    setActionError(null);
+    setShowAddStructure(true);
   };
 
-  const handleDeleteCustomCategory = (catToDelete: string) => {
-    const updated = customCategories.filter(c => c !== catToDelete);
-    setCustomCategories(updated);
-    localStorage.setItem(`custom_fee_categories_${madrasah.id}`, JSON.stringify(updated));
+  const openEditStructureModal = (structure: any) => {
+    const cats = getInstitutionFeeCategories(madrasah);
+    setFeeCategories(cats);
+    const matchedCat = getCategoryForStructure(structure, cats, madrasah);
+    const range = getStructureDateRange(structure, madrasah);
+    const hasRange = Boolean(range.start_date || range.due_date);
+
+    setEditingStructure(structure);
+    setStructureDeptId(structure.department_id || '');
+    setStructureCategoryId(matchedCat.id);
+    setStructureAmount(String(structure.amount ?? ''));
+    setUseStructureDateRange(hasRange);
+    setStructureStartMonth(range.start_date ? range.start_date.slice(0, 7) : '');
+    setStructureEndMonth(range.due_date ? range.due_date.slice(0, 7) : '');
+    setShowStructureDeptDropdown(false);
+    setShowStructureCategoryDropdown(false);
+    setActionError(null);
+    setShowAddStructure(true);
+  };
+
+  const handleSaveStructure = async () => {
+    const selectedCat = feeCategories.find(c => c.id === structureCategoryId);
+    if (!selectedCat) {
+      setActionError(lang === 'bn' ? 'একটি ক্যাটাগরি নির্বাচন করুন' : 'Please select a category');
+      return;
+    }
+
+    const parsedAmount = parseFloat(convertBnToEnNumberString(structureAmount)) || 0;
+    const startDate = useStructureDateRange && structureStartMonth ? `${structureStartMonth}-01` : null;
+    const dueDate = useStructureDateRange && structureEndMonth ? getLastDayOfMonth(structureEndMonth) : null;
+
+    setIsSaving(true);
+    setActionError(null);
+    try {
+      let savedStruct: any = null;
+      const basePayload = {
+        institution_id: madrasah.id,
+        department_id: structureDeptId || null,
+        fee_name: selectedCat.name,
+        amount: parsedAmount,
+      };
+      const extendedPayload = {
+        ...basePayload,
+        category_id: selectedCat.id,
+        start_date: startDate,
+        due_date: dueDate,
+      };
+
+      if (editingStructure?.id) {
+        let { data, error } = await supabase
+          .from('fee_structures')
+          .update(extendedPayload)
+          .eq('id', editingStructure.id)
+          .select('*')
+          .single();
+
+        if (error && (error.code === '42703' || error.message?.includes('column'))) {
+          const retry = await supabase
+            .from('fee_structures')
+            .update(basePayload)
+            .eq('id', editingStructure.id)
+            .select('*')
+            .single();
+          data = retry.data;
+          error = retry.error;
+        }
+        if (error) throw error;
+        savedStruct = data;
+      } else {
+        let { data, error } = await supabase
+          .from('fee_structures')
+          .insert(extendedPayload)
+          .select('*')
+          .single();
+
+        if (error && (error.code === '42703' || error.message?.includes('column'))) {
+          const retry = await supabase
+            .from('fee_structures')
+            .insert(basePayload)
+            .select('*')
+            .single();
+          data = retry.data;
+          error = retry.error;
+        }
+        if (error) throw error;
+        savedStruct = data;
+      }
+
+      if (savedStruct?.id) {
+        await batchSaveFeeStructureCategories(supabase, madrasah, { [savedStruct.id]: selectedCat.id });
+        await saveStructureDateRange(supabase, madrasah, savedStruct.id, {
+          start_date: startDate || undefined,
+          due_date: dueDate || undefined,
+        });
+      }
+
+      setShowAddStructure(false);
+      setEditingStructure(null);
+      fetchData();
+    } catch (e: any) {
+      setActionError(e?.message || (lang === 'bn' ? 'সেভ করতে সমস্যা হয়েছে' : 'Failed to save'));
+    } finally {
+      setIsSaving(false);
+    }
   };
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -579,31 +688,37 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                   const hasBalance = balance > 0;
 
                   return (
-                  <div key={item.member_id} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between group active:scale-[0.98] transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                     <div className="flex items-center gap-3.5 min-w-0">
-                        <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center font-black shrink-0 ${isFullyPaid ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-500') : hasBalance ? (isDark ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-50 text-orange-500') : (isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-[#2563EB]')}`}>
-                           {item.roll || '-'}
+                  <div key={item.member_id} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between gap-3 group active:scale-[0.98] transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                     <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`w-11 h-11 rounded-[1rem] flex items-center justify-center font-black text-base shrink-0 overflow-hidden ${isFullyPaid ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-500') : hasBalance ? (isDark ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-50 text-orange-500') : (isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-[#2563EB]')}`}>
+                           {item.name?.trim()?.charAt(0) || '#'}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                            <h5 
-                             className={`font-black font-noto truncate leading-tight mb-1 cursor-pointer hover:underline decoration-2 underline-offset-2 ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}
+                             className={`font-black font-noto break-words whitespace-normal leading-snug mb-1 cursor-pointer hover:underline decoration-2 underline-offset-2 ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}
                              onClick={() => onStudentClick ? onStudentClick(item) : handleShowHistory(item)}
                            >
                              {item.name}
                            </h5>
-                           <div className="flex items-center gap-2">
-                              <p className="text-[10px] text-slate-400 font-bold uppercase">বকেয়া: ৳{Math.max(0, balance)}</p>
+                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              {item.roll && item.roll !== '-' && (
+                                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black break-all ${isDark ? 'bg-slate-900 text-[#42f5e9]' : 'bg-[#42f5e9]/15 text-[#0e8a84]'}`}>
+                                  #{item.roll}
+                                </span>
+                              )}
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">জমা: ৳{paid}</p>
+                              <p className="text-[10px] text-red-400 font-bold uppercase">বকেয়া: ৳{Math.max(0, balance)}</p>
                               {isNoFeeSet && <span className={`text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase ${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>No Subscription Set</span>}
                            </div>
                         </div>
                      </div>
-                     <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-2 shrink-0">
                        <button 
                           onClick={() => {
                               setDownloadAction(() => (l: 'en' | 'bn') => handleDownloadReceipt(item, l));
                               setShowDownloadLangModal(true);
                           }}
-                          className={`w-11 h-11 rounded-xl flex items-center justify-center border shadow-sm transition-all ${isDark ? 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-blue-400' : 'bg-white text-slate-400 border-slate-100 hover:bg-blue-50 hover:text-[#2563EB] hover:border-blue-100'} active:scale-95`}
+                          className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center border shadow-sm transition-all ${isDark ? 'bg-slate-900 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-blue-400' : 'bg-white text-slate-400 border-slate-100 hover:bg-blue-50 hover:text-[#2563EB] hover:border-blue-100'} active:scale-95`}
                           title="Download Receipt"
                        >
                           <Download size={18} />
@@ -611,7 +726,7 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                        <button 
                           onClick={() => { setSelectedStudent(item); setCollectAmount(''); setShowFeeCollection(true); }} 
                           disabled={isFullyPaid || isNoFeeSet} 
-                          className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm ${isFullyPaid ? (isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-600 border border-emerald-200') : isNoFeeSet ? (isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed') : hasBalance ? 'bg-orange-500 text-white active:scale-95 shadow-orange-200' : 'bg-[#2563EB] text-white active:scale-95'}`}
+                          className={`px-4 sm:px-5 py-3 rounded-xl text-[10px] font-black uppercase transition-all shadow-sm whitespace-nowrap ${isFullyPaid ? (isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-600 border border-emerald-200') : isNoFeeSet ? (isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed') : hasBalance ? 'bg-orange-500 text-white active:scale-95 shadow-orange-200' : 'bg-[#2563EB] text-white active:scale-95'}`}
                        >
                           {isFullyPaid ? 'PAID' : 'চাঁদা জমা নিন'}
                        </button>
@@ -852,6 +967,15 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
   }
 
   if (activeTab === 'structures') {
+    const groupedStructures = structures.reduce((acc: Record<string, any[]>, s: any) => {
+      const className = s.departments?.name || (lang === 'bn' ? 'সব কমিটি (সকল সদস্য)' : 'All Committees');
+      if (!acc[className]) acc[className] = [];
+      acc[className].push(s);
+      return acc;
+    }, {});
+
+    const selectedCategoryObj = feeCategories.find(c => c.id === structureCategoryId);
+
     return (
       <div className="space-y-4 animate-in slide-in-from-bottom-5">
          {actionError && (
@@ -860,83 +984,100 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                   <AlertCircle size={20} />
                </div>
                <div className="flex-1">
-                  <p className="font-black">ত্রুটি!</p>
+                  <p className="font-black">{lang === 'bn' ? 'ত্রুটি!' : 'Error!'}</p>
                   <p className="opacity-70">{actionError}</p>
                </div>
                <button onClick={() => setActionError(null)} className={`p-1.5 rounded-lg border active:scale-95 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-white border-red-200 text-red-600'}`}><X size={14}/></button>
             </div>
          )}
 
-         <div className={`p-6 rounded-[2.5rem] border shadow-bubble ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-            <div className="flex items-center justify-between mb-6">
+         <div className={`p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border shadow-bubble ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                 <div>
-                    <h3 className={`text-lg font-black font-noto ${isDark ? 'text-slate-100' : 'text-[#1E3A8A]'}`}>সাবস্ক্রিপশন সেটিংস</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">কমিটির সাবস্ক্রিপশন কাঠামো নির্ধারণ করুন</p>
+                    <h3 className={`text-lg font-black font-noto ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>
+                      {lang === 'bn' ? 'চাঁদা ও ফি সেটিংস' : 'Subscription & Fee Settings'}
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      {lang === 'bn' ? 'কমিটির চাঁদা, ক্যাটাগরি ও মেয়াদ নির্ধারণ করুন' : 'Configure committee fees, categories & periods'}
+                    </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button 
                         type="button"
                         onClick={() => {
-                           setShowCategorySettings(true);
+                           setFeeCategories(getInstitutionFeeCategories(madrasah));
+                           setShowCategoryModal(true);
                         }} 
-                        className={`px-3.5 h-12 rounded-2xl font-black text-xs flex items-center gap-1.5 border transition-all active:scale-95 ${isDark ? 'bg-slate-800 text-blue-400 border-slate-700 hover:bg-slate-700' : 'bg-blue-50 text-[#2563EB] border-blue-100 hover:bg-blue-100'}`}
-                        title="ক্যাটাগরি সেটিং"
+                        className={`px-3.5 h-11 rounded-2xl font-black text-xs flex items-center gap-1.5 border transition-all active:scale-95 ${isDark ? 'bg-slate-900 text-[#42f5e9] border-slate-700 hover:bg-slate-700' : 'bg-[#e0fdfb] text-[#0fb5ab] border-[#42f5e9]/40 hover:bg-[#42f5e9]/20'}`}
                     >
-                        <Settings size={18} />
-                        <span>সেটিং</span>
+                        <Layers size={16} />
+                        <span className="font-noto">{lang === 'bn' ? 'ক্যাটাগরি সেটিংস' : 'Categories'}</span>
                     </button>
                     <button 
-                        onClick={() => {
-                           setShowAddStructure(true);
-                           setShowCategorySettings(false);
-                        }} 
-                        className="w-12 h-12 bg-[#2563EB] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 active:scale-95 transition-all"
-                        title="নতুন সেটিং যোগ করুন"
+                        type="button"
+                        onClick={openAddStructureModal} 
+                        className="h-11 px-4 bg-[#0fb5ab] hover:bg-[#0d9c93] text-white rounded-2xl flex items-center gap-1.5 shadow-lg shadow-[#0fb5ab]/25 active:scale-95 transition-all text-xs font-black font-noto"
                     >
-                        <Plus size={24} strokeWidth={3} />
+                        <Plus size={18} strokeWidth={3} />
+                        <span>{lang === 'bn' ? 'নতুন চাঁদা/ফি' : 'Add Fee'}</span>
                     </button>
                 </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
                 {structures.length > 0 ? (
-                    Object.entries(structures.reduce((acc: any, s: any) => {
-                        const className = s.departments?.name || 'সব কমিটি';
-                        if (!acc[className]) acc[className] = [];
-                        acc[className].push(s);
-                        return acc;
-                    }, {})).map(([className, items]: [string, any]) => (
-                        <div key={className} className="space-y-2">
+                    (Object.entries(groupedStructures) as [string, any[]][]).map(([className, items]) => (
+                        <div key={className} className="space-y-2.5">
                             <div className="flex items-center gap-2 px-2">
                                 <div className={`h-px flex-1 ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}></div>
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{className}</span>
+                                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${isDark ? 'bg-slate-900 text-[#42f5e9]' : 'bg-[#e0fdfb] text-[#0fb5ab]'}`}>{className}</span>
                                 <div className={`h-px flex-1 ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}></div>
                             </div>
-                            <div className="grid grid-cols-1 gap-2">
+                            <div className="grid grid-cols-1 gap-2.5">
                                  {items.map((s: any) => {
-                                     const sDates = datesMap[s.id] || {};
-                                     const startDate = s.start_date || sDates.start_date;
-                                     const endDate = s.end_date || sDates.end_date;
+                                     const catObj = getCategoryForStructure(s, feeCategories, madrasah);
+                                     const catColor = CATEGORY_COLOR_CLASSES[catObj.color || 'blue'];
+                                     const freqInfo = FREQUENCY_LABELS[catObj.frequency] || FREQUENCY_LABELS.custom;
+                                     const range = getStructureDateRange(s, madrasah);
+                                     const hasDates = Boolean(range.start_date || range.due_date);
+
                                      return (
-                                     <div key={s.id} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${isDark ? 'bg-slate-900/50 border-slate-700 hover:bg-slate-900' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:shadow-sm'}`}>
-                                         <div className="flex items-center gap-3">
-                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-white text-[#2563EB]'}`}>
+                                     <div key={s.id} className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 group transition-all ${isDark ? 'bg-slate-900/60 border-slate-700 hover:bg-slate-900' : 'bg-slate-50/60 border-slate-100 hover:bg-white hover:shadow-sm'}`}>
+                                         <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-white text-[#0fb5ab] border border-[#0fb5ab]/15'}`}>
                                                  <Tag size={18} />
                                              </div>
-                                             <div>
-                                                 <h5 className={`font-black font-noto text-sm ${isDark ? 'text-slate-200' : 'text-[#1E3A8A]'}`}>{s.fee_name}</h5>
-                                                 <p className="text-[10px] font-bold text-slate-400">নির্ধারিত ফি</p>
-                                                 {(startDate || endDate) && (
-                                                     <p className="text-[9px] font-bold text-[#0fb5ab] mt-0.5">
-                                                         মেয়াদ: {startDate || 'শুরু'} হতে {endDate || 'চলমান'}
-                                                     </p>
-                                                 )}
+                                             <div className="min-w-0 flex-1">
+                                                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                                     <h5 className={`font-black font-noto text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{s.fee_name}</h5>
+                                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black border font-noto ${isDark ? `${catColor.darkBg} ${catColor.darkText} ${catColor.darkBorder}` : `${catColor.bg} ${catColor.text} ${catColor.border}`}`}>
+                                                         {catObj.name}
+                                                     </span>
+                                                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200/70 text-slate-600'}`}>
+                                                         {lang === 'bn' ? freqInfo.badgeBn : freqInfo.en}
+                                                     </span>
+                                                 </div>
+                                                 <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-400">
+                                                     {hasDates ? (
+                                                         <span className="inline-flex items-center gap-1 text-[#0fb5ab]">
+                                                             <Calendar size={11} />
+                                                             {range.start_date ? formatMonthLabel(range.start_date, lang) : (lang === 'bn' ? 'শুরু' : 'Start')}
+                                                             {' → '}
+                                                             {range.due_date ? formatMonthLabel(range.due_date, lang) : (lang === 'bn' ? 'চলমান' : 'Ongoing')}
+                                                         </span>
+                                                     ) : (
+                                                         <span className="inline-flex items-center gap-1">
+                                                             <Calendar size={11} />
+                                                             {lang === 'bn' ? 'উন্মুক্ত সময়সীমা' : 'Open period'}
+                                                         </span>
+                                                     )}
+                                                 </div>
                                              </div>
                                          </div>
-                                         <div className="flex items-center gap-4">
-                                             <div className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-[#2563EB]'}`}>৳{s.amount}</div>
+                                         <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/50 dark:border-slate-800">
+                                             <div className={`text-lg font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>৳{Number(s.amount || 0).toLocaleString()}</div>
                                              {deleteConfirmId === s.id ? (
-                                                 <div className="flex items-center gap-1">
+                                                 <div className="flex items-center gap-1.5">
                                                      <button onClick={async () => {
                                                          const { error } = await supabase.from('fee_structures').delete().eq('id', s.id);
                                                          if (error) {
@@ -946,13 +1087,28 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                                                              fetchData();
                                                          }
                                                          setDeleteConfirmId(null);
-                                                     }} className="bg-red-500 text-white text-[9px] px-2.5 py-1.5 rounded-lg font-black">হ্যাঁ</button>
-                                                     <button onClick={() => setDeleteConfirmId(null)} className={`text-[9px] px-2.5 py-1.5 rounded-lg font-black ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>না</button>
+                                                     }} className="bg-red-500 text-white text-[10px] px-2.5 py-1.5 rounded-lg font-black">{lang === 'bn' ? 'হ্যাঁ' : 'Yes'}</button>
+                                                     <button onClick={() => setDeleteConfirmId(null)} className={`text-[10px] px-2.5 py-1.5 rounded-lg font-black ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>{lang === 'bn' ? 'না' : 'No'}</button>
                                                  </div>
                                              ) : (
-                                                 <button onClick={() => setDeleteConfirmId(s.id)} className={`w-8 h-8 flex items-center justify-center transition-colors ${isDark ? 'text-slate-600 hover:text-red-400' : 'text-slate-300 hover:text-red-500'}`}>
-                                                     <X size={16}/>
-                                                 </button>
+                                                 <div className="flex items-center gap-1.5">
+                                                     <button
+                                                         type="button"
+                                                         onClick={() => openEditStructureModal(s)}
+                                                         className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'bg-slate-800 text-[#42f5e9] hover:bg-slate-700' : 'bg-white text-[#0fb5ab] border border-slate-200 hover:bg-[#e0fdfb]'}`}
+                                                         title={lang === 'bn' ? 'এডিট' : 'Edit'}
+                                                     >
+                                                         <Edit3 size={14} />
+                                                     </button>
+                                                     <button
+                                                         type="button"
+                                                         onClick={() => setDeleteConfirmId(s.id)}
+                                                         className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${isDark ? 'bg-slate-800 text-rose-400 hover:bg-rose-950/40' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}
+                                                         title={lang === 'bn' ? 'ডিলিট' : 'Delete'}
+                                                     >
+                                                         <Trash2 size={14} />
+                                                     </button>
+                                                 </div>
                                              )}
                                          </div>
                                      </div>
@@ -962,218 +1118,247 @@ export const FlexibleSubscriptionEngine: React.FC<FlexibleSubscriptionEngineProp
                      ))
                  ) : (
                      <div className={`text-center py-12 rounded-3xl border-2 border-dashed ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                         <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${isDark ? 'bg-slate-800 text-slate-700' : 'bg-white text-slate-200'}`}>
+                         <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${isDark ? 'bg-slate-800 text-slate-700' : 'bg-white text-slate-300'}`}>
                              <Tag size={24} />
                          </div>
-                         <p className="text-slate-400 uppercase text-[10px] font-black">কোনো চাঁদার ধরণ নেই</p>
+                         <p className="text-slate-400 uppercase text-[10px] font-black">{lang === 'bn' ? 'কোনো চাঁদার ধরণ সেট করা নেই' : 'No fee structures found'}</p>
                      </div>
                  )}
              </div>
           </div>
 
-                    {/* CATEGORY SETTINGS MODAL */}
-          {showCategorySettings && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-4 sm:p-6">
-               <div className={`w-full max-w-sm rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 space-y-4 sm:space-y-6 animate-in zoom-in-95 shadow-2xl relative ${isDark ? 'bg-slate-900 text-white border border-slate-800' : 'bg-white text-slate-800'}`}>
-                  <div className="flex items-center justify-between">
-                     <div className="flex items-center gap-2">
-                        <div className={`p-2 rounded-xl ${isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-[#2563EB]'}`}>
-                           <Settings size={20} />
-                        </div>
-                        <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>ক্যাটাগরি সেটিংস</h3>
-                     </div>
-                     <button onClick={() => setShowCategorySettings(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-50 text-slate-300 hover:text-slate-600'}`}><X size={20} /></button>
-                  </div>
+          <FeeCategoryManagerModal
+             isOpen={showCategoryModal}
+             onClose={() => setShowCategoryModal(false)}
+             madrasah={madrasah}
+             lang={lang}
+             categories={feeCategories}
+             onCategoriesUpdated={(updated) => {
+               setFeeCategories(updated);
+               if (!updated.some(c => c.id === structureCategoryId) && updated[0]) {
+                 setStructureCategoryId(updated[0].id);
+               }
+             }}
+          />
 
-                  <p className="text-xs font-bold text-slate-400">
-                     নতুন ক্যাটাগরি যোগ করুন অথবা কোনো ক্যাটাগরি ডিলেট করুন।
-                  </p>
-
-                  <div className="space-y-4">
-                     <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">নতুন ক্যাটাগরি যুক্ত করুন</label>
-                        <div className="flex items-center gap-2">
-                           <input 
-                              type="text" 
-                              value={newCategoryInput} 
-                              onChange={(e) => setNewCategoryInput(e.target.value)} 
-                              placeholder="যেমন: বিশেষ অনুদান" 
-                              onKeyDown={(e) => {
-                                 if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleAddCustomCategory();
-                                 }
-                              }}
-                              className={`flex-1 h-11 px-3.5 border rounded-xl font-bold text-xs outline-none focus:border-[#2563EB] ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-                           />
-                           <button 
-                              type="button" 
-                              onClick={handleAddCustomCategory} 
-                              className="px-4 h-11 bg-[#2563EB] text-white rounded-xl text-xs font-black hover:bg-blue-700 active:scale-95 transition-all shrink-0 flex items-center gap-1"
-                           >
-                              <Plus size={16} />
-                              <span>যোগ</span>
-                           </button>
-                        </div>
-                     </div>
-
-                     <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">ক্যাটাগরি সমূহের তালিকা</label>
-                        <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
-                           {customCategories.length > 0 ? (
-                              customCategories.map(cat => (
-                                 <span key={cat} className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-black shadow-sm ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                                    <Tag size={12} className="text-[#2563EB]" />
-                                    <span>{cat}</span>
-                                    <button type="button" onClick={() => handleDeleteCustomCategory(cat)} className="hover:text-red-500 text-slate-400 ml-1 p-0.5 rounded-md transition-colors"><X size={14} /></button>
-                                 </span>
-                              ))
-                           ) : (
-                              <p className="text-xs text-slate-400 italic">কোনো ক্যাটাগরি নেই</p>
-                           )}
-                        </div>
-                     </div>
-
-                     <button 
-                        onClick={() => setShowCategorySettings(false)}
-                        className="w-full py-3.5 bg-[#2563EB] text-white font-black rounded-2xl shadow-md hover:bg-blue-700 active:scale-95 transition-all text-xs"
-                     >
-                        সম্পন্ন
-                     </button>
-                  </div>
-               </div>
-            </div>
-          )}
-
-          {/* ADD STRUCTURE MODAL */}
+          {/* ADD / EDIT STRUCTURE MODAL */}
           {showAddStructure && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[999] flex items-center justify-center p-4 sm:p-6">
-               <div className={`w-full max-w-sm rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 space-y-4 sm:space-y-6 animate-in zoom-in-95 shadow-2xl relative ${isDark ? 'bg-slate-900 text-white border border-slate-800' : 'bg-white text-slate-800'}`}>
+               <div className={`w-full max-w-md rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-7 space-y-5 animate-in zoom-in-95 shadow-2xl relative max-h-[92vh] overflow-y-auto ${isDark ? 'bg-slate-900 text-white border border-slate-800' : 'bg-white text-slate-800'}`}>
                   <div className="flex items-center justify-between">
-                    <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>নতুন সেটিং যোগ করুন</h3>
-                    <button onClick={() => setShowAddStructure(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-50 text-slate-300 hover:text-slate-600'}`}><X size={20} /></button>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-[#e0fdfb] text-[#0fb5ab]'}`}>
+                        <Tag size={18} />
+                      </div>
+                      <div>
+                        <h3 className={`text-lg font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                          {editingStructure
+                            ? (lang === 'bn' ? 'চাঁদা / ফি এডিট করুন' : 'Edit Fee Structure')
+                            : (lang === 'bn' ? 'নতুন চাঁদা / ফি যোগ করুন' : 'Add Fee Structure')}
+                        </h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {lang === 'bn' ? 'কমিটি, ক্যাটাগরি ও মেয়াদ নির্ধারণ' : 'Set committee, category & duration'}
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={() => setShowAddStructure(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-50 text-slate-400 hover:text-slate-700'}`}><X size={20} /></button>
                   </div>
+
                   <div className="space-y-4">
+                     {/* Department Selector */}
                      <div className="relative">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">কমিটি (Committee) (ঐচ্ছিক)</label>
-                        <button onClick={() => setShowClassDropdown(!showClassDropdown)} className={`w-full h-14 px-6 rounded-2xl border-2 font-black flex items-center justify-between ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-[#1E3A8A]'}`}>
-                           <span className="truncate">{departments.find(c => c.id === selectedClass)?.name || 'সব কমিটি (All Committees)'}</span>
-                           <ChevronDown size={20} className="text-slate-300" />
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1.5 block">
+                          {lang === 'bn' ? 'কমিটি / বিভাগ (ঐচ্ছিক)' : 'Committee / Department (Optional)'}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { setShowStructureDeptDropdown(!showStructureDeptDropdown); setShowStructureCategoryDropdown(false); }}
+                          className={`w-full h-12 px-4 rounded-xl border font-bold text-xs flex items-center justify-between ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                        >
+                           <span className="truncate">{departments.find(c => c.id === structureDeptId)?.name || (lang === 'bn' ? 'সব কমিটি (All Committees)' : 'All Committees')}</span>
+                           <ChevronDown size={16} className="text-slate-400 shrink-0" />
                         </button>
-                        {showClassDropdown && (
-                            <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl shadow-2xl border z-[1001] p-2 max-h-48 overflow-y-auto ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                <button onClick={() => { setSelectedClass(''); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black ${isDark ? 'hover:bg-slate-700 text-slate-100' : 'hover:bg-slate-50 text-[#1E3A8A]'}`}>সব কমিটি (All Committees)</button>
+                        {showStructureDeptDropdown && (
+                            <div className={`absolute top-full left-0 right-0 mt-1.5 rounded-2xl shadow-2xl border z-[1005] p-1.5 max-h-48 overflow-y-auto ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                <button type="button" onClick={() => { setStructureDeptId(''); setShowStructureDeptDropdown(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold ${isDark ? 'hover:bg-slate-700 text-slate-100' : 'hover:bg-slate-50 text-slate-800'}`}>
+                                  {lang === 'bn' ? 'সব কমিটি (All Committees)' : 'All Committees'}
+                                </button>
                                 {departments.map(c => (
-                                    <button key={c.id} onClick={() => { setSelectedClass(c.id); setShowClassDropdown(false); }} className={`w-full text-left px-5 py-3 rounded-xl font-black ${isDark ? 'hover:bg-slate-700 text-slate-100' : 'hover:bg-slate-50 text-[#1E3A8A]'}`}>{c.name}</button>
+                                    <button type="button" key={c.id} onClick={() => { setStructureDeptId(c.id); setShowStructureDeptDropdown(false); }} className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold ${isDark ? 'hover:bg-slate-700 text-slate-100' : 'hover:bg-slate-50 text-slate-800'}`}>{c.name}</button>
                                 ))}
                             </div>
                         )}
                      </div>
 
+                     {/* Category Selector */}
                      <div className="relative">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">ক্যাটাগরি নির্বাচন করুন</label>
-                        <div className="relative group">
-                           <button 
-                             onClick={() => setShowCategorySettings(prev => !prev)}
-                             className={`w-full h-14 rounded-2xl px-6 font-black text-sm outline-none border-2 flex items-center justify-between transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-slate-700'}`}
-                           >
-                              <div className="flex items-center gap-3">
-                                 <Tag size={18} className="text-slate-300" />
-                                 <span>{category || 'ক্যাটাগরি নির্বাচন করুন'}</span>
+                        <div className="flex items-center justify-between px-1 mb-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {lang === 'bn' ? 'ক্যাটাগরি নির্বাচন করুন' : 'Select Category'} *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowCategoryModal(true)}
+                            className="text-[10px] font-black text-[#0fb5ab] hover:underline flex items-center gap-1"
+                          >
+                            <Plus size={11} />
+                            <span>{lang === 'bn' ? 'নতুন ক্যাটাগরি যোগ' : 'Add Category'}</span>
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setShowStructureCategoryDropdown(prev => !prev); setShowStructureDeptDropdown(false); }}
+                          className={`w-full h-12 px-4 rounded-xl border font-bold text-xs flex items-center justify-between transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                        >
+                           <div className="flex items-center gap-2 min-w-0">
+                              <Tag size={15} className="text-[#0fb5ab] shrink-0" />
+                              <span className="truncate font-noto">{selectedCategoryObj?.name || (lang === 'bn' ? 'ক্যাটাগরি নির্বাচন করুন' : 'Select Category')}</span>
+                              {selectedCategoryObj && (
+                                <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold shrink-0 ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-white border border-slate-200 text-slate-500'}`}>
+                                  {lang === 'bn' ? FREQUENCY_LABELS[selectedCategoryObj.frequency]?.badgeBn : FREQUENCY_LABELS[selectedCategoryObj.frequency]?.en}
+                                </span>
+                              )}
+                           </div>
+                           <ChevronDown size={16} className={`transition-transform shrink-0 text-slate-400 ${showStructureCategoryDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {showStructureCategoryDropdown && (
+                          <div className={`absolute top-full left-0 right-0 mt-1.5 rounded-2xl shadow-2xl border z-[1005] p-1.5 max-h-56 overflow-y-auto ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                             {feeCategories.map(cat => {
+                               const isSelected = structureCategoryId === cat.id;
+                               const freq = FREQUENCY_LABELS[cat.frequency];
+                               return (
+                                 <button
+                                   type="button"
+                                   key={cat.id}
+                                   onClick={() => { setStructureCategoryId(cat.id); setShowStructureCategoryDropdown(false); }}
+                                   className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center justify-between ${isSelected ? (isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-[#e0fdfb] text-[#0fb5ab]') : (isDark ? 'hover:bg-slate-700 text-slate-200' : 'hover:bg-slate-50 text-slate-700')}`}
+                                 >
+                                   <span className="font-noto">{cat.name}</span>
+                                   <div className="flex items-center gap-2">
+                                     <span className="text-[10px] opacity-70">{lang === 'bn' ? freq?.badgeBn : freq?.en}</span>
+                                     {isSelected && <CheckCircle2 size={14} />}
+                                   </div>
+                                 </button>
+                               );
+                             })}
+                             <div className={`mt-1.5 pt-1.5 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                               <button
+                                 type="button"
+                                 onClick={() => { setShowStructureCategoryDropdown(false); setShowCategoryModal(true); }}
+                                 className="w-full px-3.5 py-2 rounded-xl text-xs font-black text-[#0fb5ab] hover:bg-[#0fb5ab]/10 flex items-center justify-center gap-1.5"
+                               >
+                                 <Settings size={14} />
+                                 <span>{lang === 'bn' ? 'ক্যাটাগরি ম্যানেজ / নতুন যোগ' : 'Manage Categories'}</span>
+                               </button>
+                             </div>
+                          </div>
+                        )}
+                     </div>
+
+                     {/* Amount */}
+                     <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1.5 block">
+                          {lang === 'bn' ? 'টাকার পরিমাণ (৳)' : 'Amount (৳)'}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className={`w-full h-12 rounded-xl pl-10 pr-4 font-black text-base outline-none border transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 focus:border-[#42f5e9]' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-[#0fb5ab]'}`}
+                            placeholder="0"
+                            value={structureAmount}
+                            onChange={(e) => setStructureAmount(convertBnToEnNumberString(e.target.value))}
+                          />
+                          <DollarSign className="absolute left-3.5 top-3.5 text-[#0fb5ab]" size={18} />
+                        </div>
+                     </div>
+
+                     {/* Month Range Toggle & Picker */}
+                     <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50/80 border-slate-200/80'}`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className={`text-xs font-black font-noto block ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
+                              {lang === 'bn' ? 'নির্দিষ্ট মাস / মেয়াদ নির্ধারণ' : 'Specify Month / Period Range'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-bold">
+                              {useStructureDateRange
+                                ? (lang === 'bn' ? 'শুরু ও শেষের মাস বেছে নিন' : 'Pick start and end months')
+                                : (lang === 'bn' ? 'সব মাসের জন্য প্রযোজ্য' : 'Applies across all months')}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setUseStructureDateRange(!useStructureDateRange)}
+                            className={`w-12 h-6 rounded-full p-0.5 transition-colors flex items-center ${useStructureDateRange ? 'bg-[#0fb5ab] justify-end' : (isDark ? 'bg-slate-700 justify-start' : 'bg-slate-300 justify-start')}`}
+                          >
+                            <span className="w-5 h-5 rounded-full bg-white shadow-sm block" />
+                          </button>
+                        </div>
+
+                        {useStructureDateRange && (
+                          <div className="space-y-3 pt-1">
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <div>
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1 block">
+                                  {lang === 'bn' ? 'শুরুর মাস' : 'Start Month'}
+                                </label>
+                                <input
+                                  type="month"
+                                  value={structureStartMonth}
+                                  onChange={(e) => setStructureStartMonth(e.target.value)}
+                                  className={`w-full h-10 rounded-xl px-3 font-bold text-xs outline-none border ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-700'}`}
+                                />
                               </div>
-                              <ChevronDown size={18} className={`transition-transform ${showCategorySettings ? 'rotate-180' : ''}`} />
-                           </button>
-                           
-                           {showCategorySettings && (
-                              <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl shadow-2xl border z-[1001] p-2 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                 {customCategories.map(cat => (
-                                    <button 
-                                       key={cat}
-                                       onClick={() => { setCategory(cat); setShowCategorySettings(false); }}
-                                       className={`w-full text-left px-5 py-3 rounded-xl font-black transition-colors flex items-center justify-between group ${category === cat ? (isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-[#2563EB]') : (isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-slate-100' : 'hover:bg-slate-50 text-slate-600 hover:text-[#2563EB]')}`}
-                                    >
-                                       <span>{cat}</span>
-                                       {category === cat && <CheckCircle2 size={14} />}
-                                    </button>
-                                 ))}
-                                 <div className="p-2 border-t mt-2 border-slate-700/50">
-                                    <div className="flex gap-2">
-                                       <input 
-                                          type="text" 
-                                          placeholder="নতুন ক্যাটাগরি..." 
-                                          className={`flex-1 h-10 px-3 rounded-lg text-xs font-bold outline-none border ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'}`}
-                                          value={newCategoryInput}
-                                          onChange={(e) => setNewCategoryInput(e.target.value)}
-                                          onKeyDown={(e) => {
-                                             if (e.key === 'Enter') {
-                                                handleAddCustomCategory();
-                                             }
-                                          }}
-                                       />
-                                       <button 
-                                          onClick={handleAddCustomCategory}
-                                          className="w-10 h-10 bg-[#2563EB] text-white rounded-lg flex items-center justify-center shrink-0 active:scale-95 transition-all"
-                                       >
-                                          <Plus size={18} />
-                                       </button>
-                                    </div>
-                                 </div>
+                              <div>
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1 block">
+                                  {lang === 'bn' ? 'শেষের মাস' : 'End Month'}
+                                </label>
+                                <input
+                                  type="month"
+                                  value={structureEndMonth}
+                                  onChange={(e) => setStructureEndMonth(e.target.value)}
+                                  className={`w-full h-10 rounded-xl px-3 font-bold text-xs outline-none border ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-700'}`}
+                                />
                               </div>
-                           )}
-                        </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const y = new Date().getFullYear();
+                                  setStructureStartMonth(`${y}-01`);
+                                  setStructureEndMonth(`${y}-12`);
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black border transition-colors ${isDark ? 'bg-slate-900 border-slate-700 text-[#42f5e9] hover:bg-slate-700' : 'bg-white border-slate-200 text-[#0fb5ab] hover:bg-[#e0fdfb]'}`}
+                              >
+                                {lang === 'bn' ? 'পুরো বছর (জানু - ডিসে)' : 'Full Year (Jan - Dec)'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const now = new Date();
+                                  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                                  setStructureStartMonth(ym);
+                                  setStructureEndMonth(`${now.getFullYear()}-12`);
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black border transition-colors ${isDark ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                              >
+                                {lang === 'bn' ? 'চলতি মাস থেকে' : 'From Current Month'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                      </div>
 
-                     <div className="relative">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">টাকার পরিমাণ</label>
-                        <input type="number" className={`w-full h-14 rounded-2xl px-12 font-black text-lg outline-none border-2 border-transparent transition-all ${isDark ? 'bg-slate-800 text-slate-100 focus:border-blue-500/20' : 'bg-slate-50 text-[#1E293B] focus:border-[#2563EB]/20'}`} placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                        <DollarSign className={`absolute left-4 top-[44px] ${isDark ? 'text-blue-400' : 'text-[#2563EB]'}`} size={20}/>
-                     </div>
-
-                     <div className="grid grid-cols-2 gap-3">
-                        <div>
-                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">শুরুর তারিখ</label>
-                           <input 
-                              type="date" 
-                              className={`w-full h-12 rounded-xl px-3 font-bold text-xs outline-none border-2 transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-slate-700'}`} 
-                              value={structureStartDate} 
-                              onChange={(e) => setStructureStartDate(e.target.value)} 
-                           />
-                        </div>
-                        <div>
-                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-1.5 block">শেষের তারিখ</label>
-                           <input 
-                              type="date" 
-                              className={`w-full h-12 rounded-xl px-3 font-bold text-xs outline-none border-2 transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-100 text-slate-700'}`} 
-                              value={structureEndDate} 
-                              onChange={(e) => setStructureEndDate(e.target.value)} 
-                           />
-                        </div>
-                     </div>
-                     
-                     <button onClick={async () => {
-                        if (!category) return;
-                        setIsSaving(true);
-                        try {
-                            const { data: newStruct, error } = await supabase.from('fee_structures').insert({
-                                institution_id: madrasah.id,
-                                department_id: selectedClass || null,
-                                fee_name: category,
-                                amount: parseFloat(amount) || 0
-                            }).select('*').single();
-                            if (error) throw error;
-
-                            if (newStruct?.id && (structureStartDate || structureEndDate)) {
-                                const updatedDates = { ...datesMap, [newStruct.id]: { start_date: structureStartDate, end_date: structureEndDate } };
-                                setDatesMap(updatedDates);
-                                localStorage.setItem(`fee_structure_dates_${madrasah.id}`, JSON.stringify(updatedDates));
-                            }
-
-                            setShowAddStructure(false);
-                            setCategory(''); setAmount(''); setSelectedClass(''); setStructureStartDate(''); setStructureEndDate('');
-                            fetchData();
-                        } catch (e: any) { setActionError(e.message); } finally { setIsSaving(false); }
-                     }} className="w-full py-5 bg-[#2563EB] text-white font-black rounded-full shadow-premium active:scale-95 transition-all text-base">
-                        {isSaving ? <Loader2 className="animate-spin" /> : 'সেভ করুন'}
+                     <button
+                        type="button"
+                        onClick={handleSaveStructure}
+                        disabled={isSaving || !structureCategoryId}
+                        className="w-full py-4 bg-gradient-to-r from-[#0fb5ab] to-[#0d948b] text-white font-black rounded-2xl shadow-lg shadow-[#0fb5ab]/25 active:scale-[0.98] transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                     >
+                        {isSaving ? <Loader2 size={18} className="animate-spin" /> : (editingStructure ? (lang === 'bn' ? 'আপডেট করুন' : 'Update') : (lang === 'bn' ? 'সেভ করুন' : 'Save'))}
                      </button>
                   </div>
                </div>

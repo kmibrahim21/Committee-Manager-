@@ -1,11 +1,35 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from 'supabase';
 import { Language } from 'types';
-import { t } from 'translations';
-import { TrendingUp, TrendingDown, Award, AlertCircle, Loader2, User, ChevronRight, BarChart2, BookOpen, Users, ArrowUpRight, ArrowDownRight, Filter, Check, Search, Target, Activity } from 'lucide-react';
+import {
+  TrendingUp,
+  Award,
+  AlertCircle,
+  Loader2,
+  ChevronRight,
+  BarChart2,
+  Users,
+  Filter,
+  Check,
+  Search,
+  Calendar,
+  CheckCircle2,
+  FileText,
+  ClipboardList,
+  UserCheck,
+  UserX,
+  Clock
+} from 'lucide-react';
 import { isValidUUID } from 'utils/validation';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 
 interface MeetingMinutesAnalyticsProps {
   institutionId: string;
@@ -13,37 +37,33 @@ interface MeetingMinutesAnalyticsProps {
   madrasah?: any;
 }
 
+type PeriodFilter = 'all' | 'recent_5' | 'this_year';
+
 const localT = {
-  allClasses: { en: 'All Departments', bn: 'সকল বিভাগ' },
-  selectClass: { en: 'Select Department', bn: 'বিভাগ নির্বাচন করুন' },
-  filterByClass: { en: 'Filter by Department', bn: 'বিভাগ অনুযায়ী ফিল্টার' },
-  searchClass: { en: 'Search department...', bn: 'বিভাগ খুঁজুন...' },
-  noClassesFound: { en: 'No departments found', bn: 'কোনো বিভাগ পাওয়া যায়নি' },
-  overallAverage: { en: 'Overall Participation', bn: 'সর্বমোট অংশগ্রহণ' },
-  passRate: { en: 'Active Rate', bn: 'সক্রিয় হার' },
-  failRate: { en: 'Inactive Rate', bn: 'নিষ্ক্রিয় হার' },
-  highestMarks: { en: 'Top Participation', bn: 'সর্বোচ্চ অংশগ্রহণ' },
-  lowestMarks: { en: 'Lowest Participation', bn: 'সর্বনিম্ন অংশগ্রহণ' },
-  totalClasses: { en: 'Total Departments', bn: 'মোট বিভাগ' },
-  topStudents: { en: 'Top Members', bn: 'সেরা সদস্য' },
-  classPerformance: { en: 'Department Performance', bn: 'বিভাগ পারফরম্যান্স' },
-  noDataAvailable: { en: 'No data available', bn: 'কোনো তথ্য পাওয়া যায়নি' },
-  subjectWeaknessDetection: { en: 'Low Participation Agenda', bn: 'কম অংশগ্রহণকারী বিষয় শনাক্তকরণ' },
-  noWeaknessDetected: { en: 'No issues detected', bn: 'কোনো সমস্যা পাওয়া যায়নি' },
-  topMovers: { en: 'Activity Trends (Inc/Dec)', bn: 'কার্যক্রম ট্রেন্ড (উন্নতি/অবনতি)' },
-  notEnoughExamData: { en: 'Not enough meeting data for comparison', bn: 'তুলনা করার জন্য পর্যাপ্ত মিটিংয়ের তথ্য নেই' },
-  studentsNeedingAttention: { en: 'Members Needing Attention', bn: 'বিশেষ মনোযোগ প্রয়োজন' },
-  students: { en: 'Members', bn: 'সদস্য' },
-  avg: { en: 'Avg', bn: 'গড়' },
-  failed: { en: 'Inactive', bn: 'নিষ্ক্রিয়' },
-  subjects: { en: 'Agendas', bn: 'বিষয়/এজেন্ডা' },
-  improvement: { en: 'Improvement', bn: 'উন্নতি' },
-  decline: { en: 'Decline', bn: 'অবনতি' },
-  points: { en: 'pts', bn: 'পয়েন্ট' },
-  classRankings: { en: 'Department Rankings', bn: 'বিভাগ র‍্যাংকিং' },
-  examTrends: { en: 'Meeting Trends', bn: 'মিটিং ট্রেন্ড' },
-  subjectPerformance: { en: 'Agenda Performance', bn: 'এজেন্ডাভিত্তিক পারফরম্যান্স' },
-  roll: { en: 'ID', bn: 'আইডি' },
+  allDepts: { en: 'All Committees / Depts', bn: 'সকল কমিটি / বিভাগ' },
+  selectDept: { en: 'Select Department', bn: 'বিভাগ নির্বাচন করুন' },
+  filterByDept: { en: 'Filter by Committee / Dept', bn: 'কমিটি / বিভাগ ফিল্টার' },
+  searchDept: { en: 'Search committee...', bn: 'কমিটি খুঁজুন...' },
+  noDeptsFound: { en: 'No committees found', bn: 'কোনো কমিটি পাওয়া যায়নি' },
+  periodAll: { en: 'All Meetings', bn: 'সব মিটিং' },
+  periodRecent5: { en: 'Recent 5', bn: 'সাম্প্রতিক ৫টি' },
+  periodThisYear: { en: 'This Year', bn: 'এই বছর' },
+  totalMeetings: { en: 'Total Meetings', bn: 'মোট মিটিং' },
+  avgAttendance: { en: 'Avg Attendance', bn: 'গড় উপস্থিতি' },
+  agendaCompletion: { en: 'Agenda Completion', bn: 'এজেন্ডা বাস্তবায়ন' },
+  totalDecisions: { en: 'Total Resolutions', bn: 'মোট সিদ্ধান্ত' },
+  completed: { en: 'Completed', bn: 'সম্পন্ন' },
+  upcoming: { en: 'Upcoming', bn: 'আসন্ন' },
+  attendanceTrend: { en: 'Meeting Attendance Trend', bn: 'মিটিং উপস্থিতি ট্রেন্ড' },
+  recentResolutions: { en: 'Recent Resolutions & Decisions', bn: 'সাম্প্রতিক সিদ্ধান্তসমূহ' },
+  activeMembers: { en: 'Most Active Members', bn: 'সর্বাধিক সক্রিয় সদস্য' },
+  lowParticipation: { en: 'Low Participation Members', bn: 'কম অংশগ্রহণকারী সদস্য' },
+  noData: { en: 'No meeting data available yet', bn: 'এখনো কোনো মিটিংয়ের তথ্য নেই' },
+  noResolutions: { en: 'No resolutions recorded yet', bn: 'এখনো কোনো সিদ্ধান্ত লিপিবদ্ধ হয়নি' },
+  noMemberAttendance: { en: 'No attendance records found', bn: 'উপস্থিতির কোনো রেকর্ড পাওয়া যায়নি' },
+  meetingsAttended: { en: 'attended', bn: 'টি মিটিংয়ে উপস্থিত' },
+  present: { en: 'Present', bn: 'উপস্থিত' },
+  general: { en: 'General', bn: 'সাধারণ' }
 };
 
 const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ institutionId, lang, madrasah }) => {
@@ -51,761 +71,631 @@ const MeetingMinutesAnalytics: React.FC<MeetingMinutesAnalyticsProps> = ({ insti
   const [loading, setLoading] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
   const [filterSearch, setFilterSearch] = useState('');
-  const [departments, setClasses] = useState<any[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string>('all');
-  const [analytics, setAnalytics] = useState<{
-    classPerformance: any[];
-    subjectWeakness: any[];
-    improvementInsights: any[];
-    overallAvg: number;
-    topStudents: any[];
-    weakStudents: any[];
-    passRate: number;
-    failRate: number;
-    highestMarks: number;
-    lowestMarks: number;
-    subjectPerformance: any[];
-    examTrends: any[];
-    classRankings: any[];
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('all');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
+
+  const [rawData, setRawData] = useState<{
+    meetings: any[];
+    agendas: any[];
+    decisions: any[];
+    attendance: any[];
+    members: any[];
   }>({
-    classPerformance: [],
-    subjectWeakness: [],
-    improvementInsights: [],
-    overallAvg: 0,
-    topStudents: [],
-    weakStudents: [],
-    passRate: 0,
-    failRate: 0,
-    highestMarks: 0,
-    lowestMarks: 0,
-    subjectPerformance: [],
-    examTrends: [],
-    classRankings: []
+    meetings: [],
+    agendas: [],
+    decisions: [],
+    attendance: [],
+    members: []
   });
 
   useEffect(() => {
-    fetchClasses();
+    if (!isValidUUID(institutionId)) return;
+    fetchAllData();
   }, [institutionId]);
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [institutionId, selectedClassId]);
-
-  const fetchClasses = async () => {
-    if (!isValidUUID(institutionId)) return;
-    const { data } = await supabase.from('departments').select('*').eq('institution_id', institutionId);
-    if (data) setClasses(data);
-  };
-
-  const fetchAnalytics = async () => {
-    if (!isValidUUID(institutionId)) return;
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-        const isBefaq = madrasah?.config_json?.result_engine === 'befaq';
-        const examTable = isBefaq ? 'befaq_exams' : 'meetings';
-        const subjectTable = isBefaq ? 'befaq_subjects' : 'exam_subjects';
-        const marksTable = isBefaq ? 'befaq_results' : 'exam_marks';
-        const classIdField = isBefaq ? 'marhala_id' : 'department_id';
+      const [deptRes, meetingsRes, membersRes] = await Promise.all([
+        supabase.from('departments').select('id, name').eq('institution_id', institutionId).order('name'),
+        supabase.from('meetings').select('*, departments(name)').eq('institution_id', institutionId).order('date', { ascending: true }),
+        supabase.from('members').select('id, name, roll, member_id_number, department_id, designation').eq('institution_id', institutionId)
+      ]);
 
-        // Fetch Exams
-        let examQuery = supabase.from(examTable).select('*').eq('institution_id', institutionId).order(isBefaq ? 'created_at' : 'date', { ascending: true });
-        if (selectedClassId !== 'all') {
-            examQuery = examQuery.eq(classIdField, selectedClassId);
-        }
-        const { data: exams } = await examQuery;
-        
-        if (!exams || exams.length === 0) {
-            setAnalytics({
-                classPerformance: [],
-                subjectWeakness: [],
-                improvementInsights: [],
-                overallAvg: 0,
-                topStudents: [],
-                weakStudents: [],
-                passRate: 0,
-                failRate: 0,
-                highestMarks: 0,
-                lowestMarks: 0,
-                subjectPerformance: [],
-                examTrends: [],
-                classRankings: []
-            });
-            setLoading(false);
-            return;
-        }
+      const meetings = meetingsRes.data || [];
+      const meetingIds = meetings.map((m: any) => m.id);
 
-        const examIds = exams.map(e => e.id);
+      let agendas: any[] = [];
+      let decisions: any[] = [];
+      let attendance: any[] = [];
 
-        // Fetch Subjects
-        const { data: subjects } = await supabase.from(subjectTable).select('*').in('exam_id', examIds);
-        
-        // Fetch Marks
-        const { data: marks } = await supabase.from(marksTable).select('*').in('exam_id', examIds);
+      if (meetingIds.length > 0) {
+        const [agRes, decRes, attRes] = await Promise.all([
+          supabase.from('meeting_agendas').select('*').in('meeting_id', meetingIds),
+          supabase.from('meeting_decisions').select('*').in('meeting_id', meetingIds).order('created_at', { ascending: false }),
+          supabase.from('meeting_attendance').select('*').in('meeting_id', meetingIds)
+        ]);
+        agendas = agRes.data || [];
+        decisions = decRes.data || [];
+        attendance = attRes.data || [];
+      }
 
-        // Fetch Students
-        let studentQuery = supabase.from('members').select('id, name, roll, department_id').eq('institution_id', institutionId);
-        if (selectedClassId !== 'all') {
-            studentQuery = studentQuery.eq('department_id', selectedClassId);
-        }
-        const { data: students } = await studentQuery;
-
-        if (!marks || !subjects || !students) {
-             setLoading(false);
-             return;
-        }
-
-        // --- Process Department Performance ---
-        const classPerformance: any[] = [];
-        let totalOverallPercentage = 0;
-        let totalOverallCount = 0;
-
-        const classesToProcess = selectedClassId === 'all' ? departments : departments.filter(c => c.id === selectedClassId);
-
-        classesToProcess.forEach(cls => {
-            const classExams = exams.filter(e => e[classIdField] === cls.id);
-            const classExamIds = classExams.map(e => e.id);
-            const classMarks = marks.filter(m => classExamIds.includes(m.exam_id));
-            
-            if (classMarks.length > 0) {
-                let totalPercentage = 0;
-                let count = 0;
-                
-                classMarks.forEach(m => {
-                    const subject = subjects.find(s => s.id === m.subject_id);
-                    if (subject) {
-                        const fullMarks = isBefaq ? (subject.total_marks || 100) : (subject.full_marks || 100);
-                        const pct = (parseFloat(m.marks_obtained as any) / fullMarks) * 100;
-                        totalPercentage += pct;
-                        count++;
-                        
-                        totalOverallPercentage += pct;
-                        totalOverallCount++;
-                    }
-                });
-                
-                const avg = count > 0 ? totalPercentage / count : 0;
-                classPerformance.push({
-                    name: cls.name,
-                    average: avg.toFixed(1),
-                    student_count: students.filter(s => s.department_id === cls.id).length
-                });
-            }
-        });
-
-        // --- Process Subject Weakness ---
-        const subjectStats: Record<string, { total: number, count: number }> = {};
-        marks.forEach(m => {
-            const subject = subjects.find(s => s.id === m.subject_id);
-            if (subject) {
-                const name = subject.subject_name.trim();
-                if (!subjectStats[name]) subjectStats[name] = { total: 0, count: 0 };
-                
-                const fullMarks = isBefaq ? (subject.total_marks || 100) : (subject.full_marks || 100);
-                subjectStats[name].total += (parseFloat(m.marks_obtained as any) / fullMarks) * 100;
-                subjectStats[name].count++;
-            }
-        });
-        
-        const subjectWeakness = Object.entries(subjectStats)
-            .map(([name, stats]) => ({ name, average: stats.total / stats.count }))
-            .sort((a, b) => a.average - b.average)
-            .slice(0, 5);
-
-        // --- Process Improvement ---
-        const studentPerformance: Record<string, { date: string, average: number }[]> = {};
-        
-        students.forEach(std => {
-            const stdMarks = marks.filter(m => m.student_id === std.id);
-            const stdExams = [...new Set(stdMarks.map(m => m.exam_id))];
-            
-            const examAvgs: { date: string, average: number }[] = [];
-            
-            stdExams.forEach(eid => {
-                const exam = exams.find(e => e.id === eid);
-                const mks = stdMarks.filter(m => m.exam_id === eid);
-                
-                let total = 0;
-                let count = 0;
-                mks.forEach(m => {
-                    const sub = subjects.find(s => s.id === m.subject_id);
-                    if (sub) {
-                        const fullMarks = isBefaq ? (sub.total_marks || 100) : (sub.full_marks || 100);
-                        total += (m.marks_obtained / fullMarks) * 100;
-                        count++;
-                    }
-                });
-                
-                if (exam && count > 0) {
-                    examAvgs.push({
-                        date: isBefaq ? exam.created_at : exam.date,
-                        average: total / count
-                    });
-                }
-            });
-            
-            examAvgs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            studentPerformance[std.id] = examAvgs;
-        });
-
-        const improvementInsights: any[] = [];
-        students.forEach(std => {
-            const perfs = studentPerformance[std.id];
-            if (perfs && perfs.length >= 2) {
-                const current = perfs[perfs.length - 1];
-                const prev = perfs[perfs.length - 2];
-                const change = current.average - prev.average;
-                
-                improvementInsights.push({
-                    name: std.name,
-                      department_name: departments.find(c => c.id === std.department_id)?.name,
-                    roll: std.roll,
-                    current_avg: current.average.toFixed(1),
-                    change: parseFloat(change.toFixed(1)),
-                    status: change >= 0 ? 'improving' : 'declining'
-                });
-            }
-        });
-        
-        improvementInsights.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
-
-        // --- Process Top & Weak Students (Based on latest exam) ---
-        const latestExamId = exams[exams.length - 1]?.id;
-        const latestMarks = marks.filter(m => m.exam_id === latestExamId);
-        const studentAverages: { id: string, name: string, roll: number, className: string, average: number, totalMarks: number }[] = [];
-        
-        let passedCount = 0;
-        let failedCount = 0;
-        let highest = 0;
-        let lowest = 100;
-
-        students.forEach(std => {
-            const stdMarks = latestMarks.filter(m => m.student_id === std.id);
-            if (stdMarks.length > 0) {
-                let total = 0;
-                let count = 0;
-                let hasFailed = false;
-
-                stdMarks.forEach(m => {
-                    const sub = subjects.find(s => s.id === m.subject_id);
-                    if (sub) {
-                        const fullMarks = isBefaq ? (sub.total_marks || 100) : (sub.full_marks || 100);
-                        const passMarks = isBefaq ? (sub.passing_marks || 33) : (sub.pass_marks || 33);
-                        const pct = (parseFloat(m.marks_obtained as any) / fullMarks) * 100;
-                        total += pct;
-                        count++;
-                        if (parseFloat(m.marks_obtained as any) < passMarks) hasFailed = true;
-                    }
-                });
-
-                if (count > 0) {
-                    const avg = total / count;
-                    studentAverages.push({
-                        id: std.id,
-                        name: std.name,
-                        roll: std.roll,
-                        className: departments.find(c => c.id === std.department_id)?.name || '',
-                        average: avg,
-                        totalMarks: total
-                    });
-
-                    if (hasFailed) failedCount++;
-                    else passedCount++;
-
-                    if (avg > highest) highest = avg;
-                    if (avg < lowest) lowest = avg;
-                }
-            }
-        });
-
-        studentAverages.sort((a, b) => b.average - a.average);
-        const topStudents = studentAverages.slice(0, 5);
-        const weakStudents = [...studentAverages].reverse().slice(0, 5);
-        const totalStudentsWithMarks = passedCount + failedCount;
-        const passRate = totalStudentsWithMarks > 0 ? (passedCount / totalStudentsWithMarks) * 100 : 0;
-        const failRate = totalStudentsWithMarks > 0 ? (failedCount / totalStudentsWithMarks) * 100 : 0;
-
-        // --- Process Subject Performance (For Graph) ---
-        const subjectPerformance = Object.entries(subjectStats).map(([name, stats]) => {
-            const avg = stats.total / stats.count;
-            return {
-                name: name.length > 10 ? name.substring(0, 10) + '...' : name,
-                average: parseFloat(avg.toFixed(1)),
-                passRate: 100 // Mock pass rate for now, can be calculated if needed
-            };
-        });
-
-        // --- Process Meeting Trends (For Graph) ---
-        const examTrends = exams.map(exam => {
-            const examMarks = marks.filter(m => m.exam_id === exam.id);
-            let total = 0;
-            let count = 0;
-            examMarks.forEach(m => {
-                const sub = subjects.find(s => s.id === m.subject_id);
-                if (sub) {
-                    const fullMarks = isBefaq ? (sub.total_marks || 100) : (sub.full_marks || 100);
-                    total += (parseFloat(m.marks_obtained as any) / fullMarks) * 100;
-                    count++;
-                }
-            });
-            return {
-                name: exam.title,
-                average: count > 0 ? parseFloat((total / count).toFixed(1)) : 0
-            };
-        }).filter(e => e.average > 0);
-
-        // --- Process Department Rankings ---
-        const classRankings: any[] = [];
-        departments.forEach(cls => {
-            const classStudents = studentAverages.filter(s => s.className === cls.name);
-            if (classStudents.length > 0) {
-                classRankings.push({
-                    className: cls.name,
-                    topStudents: classStudents.slice(0, 3)
-                });
-            }
-        });
-
-        setAnalytics({
-            classPerformance: classPerformance.sort((a, b) => parseFloat(b.average) - parseFloat(a.average)),
-            subjectWeakness,
-            improvementInsights: improvementInsights.slice(0, 5),
-            overallAvg: totalOverallCount > 0 ? totalOverallPercentage / totalOverallCount : 0,
-            topStudents,
-            weakStudents,
-            passRate,
-            failRate,
-            highestMarks: highest === 100 && totalStudentsWithMarks === 0 ? 0 : highest,
-            lowestMarks: lowest === 100 && totalStudentsWithMarks === 0 ? 0 : lowest,
-            subjectPerformance,
-            examTrends,
-            classRankings
-        });
-
+      setDepartments(deptRes.data || []);
+      setRawData({
+        meetings,
+        agendas,
+        decisions,
+        attendance,
+        members: membersRes.data || []
+      });
     } catch (err) {
-        console.error(err);
+      console.error('Error loading meeting analytics:', err);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
-  if (loading) return <div className="flex justify-center py-10"><Loader2 className="animate-spin text-[#2563EB]" /></div>;
+  const analytics = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+
+    let filteredMeetings = rawData.meetings.filter((m) => {
+      if (selectedDeptId !== 'all' && m.department_id !== selectedDeptId) return false;
+      if (periodFilter === 'this_year' && m.date) {
+        return new Date(m.date).getFullYear() === currentYear;
+      }
+      return true;
+    });
+
+    if (periodFilter === 'recent_5' && filteredMeetings.length > 5) {
+      filteredMeetings = filteredMeetings.slice(-5);
+    }
+
+    const meetingIdSet = new Set(filteredMeetings.map((m) => m.id));
+    const filteredAgendas = rawData.agendas.filter((a) => meetingIdSet.has(a.meeting_id));
+    const filteredDecisions = rawData.decisions.filter((d) => meetingIdSet.has(d.meeting_id));
+    const filteredAttendance = rawData.attendance.filter((r) => meetingIdSet.has(r.meeting_id));
+    const scopedMembers =
+      selectedDeptId === 'all'
+        ? rawData.members
+        : rawData.members.filter((m) => m.department_id === selectedDeptId);
+
+    const totalMeetings = filteredMeetings.length;
+    const completedMeetings = filteredMeetings.filter((m) => m.status === 'completed').length;
+    const upcomingMeetings = filteredMeetings.filter((m) => m.status === 'planned' || m.status === 'ongoing').length;
+
+    const totalAgendas = filteredAgendas.length;
+    const completedAgendas = filteredAgendas.filter((a) => Boolean(a.completed)).length;
+    const agendaImplementationRate = totalAgendas > 0 ? Math.round((completedAgendas / totalAgendas) * 100) : 0;
+
+    // Build attendance trend per meeting
+    let sumRates = 0;
+    let meetingsWithAttendanceBase = 0;
+
+    const attendanceTrend = filteredMeetings.slice(-10).map((m) => {
+      const mAtt = filteredAttendance.filter((r) => r.meeting_id === m.id);
+      const eligibleMembers = m.department_id
+        ? rawData.members.filter((mem) => mem.department_id === m.department_id)
+        : rawData.members;
+
+      const denominator = eligibleMembers.length > 0 ? eligibleMembers.length : mAtt.length;
+      const presentCount = mAtt.filter((r) => r.status === 'present' || r.status === 'late').length;
+      const rate = denominator > 0 ? Math.min(100, Math.round((presentCount / denominator) * 100)) : 0;
+
+      if (denominator > 0 && mAtt.length > 0) {
+        sumRates += rate;
+        meetingsWithAttendanceBase++;
+      }
+
+      const shortTitle = m.title && m.title.length > 14 ? `${m.title.slice(0, 14)}…` : (m.title || 'Meeting');
+      return {
+        name: shortTitle,
+        fullTitle: m.title || 'Meeting',
+        rate,
+        present: presentCount,
+        total: denominator
+      };
+    });
+
+    // Compute overall avg attendance across all filtered meetings with records
+    let allRatesSum = 0;
+    let allRatesCount = 0;
+    filteredMeetings.forEach((m) => {
+      const mAtt = filteredAttendance.filter((r) => r.meeting_id === m.id);
+      if (mAtt.length === 0) return;
+      const eligibleMembers = m.department_id
+        ? rawData.members.filter((mem) => mem.department_id === m.department_id)
+        : rawData.members;
+      const denominator = eligibleMembers.length > 0 ? eligibleMembers.length : mAtt.length;
+      if (denominator > 0) {
+        const presentCount = mAtt.filter((r) => r.status === 'present' || r.status === 'late').length;
+        allRatesSum += Math.min(100, (presentCount / denominator) * 100);
+        allRatesCount++;
+      }
+    });
+
+    const avgAttendanceRate = allRatesCount > 0 ? Math.round(allRatesSum / allRatesCount) : 0;
+
+    // Recent resolutions joined with meeting metadata
+    const meetingMap = new Map<string, any>();
+    filteredMeetings.forEach((m) => meetingMap.set(m.id, m));
+
+    const recentDecisions = [...filteredDecisions]
+      .sort((a, b) => {
+        const dateA = meetingMap.get(a.meeting_id)?.date || a.created_at || '';
+        const dateB = meetingMap.get(b.meeting_id)?.date || b.created_at || '';
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      })
+      .slice(0, 6)
+      .map((d) => {
+        const mt = meetingMap.get(d.meeting_id);
+        return {
+          ...d,
+          meetingTitle: mt?.title || '',
+          meetingDate: mt?.date || d.created_at,
+          departmentName: mt?.departments?.name || localT.general[lang]
+        };
+      });
+
+    // Member participation stats
+    const meetingsWithAnyAttendance = filteredMeetings.filter((m) =>
+      filteredAttendance.some((r) => r.meeting_id === m.id)
+    );
+
+    const memberStats = scopedMembers
+      .map((mem) => {
+        const eligibleMeetings = meetingsWithAnyAttendance.filter(
+          (m) => !m.department_id || m.department_id === mem.department_id
+        );
+        if (eligibleMeetings.length === 0) return null;
+
+        const eligibleIds = new Set(eligibleMeetings.map((m) => m.id));
+        const attendedCount = filteredAttendance.filter(
+          (r) =>
+            r.member_id === mem.id &&
+            eligibleIds.has(r.meeting_id) &&
+            (r.status === 'present' || r.status === 'late')
+        ).length;
+
+        const rate = Math.round((attendedCount / eligibleMeetings.length) * 100);
+        return {
+          id: mem.id,
+          name: mem.name,
+          memberCode: mem.member_id_number || mem.roll || '-',
+          designation: mem.designation || '',
+          attendedCount,
+          totalMeetings: eligibleMeetings.length,
+          rate
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    const topActiveMembers = [...memberStats]
+      .sort((a, b) => b.rate - a.rate || b.attendedCount - a.attendedCount)
+      .slice(0, 5);
+
+    const lowParticipationMembers = [...memberStats]
+      .filter((m) => m.rate < 75)
+      .sort((a, b) => a.rate - b.rate || a.attendedCount - b.attendedCount)
+      .slice(0, 5);
+
+    return {
+      totalMeetings,
+      completedMeetings,
+      upcomingMeetings,
+      avgAttendanceRate,
+      agendaImplementationRate,
+      totalAgendas,
+      completedAgendas,
+      totalDecisions: filteredDecisions.length,
+      attendanceTrend,
+      recentDecisions,
+      topActiveMembers,
+      lowParticipationMembers,
+      hasAttendanceTrendData: meetingsWithAttendanceBase > 0
+    };
+  }, [rawData, selectedDeptId, periodFilter, lang]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="animate-spin text-[#0fb5ab]" size={28} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      
-      {/* Filter */}
-      <div className="flex justify-end relative z-30">
-        <button 
+      {/* Top Filter Bar: Period Pills + Department Dropdown */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-30">
+        <div className={`inline-flex p-1 rounded-2xl border w-full sm:w-fit ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100/80 border-slate-200/70'}`}>
+          {([
+            { id: 'all', label: localT.periodAll[lang] },
+            { id: 'recent_5', label: localT.periodRecent5[lang] },
+            { id: 'this_year', label: localT.periodThisYear[lang] }
+          ] as const).map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPeriodFilter(p.id)}
+              className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-[11px] font-black transition-all ${
+                periodFilter === p.id
+                  ? isDark
+                    ? 'bg-[#42f5e9] text-slate-950 shadow-sm'
+                    : 'bg-[#0fb5ab] text-white shadow-sm'
+                  : isDark
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative flex justify-end">
+          <button
+            type="button"
             onClick={() => setShowFilter(!showFilter)}
-            className={`flex items-center gap-2 border rounded-xl px-4 py-2.5 text-xs font-black transition-all active:scale-95 shadow-sm ${
-                isDark 
-                ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500' 
-                : 'bg-white border-slate-200 text-slate-600 hover:border-[#2563EB]'
+            className={`flex items-center gap-2 border rounded-2xl px-4 py-2.5 text-xs font-black transition-all active:scale-95 shadow-sm ${
+              isDark
+                ? 'bg-slate-800 border-slate-700 text-slate-200 hover:border-[#42f5e9]'
+                : 'bg-white border-slate-200 text-slate-700 hover:border-[#0fb5ab]'
             }`}
-        >
-            <Filter size={14} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
-            <span>{selectedClassId === 'all' ? localT.allClasses[lang] : departments.find(c => c.id === selectedClassId)?.name || localT.selectClass[lang]}</span>
-            <ChevronRight size={14} className={`${isDark ? 'text-slate-500' : 'text-slate-400'} transition-transform duration-300 ${showFilter ? 'rotate-90' : ''}`} />
-        </button>
+          >
+            <Filter size={14} className={isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
+            <span className="truncate max-w-[180px]">
+              {selectedDeptId === 'all'
+                ? localT.allDepts[lang]
+                : departments.find((d) => d.id === selectedDeptId)?.name || localT.selectDept[lang]}
+            </span>
+            <ChevronRight
+              size={14}
+              className={`transition-transform duration-300 ${showFilter ? 'rotate-90' : ''} ${isDark ? 'text-slate-400' : 'text-slate-400'}`}
+            />
+          </button>
 
-        {showFilter && (
+          {showFilter && (
             <>
-                <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40" onClick={() => setShowFilter(false)}></div>
-                <div className={`absolute top-full right-0 mt-2 w-72 rounded-[2rem] shadow-2xl border p-4 z-50 animate-in zoom-in-95 origin-top-right ${
-                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-                }`}>
-                    <div className="mb-3 px-2">
-                        <h4 className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.filterByClass[lang]}</h4>
-                        <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input 
-                                type="text" 
-                                placeholder={localT.searchClass[lang]} 
-                                className={`w-full h-9 rounded-xl pl-9 pr-3 text-xs font-bold outline-none border transition-all ${
-                                    isDark 
-                                    ? 'bg-slate-900 border-slate-700 text-slate-200 focus:border-blue-500' 
-                                    : 'bg-slate-50 border-transparent focus:border-blue-100 focus:bg-blue-50/50'
-                                }`}
-                                value={filterSearch}
-                                onChange={(e) => setFilterSearch(e.target.value)}
-                                autoFocus
-                            />
-                        </div>
-                    </div>
-                    
-                    <div className="max-h-[280px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                        <button 
-                            onClick={() => { setSelectedClassId('all'); setShowFilter(false); }}
-                            className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black transition-all flex items-center justify-between group ${
-                                selectedClassId === 'all' 
-                                ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-900/20' 
-                                : isDark ? 'text-slate-400 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50'
-                            }`}
-                        >
-                            <span>{localT.allClasses[lang]}</span>
-                            {selectedClassId === 'all' && <Check size={14} className="text-white" />}
-                        </button>
-                        
-                        {departments.filter(c => c.name.toLowerCase().includes(filterSearch.toLowerCase())).map(c => (
-                            <button 
-                                key={c.id}
-                                onClick={() => { setSelectedClassId(c.id); setShowFilter(false); }}
-                                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black transition-all flex items-center justify-between group ${
-                                    selectedClassId === c.id 
-                                    ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-900/20' 
-                                    : isDark ? 'text-slate-400 hover:bg-slate-700/50' : 'text-slate-600 hover:bg-slate-50'
-                                }`}
-                            >
-                                <span>{c.name}</span>
-                                {selectedClassId === c.id && <Check size={14} className="text-white" />}
-                            </button>
-                        ))}
-                        {departments.filter(c => c.name.toLowerCase().includes(filterSearch.toLowerCase())).length === 0 && (
-                            <div className="text-center py-4 text-[10px] font-bold text-slate-400">{localT.noClassesFound[lang]}</div>
-                        )}
-                    </div>
+              <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40" onClick={() => setShowFilter(false)} />
+              <div
+                className={`absolute top-full right-0 mt-2 w-72 rounded-[2rem] shadow-2xl border p-4 z-50 animate-in zoom-in-95 origin-top-right ${
+                  isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
+                }`}
+              >
+                <div className="mb-3 px-1">
+                  <h4 className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>
+                    {localT.filterByDept[lang]}
+                  </h4>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder={localT.searchDept[lang]}
+                      className={`w-full h-9 rounded-xl pl-9 pr-3 text-xs font-bold outline-none border transition-all ${
+                        isDark
+                          ? 'bg-slate-900 border-slate-700 text-slate-200 focus:border-[#42f5e9]'
+                          : 'bg-slate-50 border-slate-200 focus:border-[#0fb5ab] focus:bg-white'
+                      }`}
+                      value={filterSearch}
+                      onChange={(e) => setFilterSearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
                 </div>
+
+                <div className="max-h-[260px] overflow-y-auto space-y-1 pr-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDeptId('all');
+                      setShowFilter(false);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-between ${
+                      selectedDeptId === 'all'
+                        ? 'bg-[#0fb5ab] text-white shadow-md'
+                        : isDark
+                          ? 'text-slate-300 hover:bg-slate-700/60'
+                          : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>{localT.allDepts[lang]}</span>
+                    {selectedDeptId === 'all' && <Check size={14} className="text-white" />}
+                  </button>
+
+                  {departments
+                    .filter((d) => d.name.toLowerCase().includes(filterSearch.toLowerCase()))
+                    .map((d) => (
+                      <button
+                        type="button"
+                        key={d.id}
+                        onClick={() => {
+                          setSelectedDeptId(d.id);
+                          setShowFilter(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-between ${
+                          selectedDeptId === d.id
+                            ? 'bg-[#0fb5ab] text-white shadow-md'
+                            : isDark
+                              ? 'text-slate-300 hover:bg-slate-700/60'
+                              : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="truncate">{d.name}</span>
+                        {selectedDeptId === d.id && <Check size={14} className="text-white shrink-0" />}
+                      </button>
+                    ))}
+
+                  {departments.filter((d) => d.name.toLowerCase().includes(filterSearch.toLowerCase())).length === 0 && (
+                    <div className="text-center py-4 text-[11px] font-bold text-slate-400">{localT.noDeptsFound[lang]}</div>
+                  )}
+                </div>
+              </div>
             </>
-        )}
-      </div>
-
-      {/* Overall Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-[#0fb5ab] p-5 rounded-[2rem] text-black shadow-premium relative overflow-hidden col-span-2 lg:col-span-2">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
-            <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-2 opacity-80">
-                <Award size={18} />
-                <span className="text-[10px] font-black uppercase tracking-widest">{localT.overallAverage[lang]}</span>
-                </div>
-                <h2 className="text-[10px] font-black font-noto uppercase tracking-widest">{analytics.overallAvg.toFixed(1)}%</h2>
-            </div>
-        </div>
-
-        <div className="bg-emerald-500 p-5 rounded-[2rem] text-white shadow-premium relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-white/20 rounded-full blur-2xl -mr-5 -mt-5"></div>
-            <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-1 opacity-90">
-                <Check size={14} />
-                <span className="text-[9px] font-black uppercase tracking-widest">{localT.passRate[lang]}</span>
-                </div>
-                <h2 className="text-2xl font-black font-noto">{analytics.passRate.toFixed(1)}%</h2>
-            </div>
-        </div>
-
-        <div className="bg-red-500 p-5 rounded-[2rem] text-white shadow-premium relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-white/20 rounded-full blur-2xl -mr-5 -mt-5"></div>
-            <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-1 opacity-90">
-                <AlertCircle size={14} />
-                <span className="text-[9px] font-black uppercase tracking-widest">{localT.failRate[lang]}</span>
-                </div>
-                <h2 className="text-2xl font-black font-noto">{analytics.failRate.toFixed(1)}%</h2>
-            </div>
-        </div>
-
-        <div className={`p-4 rounded-[1.8rem] border shadow-bubble flex flex-col justify-center ${
-            isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-        }`}>
-            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.highestMarks[lang]}</span>
-            <span className={`text-xl font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{analytics.highestMarks.toFixed(1)}%</span>
-        </div>
-
-        <div className={`p-4 rounded-[1.8rem] border shadow-bubble flex flex-col justify-center ${
-            isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-        }`}>
-            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.lowestMarks[lang]}</span>
-            <span className="text-xl font-black text-red-500">{analytics.lowestMarks.toFixed(1)}%</span>
-        </div>
-
-        <div className={`p-4 rounded-[1.8rem] border shadow-bubble flex flex-col justify-center ${
-            isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-        }`}>
-            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.totalClasses[lang]}</span>
-            <span className={`text-xl font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{analytics.classPerformance.length}</span>
-        </div>
-
-        <div className={`p-4 rounded-[1.8rem] border shadow-bubble flex flex-col justify-center ${
-            isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-        }`}>
-            <span className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.topStudents[lang]}</span>
-            <span className="text-xl font-black text-emerald-500">{analytics.topStudents.length}</span>
+          )}
         </div>
       </div>
 
+      {/* 4 KPI Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Card 1: Total Meetings */}
+        <div className="bg-gradient-to-br from-[#0fb5ab] to-[#0a8d85] p-5 rounded-[2rem] text-white shadow-lg relative overflow-hidden">
+          <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/15 blur-xl" />
+          <div className="relative z-10 space-y-2">
+            <div className="flex items-center gap-2 opacity-90">
+              <Calendar size={16} />
+              <span className="text-[10px] font-black uppercase tracking-widest">{localT.totalMeetings[lang]}</span>
+            </div>
+            <h3 className="text-2xl sm:text-3xl font-black font-noto">{analytics.totalMeetings}</h3>
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-white/85">
+              <span>{localT.completed[lang]}: {analytics.completedMeetings}</span>
+              <span>•</span>
+              <span>{localT.upcoming[lang]}: {analytics.upcomingMeetings}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Average Attendance Rate */}
+        <div className={`p-5 rounded-[2rem] border shadow-sm relative overflow-hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-emerald-500">
+              <Users size={16} />
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>
+                {localT.avgAttendance[lang]}
+              </span>
+            </div>
+            <h3 className={`text-2xl sm:text-3xl font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
+              {analytics.avgAttendanceRate}%
+            </h3>
+            <div className={`h-1.5 w-full rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
+              <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${analytics.avgAttendanceRate}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Agenda Implementation Rate */}
+        <div className={`p-5 rounded-[2rem] border shadow-sm relative overflow-hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-indigo-500">
+              <ClipboardList size={16} />
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>
+                {localT.agendaCompletion[lang]}
+              </span>
+            </div>
+            <h3 className={`text-2xl sm:text-3xl font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+              {analytics.agendaImplementationRate}%
+            </h3>
+            <p className="text-[10px] font-bold text-slate-400">
+              {analytics.completedAgendas} / {analytics.totalAgendas} {lang === 'bn' ? 'এজেন্ডা সম্পন্ন' : 'completed'}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 4: Total Decisions */}
+        <div className={`p-5 rounded-[2rem] border shadow-sm relative overflow-hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-amber-500">
+              <CheckCircle2 size={16} />
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>
+                {localT.totalDecisions[lang]}
+              </span>
+            </div>
+            <h3 className={`text-2xl sm:text-3xl font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+              {analytics.totalDecisions}
+            </h3>
+            <p className="text-[10px] font-bold text-slate-400">
+              {lang === 'bn' ? 'গৃহীত রেজুলেশন' : 'Approved resolutions'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Analytics Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-      {/* Department Performance */}
-      <div className="space-y-3">
-         <div className="flex items-center gap-2 px-2">
-            <BarChart2 size={16} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
-            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.classPerformance[lang]}</h3>
-         </div>
-         <div className="grid grid-cols-1 gap-3">
-            {analytics.classPerformance.map((cls, idx) => (
-               <div key={idx} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between ${
-                   isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-               }`}>
-                  <div>
-                     <h4 className={`font-black text-sm ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{cls.name}</h4>
-                     <p className={`text-[9px] font-bold flex items-center gap-1 mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}><Users size={10}/> {cls.student_count} {localT.students[lang]}</p>
-                  </div>
-                  <div className="text-right">
-                     <span className={`text-lg font-black ${parseFloat(cls.average) >= 80 ? 'text-emerald-500' : parseFloat(cls.average) >= 60 ? 'text-[#0fb5ab]' : 'text-orange-500'}`}>
-                        {cls.average}%
-                     </span>
-                  </div>
-               </div>
-            ))}
-            {analytics.classPerformance.length === 0 && <div className="text-center py-6 text-slate-400 text-xs font-bold">{localT.noDataAvailable[lang]}</div>}
-         </div>
-      </div>
-
-      {/* Subject Weakness */}
-      <div className="space-y-3">
-         <div className="flex items-center gap-2 px-2">
-            <AlertCircle size={16} className="text-red-400" />
-            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.subjectWeaknessDetection[lang]}</h3>
-         </div>
-         <div className={`p-5 rounded-[2rem] border shadow-bubble ${
-             isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-         }`}>
-            <div className="space-y-4">
-               {analytics.subjectWeakness.map((sub, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
-                         isDark ? 'bg-red-900/20 text-red-400' : 'bg-red-50 text-red-500'
-                     }`}>
-                        {idx + 1}
-                     </div>
-                     <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                           <span className={`text-xs font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{sub.name}</span>
-                           <span className="text-xs font-black text-red-500">{sub.average.toFixed(1)}%</span>
-                        </div>
-                        <div className={`h-1.5 w-full rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
-                           <div className="h-full bg-red-500 rounded-full" style={{ width: `${sub.average}%` }}></div>
-                        </div>
-                     </div>
-                  </div>
-               ))}
-               {analytics.subjectWeakness.length === 0 && <div className="text-center py-4 text-slate-400 text-xs font-bold">{localT.noWeaknessDetected[lang]}</div>}
-            </div>
-         </div>
-      </div>
-
-      {/* Improvement Tracking */}
-      <div className="space-y-3">
-         <div className="flex items-center gap-2 px-2">
-            <TrendingUp size={16} className="text-emerald-500" />
-            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.topMovers[lang]}</h3>
-         </div>
-         <div className="space-y-3">
-            {analytics.improvementInsights.map((item, idx) => (
-               <div key={idx} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between ${
-                   isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-               }`}>
-                  <div className="flex items-center gap-3">
-                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                         item.status === 'improving' 
-                         ? (isDark ? 'bg-emerald-900/20 text-emerald-400' : 'bg-emerald-50 text-emerald-500') 
-                         : (isDark ? 'bg-red-900/20 text-red-400' : 'bg-red-50 text-red-500')
-                     }`}>
-                        {item.status === 'improving' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
-                     </div>
-                     <div>
-                        <h4 className={`font-black text-sm font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{item.name}</h4>
-                        <p className={`text-[9px] font-bold uppercase ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{item.name}</p>
-                     </div>
-                  </div>
-                  <div className="text-right">
-                     <span className={`text-sm font-black ${item.status === 'improving' ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {item.change > 0 ? '+' : ''}{item.change}%
-                     </span>
-                     <p className={`text-[9px] font-bold ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>{localT.avg[lang]}: {item.current_avg}%</p>
-                  </div>
-               </div>
-            ))}
-            {analytics.improvementInsights.length === 0 && <div className="text-center py-6 text-slate-400 text-xs font-bold">{localT.notEnoughExamData[lang]}</div>}
-         </div>
-      </div>
-
-      {/* Trend Analysis */}
-      {analytics.examTrends.length > 0 && (
-          <div className="space-y-3">
-             <div className="flex items-center gap-2 px-2">
-                <Activity size={16} className="text-blue-500" />
-                <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.examTrends[lang]}</h3>
-             </div>
-             <div className={`p-5 rounded-[2rem] border shadow-bubble h-64 ${
-                 isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-             }`}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={analytics.examTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#f1f5f9'} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} />
-                        <Tooltip 
-                            contentStyle={{ 
-                                borderRadius: '16px', 
-                                border: 'none', 
-                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', 
-                                fontWeight: 'bold', 
-                                fontSize: '12px',
-                                backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                                color: isDark ? '#f1f5f9' : '#1e293b'
-                            }}
-                            itemStyle={{ color: isDark ? '#42f5e9' : '#0fb5ab' }}
-                        />
-                        <Line type="monotone" dataKey="average" stroke="#0fb5ab" strokeWidth={4} dot={{ r: 6, fill: '#0fb5ab', strokeWidth: 2, stroke: isDark ? '#1e293b' : '#fff' }} activeDot={{ r: 8 }} />
-                    </LineChart>
-                </ResponsiveContainer>
-             </div>
+        {/* Attendance Trend Chart */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-2">
+            <BarChart2 size={16} className={isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
+            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {localT.attendanceTrend[lang]}
+            </h3>
           </div>
-      )}
-
-      {/* Subject Performance */}
-      {analytics.subjectPerformance.length > 0 && (
-          <div className="space-y-3 xl:col-span-2">
-             <div className="flex items-center gap-2 px-2">
-                <BookOpen size={16} className="text-indigo-500" />
-                <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.subjectPerformance[lang]}</h3>
-             </div>
-             <div className={`p-5 rounded-[2rem] border shadow-bubble h-64 ${
-                 isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-             }`}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.subjectPerformance} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#f1f5f9'} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} />
-                        <Tooltip 
-                            cursor={{ fill: isDark ? '#334155' : '#f8fafc' }}
-                            contentStyle={{ 
-                                borderRadius: '16px', 
-                                border: 'none', 
-                                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', 
-                                fontWeight: 'bold', 
-                                fontSize: '12px',
-                                backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                                color: isDark ? '#f1f5f9' : '#1e293b'
-                            }}
-                        />
-                        <Bar dataKey="average" fill="#42f5e9" radius={[6, 6, 0, 0]} barSize={30} />
-                    </BarChart>
-                </ResponsiveContainer>
-             </div>
+          <div className={`p-5 rounded-[2rem] border shadow-sm h-72 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+            {analytics.hasAttendanceTrendData && analytics.attendanceTrend.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analytics.attendanceTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#334155' : '#f1f5f9'} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} />
+                  <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} unit="%" />
+                  <Tooltip
+                    cursor={{ fill: isDark ? '#334155' : '#f8fafc' }}
+                    contentStyle={{
+                      borderRadius: '16px',
+                      border: 'none',
+                      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15)',
+                      fontWeight: 'bold',
+                      fontSize: '12px',
+                      backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                      color: isDark ? '#f1f5f9' : '#1e293b'
+                    }}
+                    formatter={(value: any, _name: any, item: any) => [
+                      `${value}% (${item?.payload?.present || 0}/${item?.payload?.total || 0})`,
+                      localT.present[lang]
+                    ]}
+                    labelFormatter={(_label: any, payload: any) => payload?.[0]?.payload?.fullTitle || _label}
+                  />
+                  <Bar dataKey="rate" fill={isDark ? '#42f5e9' : '#0fb5ab'} radius={[8, 8, 0, 0]} maxBarSize={36} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                <TrendingUp size={28} className="opacity-40" />
+                <p className="text-xs font-bold">{localT.noData[lang]}</p>
+              </div>
+            )}
           </div>
-      )}
+        </div>
 
-      {/* Top Students */}
-      <div className="space-y-3">
-         <div className="flex items-center gap-2 px-2">
-            <Target size={16} className="text-emerald-500" />
-            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.topStudents[lang]}</h3>
-         </div>
-         <div className="grid grid-cols-1 gap-3">
-            {analytics.topStudents.map((std, idx) => (
-               <div key={idx} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between ${
-                   isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-               }`}>
-                  <div className="flex items-center gap-3">
-                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shrink-0 ${
-                         isDark ? 'bg-emerald-900/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
-                     }`}>
-                        {idx + 1}
-                     </div>
-                     <div>
-                        <h4 className={`font-black text-sm ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{std.name}</h4>
-                        <p className={`text-[9px] font-bold flex items-center gap-1 mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{std.className} • {localT.roll[lang]}: {std.roll}</p>
-                     </div>
-                  </div>
-                  <div className="text-right">
-                     <span className="text-lg font-black text-emerald-500">
-                        {std.average.toFixed(1)}%
-                     </span>
-                  </div>
-               </div>
-            ))}
-            {analytics.topStudents.length === 0 && <div className="text-center py-6 text-slate-400 text-xs font-bold">{localT.noDataAvailable[lang]}</div>}
-         </div>
-      </div>
-
-      {/* Weak Students */}
-      <div className="space-y-3">
-         <div className="flex items-center gap-2 px-2">
-            <AlertCircle size={16} className="text-red-500" />
-            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.studentsNeedingAttention[lang]}</h3>
-         </div>
-         <div className="grid grid-cols-1 gap-3">
-            {analytics.weakStudents.map((std, idx) => (
-               <div key={idx} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between ${
-                   isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-               }`}>
-                  <div className="flex items-center gap-3">
-                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shrink-0 ${
-                         isDark ? 'bg-red-900/20 text-red-400' : 'bg-red-50 text-red-500'
-                     }`}>
-                        {idx + 1}
-                     </div>
-                     <div>
-                        <h4 className={`font-black text-sm ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{std.name}</h4>
-                        <p className={`text-[9px] font-bold flex items-center gap-1 mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{std.className} • {localT.roll[lang]}: {std.roll}</p>
-                     </div>
-                  </div>
-                  <div className="text-right">
-                     <span className="text-lg font-black text-red-500">
-                        {std.average.toFixed(1)}%
-                     </span>
-                  </div>
-               </div>
-            ))}
-            {analytics.weakStudents.length === 0 && <div className="text-center py-6 text-slate-400 text-xs font-bold">{localT.noDataAvailable[lang]}</div>}
-         </div>
-      </div>
-
-      {/* Department Rankings */}
-      {analytics.classRankings.length > 0 && (
-          <div className="space-y-3 xl:col-span-2">
-             <div className="flex items-center gap-2 px-2">
-                <Award size={16} className="text-amber-500" />
-                <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.classRankings[lang]}</h3>
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {analytics.classRankings.map((clsRank, idx) => (
-                   <div key={idx} className={`p-5 rounded-[2rem] border shadow-bubble ${
-                       isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
-                   }`}>
-                      <h4 className={`font-black text-sm mb-3 border-b pb-2 ${
-                          isDark ? 'text-blue-400 border-slate-700' : 'text-[#1E3A8A] border-slate-100'
-                      }`}>{clsRank.className}</h4>
-                      <div className="space-y-3">
-                          {clsRank.topStudents.map((std: any, sIdx: number) => (
-                              <div key={sIdx} className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 ${
-                                          sIdx === 0 
-                                          ? (isDark ? 'bg-amber-900/20 text-amber-400' : 'bg-amber-100 text-amber-600') 
-                                          : sIdx === 1 
-                                          ? (isDark ? 'bg-slate-900 text-slate-400' : 'bg-slate-100 text-slate-600') 
-                                          : (isDark ? 'bg-orange-900/20 text-orange-400' : 'bg-orange-50 text-orange-600')
-                                      }`}>
-                                          #{sIdx + 1}
-                                      </div>
-                                      <div>
-                                          <p className={`font-bold text-xs ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{std.name}</p>
-                                          <p className={`text-[9px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{localT.roll[lang]}: {std.roll}</p>
-                                      </div>
-                                  </div>
-                                  <span className={`text-xs font-black ${isDark ? 'text-blue-400' : 'text-[#1E3A8A]'}`}>{std.average.toFixed(1)}%</span>
-                              </div>
-                          ))}
-                      </div>
-                   </div>
-                ))}
-             </div>
+        {/* Recent Resolutions */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-2">
+            <FileText size={16} className="text-amber-500" />
+            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {localT.recentResolutions[lang]}
+            </h3>
           </div>
-      )}
+          <div className={`p-5 rounded-[2rem] border shadow-sm space-y-3 min-h-[18rem] ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+            {analytics.recentDecisions.length > 0 ? (
+              analytics.recentDecisions.map((dec) => (
+                <div
+                  key={dec.id}
+                  className={`p-3.5 rounded-2xl border transition-all ${
+                    isDark ? 'bg-slate-900/60 border-slate-700/70' : 'bg-slate-50/80 border-slate-100'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className={`text-xs sm:text-sm font-black font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
+                      {dec.title}
+                    </h4>
+                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black shrink-0 ${
+                      isDark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-500 border border-slate-200/70'
+                    }`}>
+                      {dec.departmentName}
+                    </span>
+                  </div>
+                  {dec.description && (
+                    <p className={`text-xs mt-1 line-clamp-2 leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      {dec.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-2 text-[10px] font-bold text-slate-400">
+                    <Clock size={11} />
+                    <span className="truncate">{dec.meetingTitle}</span>
+                    {dec.meetingDate && (
+                      <>
+                        <span>•</span>
+                        <span>{new Date(dec.meetingDate).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="h-56 flex flex-col items-center justify-center text-slate-400 gap-2">
+                <FileText size={28} className="opacity-40" />
+                <p className="text-xs font-bold">{localT.noResolutions[lang]}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Most Active Members */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-2">
+            <Award size={16} className="text-emerald-500" />
+            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {localT.activeMembers[lang]}
+            </h3>
+          </div>
+          <div className="space-y-2.5">
+            {analytics.topActiveMembers.length > 0 ? (
+              analytics.topActiveMembers.map((mem, idx) => (
+                <div
+                  key={mem.id}
+                  className={`p-4 rounded-[1.6rem] border shadow-sm flex items-center justify-between gap-3 ${
+                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                      isDark ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
+                    }`}>
+                      <UserCheck size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className={`font-black text-xs sm:text-sm truncate font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        #{idx + 1} {mem.name}
+                      </h4>
+                      <p className="text-[10px] font-bold text-slate-400 truncate">
+                        ID: {mem.memberCode} • {mem.attendedCount}/{mem.totalMeetings} {localT.meetingsAttended[lang]}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm sm:text-base font-black text-emerald-500 shrink-0">{mem.rate}%</span>
+                </div>
+              ))
+            ) : (
+              <div className={`p-8 rounded-[2rem] border text-center text-xs font-bold text-slate-400 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                {localT.noMemberAttendance[lang]}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Low Participation Members */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-2">
+            <AlertCircle size={16} className="text-rose-500" />
+            <h3 className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              {localT.lowParticipation[lang]}
+            </h3>
+          </div>
+          <div className="space-y-2.5">
+            {analytics.lowParticipationMembers.length > 0 ? (
+              analytics.lowParticipationMembers.map((mem) => (
+                <div
+                  key={mem.id}
+                  className={`p-4 rounded-[1.6rem] border shadow-sm flex items-center justify-between gap-3 ${
+                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                      isDark ? 'bg-rose-500/15 text-rose-400' : 'bg-rose-50 text-rose-500'
+                    }`}>
+                      <UserX size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className={`font-black text-xs sm:text-sm truncate font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        {mem.name}
+                      </h4>
+                      <p className="text-[10px] font-bold text-slate-400 truncate">
+                        ID: {mem.memberCode} • {mem.attendedCount}/{mem.totalMeetings} {localT.meetingsAttended[lang]}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm sm:text-base font-black text-rose-500 shrink-0">{mem.rate}%</span>
+                </div>
+              ))
+            ) : (
+              <div className={`p-8 rounded-[2rem] border text-center text-xs font-bold text-slate-400 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                {analytics.topActiveMembers.length > 0
+                  ? (lang === 'bn' ? 'সকল সদস্যের অংশগ্রহণ সন্তোষজনক' : 'All members have good participation')
+                  : localT.noMemberAttendance[lang]}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

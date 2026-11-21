@@ -2,7 +2,13 @@
 import React, { createContext, useContext, useState } from 'react';
 import { Institution } from '../../types';
 
-type EngineType = 'school' | 'befaq' | 'qawmi_custom';
+type EngineType = 'standard' | 'board' | 'general';
+
+const normalizeEngine = (raw?: string | null): EngineType => {
+    if (raw === 'board' || raw === 'befaq') return 'board';
+    if (raw === 'general' || raw === 'qawmi_custom') return 'general';
+    return 'standard';
+};
 
 interface MeetingMinutesContextType {
     engine: EngineType;
@@ -13,7 +19,7 @@ const MeetingMinutesContext = createContext<MeetingMinutesContextType | undefine
 
 export const MeetingMinutesProvider: React.FC<{ children: React.ReactNode; institution: Institution }> = ({ children, institution }) => {
     const [engine, setEngine] = useState<EngineType>(() => {
-        return (institution?.config_json?.meeting_engine as EngineType) || 'school';
+        return normalizeEngine(institution?.config_json?.meeting_engine);
     });
 
     return (

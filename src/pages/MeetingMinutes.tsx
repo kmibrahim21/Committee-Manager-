@@ -1,9 +1,9 @@
 import React from 'react';
 import { Institution, Language, UserRole, Profile } from 'types';
 import { MeetingMinutesProvider, useMeetingMinutesEngine } from '../components/agendas/MeetingMinutesProvider';
-import SchoolFinalResults from '../components/agendas/engines/standard/FinalMinutes';
-import BefaqFinalResults from '../components/agendas/engines/board/FinalMinutes';
-import QawmiFinalResults from '../components/agendas/engines/general/FinalMinutes';
+import StandardFinalMinutes from '../components/agendas/engines/standard/FinalMinutes';
+import BoardFinalMinutes from '../components/agendas/engines/board/FinalMinutes';
+import GeneralFinalMinutes from '../components/agendas/engines/general/FinalMinutes';
 
 import { AlertCircle } from 'lucide-react';
 
@@ -40,13 +40,13 @@ const MeetingMinutesContent: React.FC<MeetingMinutesProps> = (props) => {
   }
 
   switch (engine) {
-    case 'befaq':
-      return <BefaqFinalResults {...props} />;
-    case 'qawmi_custom':
-      return <QawmiFinalResults {...props} />;
-    case 'school':
+    case 'board':
+      return <BoardFinalMinutes {...props} />;
+    case 'general':
+      return <GeneralFinalMinutes {...props} />;
+    case 'standard':
     default:
-      return <SchoolFinalResults {...props} />;
+      return <StandardFinalMinutes {...props} />;
   }
 };
 

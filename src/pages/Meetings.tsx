@@ -2,9 +2,9 @@
 import React from 'react';
 import { Institution, Language, UserRole, Profile } from 'types';
 import { MeetingMinutesProvider, useMeetingMinutesEngine } from '../components/agendas/MeetingMinutesProvider';
-import SchoolResultEngine from '../components/agendas/engines/standard/StandardMeetingEngine';
-import BefaqResultEngine from '../components/agendas/engines/board/BoardMeetingEngine';
-import QawmiResultEngine from '../components/agendas/engines/general/GeneralMeetingEngine';
+import StandardMeetingEngine from '../components/agendas/engines/standard/StandardMeetingEngine';
+import BoardMeetingEngine from '../components/agendas/engines/board/BoardMeetingEngine';
+import GeneralMeetingEngine from '../components/agendas/engines/general/GeneralMeetingEngine';
 
 import { AlertCircle } from 'lucide-react';
 
@@ -42,13 +42,13 @@ const MeetingsContent: React.FC<MeetingsProps> = (props) => {
   }
 
   switch (engine) {
-    case 'befaq':
-      return <BefaqResultEngine {...props} />;
-    case 'qawmi_custom':
-      return <QawmiResultEngine {...props} />;
-    case 'school':
+    case 'board':
+      return <BoardMeetingEngine {...props} />;
+    case 'general':
+      return <GeneralMeetingEngine {...props} />;
+    case 'standard':
     default:
-      return <SchoolResultEngine {...props} />;
+      return <StandardMeetingEngine {...props} />;
   }
 };
 

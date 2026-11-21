@@ -4,8 +4,9 @@ import { supabase, smsApi } from 'supabase';
 import { Language, Department, SMSTemplate, Institution, UserRole, Profile } from 'types';
 import { t } from 'translations';
 import { ShortcodeService } from 'services/ShortcodeService';
-import { TrendingUp, DollarSign, BarChart3, AlertCircle, Send, Loader2, CheckCircle2, MessageSquare, Smartphone, PieChart, Users, Filter, Calendar, Wallet, BookOpen, ChevronDown, Info, Phone, Mic, Volume2, Radio, PhoneCall, X } from 'lucide-react';
+import { TrendingUp, DollarSign, BarChart3, AlertCircle, Send, Loader2, CheckCircle2, MessageSquare, Smartphone, PieChart, Users, Filter, Calendar, Wallet, BookOpen, ChevronDown, Info, Phone, Mic, Volume2, Radio, PhoneCall, X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { isValidUUID } from 'utils/validation';
+import { getInstitutionFeeCategories, getCategoryForStructure } from '../utils/feeCategoryHelper';
 
 interface CommitteeFinancialAnalyticsProps {
   institutionId: string;
@@ -50,6 +51,8 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
   const [stats, setStats] = useState<any>(null);
   const [reminders, setReminders] = useState<any[]>([]);
   const [breakdown, setBreakdown] = useState<any[]>([]);
+  const [incomeCategorySummary, setIncomeCategorySummary] = useState<{ category: string; total: number; count: number }[]>([]);
+  const [expenseCategorySummary, setExpenseCategorySummary] = useState<{ category: string; total: number; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<SMSTemplate[]>([]);
@@ -188,16 +191,40 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
       let totalExpense = 0;
       let totalOverallIncome = 0;
 
-      // Calculate Expenses and Overall Income
+      // Calculate Expenses and Overall Income (+ Category Summaries)
+      const incCatMap: Record<string, { total: number; count: number }> = {};
+      const expCatMap: Record<string, { total: number; count: number }> = {};
+
       ledger?.forEach(l => {
-        if (l.type === 'expense' && l.transaction_date.startsWith(dateFilter)) {
-          totalExpense += l.amount;
+        if (!(l.transaction_date || '').startsWith(dateFilter)) return;
+        const catName = (l.category || (lang === 'bn' ? 'অন্যান্য' : 'Other')).trim();
+        const amt = Number(l.amount || 0);
+        if (l.type === 'expense') {
+          totalExpense += amt;
+          if (!expCatMap[catName]) expCatMap[catName] = { total: 0, count: 0 };
+          expCatMap[catName].total += amt;
+          expCatMap[catName].count += 1;
         }
-        if (l.type === 'income' && l.transaction_date.startsWith(dateFilter)) {
-          totalOverallIncome += l.amount;
+        if (l.type === 'income') {
+          totalOverallIncome += amt;
+          if (!incCatMap[catName]) incCatMap[catName] = { total: 0, count: 0 };
+          incCatMap[catName].total += amt;
+          incCatMap[catName].count += 1;
         }
       });
-      console.log("Total Expense calculated:", totalExpense, "Total overall income calculated:", totalOverallIncome);
+
+      setIncomeCategorySummary(
+        Object.entries(incCatMap)
+          .map(([category, v]) => ({ category, total: v.total, count: v.count }))
+          .sort((a, b) => b.total - a.total)
+      );
+      setExpenseCategorySummary(
+        Object.entries(expCatMap)
+          .map(([category, v]) => ({ category, total: v.total, count: v.count }))
+          .sort((a, b) => b.total - a.total)
+      );
+
+      const institutionCategories = getInstitutionFeeCategories(madrasah);
 
       structures.forEach(s => {
         // Daily view doesn't have fixed target monthly/yearly subscription goals
@@ -208,9 +235,12 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
             ? (students?.length || 0) 
             : (studentCounts[s.department_id] || 0);
             
-        // If yearly, multiply monthly fee by 12 (approximate)
-        const multiplier = viewMode === 'yearly' ? 12 : 1;
-        const total = count * s.amount * multiplier;
+        // Multiply by 12 in yearly view ONLY for monthly categories
+        const catObj = getCategoryForStructure(s, institutionCategories, madrasah);
+        const multiplier = viewMode === 'yearly'
+          ? (catObj.frequency === 'monthly' ? 12 : 1)
+          : 1;
+        const total = count * Number(s.amount || 0) * multiplier;
         
         const feeName = s.fee_name.trim();
         if (!breakdownMap[feeName]) {
@@ -317,99 +347,63 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
         fee_collected: totalCollected
       });
 
-      // Fetch reminders for monthly view (current dues)
+      // Fetch reminders for monthly view (current dues) directly from members, fee_structures, fees, and subscriptions
       if (viewMode === 'monthly') {
-        let membersWithDues: any[] = [];
+        let memQuery = supabase
+          .from('members')
+          .select('id, name, phone, roll, member_id_number, department_id, departments(id, name)')
+          .eq('institution_id', institutionId);
         
-        try {
-          // 1. First attempt via RPC
-          const { data: remindersData, error: remError } = await supabase.rpc('get_fee_reminder_list', { 
-            p_institution_id: institutionId, 
-            p_month: selectedMonth 
-          });
-
-          if (!remError && remindersData && Array.isArray(remindersData) && remindersData.length > 0) {
-            membersWithDues = remindersData.map((r: any) => ({
-              id: r.student_id || r.id,
-              student_id: r.student_id || r.id,
-              name: r.name || r.student_name,
-              phone: r.phone || r.guardian_phone || '',
-              department_id: r.department_id || r.class_id,
-              department_name: r.department_name || r.class_name || '',
-              balance_due: Number(r.balance_due) || 0,
-              reminder_type: r.reminder_type || (Number(r.balance_due) > 1000 ? 'final' : Number(r.balance_due) > 500 ? 'strong' : 'soft')
-            }));
-          } else {
-            throw new Error("RPC not returned or empty");
-          }
-        } catch (rpcErr) {
-          // 2. Direct client query calculation from members, fee_structures, and fees/subscriptions
-          let memQuery = supabase
-            .from('members')
-            .select('id, name, phone, roll, department_id, departments(id, name)')
-            .eq('institution_id', institutionId);
-          
-          if (selectedClassId !== 'all') {
-            memQuery = memQuery.eq('department_id', selectedClassId);
-          }
-
-          const { data: memList } = await memQuery;
-
-          // Fetch collected fees for the selected month
-          const { data: feesData } = await supabase
-            .from('fees')
-            .select('member_id, amount_paid, discount, month')
-            .eq('institution_id', institutionId)
-            .eq('month', selectedMonth);
-
-          // Also check subscriptions table if fees is empty
-          const { data: subsData } = await supabase
-            .from('subscriptions')
-            .select('member_id, amount_paid, discount, period')
-            .eq('institution_id', institutionId)
-            .eq('period', selectedMonth);
-
-          const allMembers = memList || [];
-          
-          membersWithDues = allMembers.map((m: any) => {
-            const studentFeeStructures = (structures || []).filter((fs: any) => 
-              fs.department_id === m.department_id || fs.department_id === null
-            );
-            const totalPayable = studentFeeStructures.reduce((sum: number, fs: any) => sum + Number(fs.amount || 0), 0);
-
-            // Match paid amount from fees or subscriptions
-            const paidInFees = (feesData || [])
-              .filter((f: any) => f.member_id === m.id)
-              .reduce((sum: number, f: any) => sum + Number(f.amount_paid || 0) + Number(f.discount || 0), 0);
-            
-            const paidInSubs = (subsData || [])
-              .filter((s: any) => s.member_id === m.id)
-              .reduce((sum: number, s: any) => sum + Number(s.amount_paid || 0) + Number(s.discount || 0), 0);
-
-            const totalPaid = Math.max(paidInFees, paidInSubs);
-            const balanceDue = Math.max(0, totalPayable - totalPaid);
-
-            const deptName = m.departments?.name || (Array.isArray(m.departments) ? m.departments[0]?.name : '') || '';
-
-            return {
-              id: m.id,
-              student_id: m.id,
-              name: m.name,
-              phone: m.phone || '',
-              department_id: m.department_id,
-              department_name: deptName,
-              balance_due: balanceDue,
-              reminder_type: balanceDue > 1000 ? 'final' : balanceDue > 500 ? 'strong' : 'soft'
-            };
-          }).filter((m: any) => m.balance_due > 0);
+        if (selectedClassId !== 'all') {
+          memQuery = memQuery.eq('department_id', selectedClassId);
         }
 
-        // Filter reminders by selected department if needed
-        const filteredReminders = selectedClassId !== 'all'
-          ? membersWithDues.filter((r: any) => r.department_id === selectedClassId)
-          : membersWithDues;
-        
-        setReminders(filteredReminders);
+        const { data: memList } = await memQuery;
+
+        const { data: feesData } = await supabase
+          .from('fees')
+          .select('member_id, amount_paid, discount, month')
+          .eq('institution_id', institutionId)
+          .eq('month', selectedMonth);
+
+        const { data: subsData } = await supabase
+          .from('subscriptions')
+          .select('member_id, amount_paid, discount, period')
+          .eq('institution_id', institutionId)
+          .eq('period', selectedMonth);
+
+        const membersWithDues = (memList || []).map((m: any) => {
+          const studentFeeStructures = (structures || []).filter((fs: any) => 
+            fs.department_id === m.department_id || fs.department_id === null
+          );
+          const totalPayable = studentFeeStructures.reduce((sum: number, fs: any) => sum + Number(fs.amount || 0), 0);
+
+          const paidInFees = (feesData || [])
+            .filter((f: any) => f.member_id === m.id)
+            .reduce((sum: number, f: any) => sum + Number(f.amount_paid || 0) + Number(f.discount || 0), 0);
+          
+          const paidInSubs = (subsData || [])
+            .filter((s: any) => s.member_id === m.id)
+            .reduce((sum: number, s: any) => sum + Number(s.amount_paid || 0) + Number(s.discount || 0), 0);
+
+          const totalPaid = Math.max(paidInFees, paidInSubs);
+          const balanceDue = Math.max(0, totalPayable - totalPaid);
+          const deptName = m.departments?.name || (Array.isArray(m.departments) ? m.departments[0]?.name : '') || '';
+
+          return {
+            id: m.id,
+            student_id: m.id,
+            name: m.name,
+            member_code: m.member_id_number || m.roll || '-',
+            phone: m.phone || '',
+            department_id: m.department_id,
+            department_name: deptName,
+            balance_due: balanceDue,
+            reminder_type: balanceDue > 1000 ? 'final' : balanceDue > 500 ? 'strong' : 'soft'
+          };
+        }).filter((m: any) => m.balance_due > 0);
+
+        setReminders(membersWithDues);
       } else {
         setReminders([]);
       }
@@ -471,9 +465,19 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
         }
 
         await smsApi.sendBulk(institutionId, pseudoStudents, body);
-        alert(lang === 'bn' ? 'রিমাইন্ডার সফলভাবে পাঠানো হয়েছে' : 'Reminders sent successfully');
+        setVoiceStatusModal({
+          show: true,
+          type: 'success',
+          title: lang === 'bn' ? 'সফল হয়েছে' : 'Success',
+          message: lang === 'bn' ? 'রিমাইন্ডার সফলভাবে পাঠানো হয়েছে' : 'Reminders sent successfully'
+        });
       } catch (err: any) {
-        alert(err.message || 'Failed to send SMS');
+        setVoiceStatusModal({
+          show: true,
+          type: 'error',
+          title: lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Failed',
+          message: err.message || 'Failed to send SMS'
+        });
       } finally {
         setSending(false);
       }
@@ -482,7 +486,12 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
 
   const handleOpenVoiceModal = async () => {
     if (reminders.length === 0) {
-      alert(lang === 'bn' ? 'বকেয়া তালিকা খালি, কোনো সদস্য পাওয়া যায়নি' : 'Due reminder list is empty');
+      setVoiceStatusModal({
+        show: true,
+        type: 'error',
+        title: lang === 'bn' ? 'বকেয়া তালিকা খালি' : 'Empty List',
+        message: lang === 'bn' ? 'বকেয়া তালিকা খালি, কোনো সদস্য পাওয়া যায়নি' : 'Due reminder list is empty'
+      });
       return;
     }
 
@@ -846,12 +855,109 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
                  <div className="text-right">
                     <p className="text-[10px] font-black text-slate-400 uppercase">{localT.expectedCollected[lang]}</p>
                     <p className={`text-sm font-black ${madrasah?.theme === 'dark' ? 'text-slate-300' : 'text-[#0fb5ab]'}`}>৳{item.expected.toLocaleString()} / <span className="text-emerald-500">৳{item.collected.toLocaleString()}</span></p>
-                    <p className="text-[10px] font-bold text-red-400 mt-1">{localT.due[lang]}: ৳{(item.expected - item.collected).toLocaleString()}</p>
+                    <p className="text-[10px] font-bold text-red-400 mt-1">{localT.due[lang]}: ৳{Math.max(0, item.expected - item.collected).toLocaleString()}</p>
                  </div>
               </div>
            )) : (
               <div className="text-center py-8 text-slate-400 text-xs font-bold">{localT.noFeeStructures[lang]}</div>
            )}
+        </div>
+      </div>
+
+      {/* Income & Expense Category Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-6 rounded-[2rem] border shadow-bubble space-y-4`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                <ArrowUpCircle size={20} />
+              </div>
+              <div>
+                <h3 className={`text-base font-black font-noto ${madrasah?.theme === 'dark' ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>
+                  {lang === 'bn' ? 'আয়ের খাতসমূহ' : 'Income by Category'}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {viewMode === 'daily' ? selectedDate : viewMode === 'monthly' ? selectedMonth : selectedYear}
+                </p>
+              </div>
+            </div>
+            <span className="text-sm font-black text-emerald-500">
+              ৳{incomeCategorySummary.reduce((s, c) => s + c.total, 0).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            {incomeCategorySummary.length > 0 ? (
+              incomeCategorySummary.map((item) => {
+                const grandTotal = incomeCategorySummary.reduce((s, c) => s + c.total, 0) || 1;
+                const pct = Math.round((item.total / grandTotal) * 100);
+                return (
+                  <div key={item.category} className={`p-3.5 rounded-2xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
+                    <div className="flex items-center justify-between text-xs font-black mb-1.5">
+                      <span className={`font-noto truncate ${madrasah?.theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
+                        {item.category} <span className="text-[10px] font-bold text-slate-400">({item.count})</span>
+                      </span>
+                      <span className="text-emerald-500 shrink-0">৳{item.total.toLocaleString()} ({pct}%)</span>
+                    </div>
+                    <div className={`h-1.5 rounded-full overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200/70'}`}>
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-slate-400 text-xs font-bold">
+                {lang === 'bn' ? 'এই সময়সীমায় কোনো আয় নেই' : 'No income recorded in this period'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-6 rounded-[2rem] border shadow-bubble space-y-4`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-red-500/20 text-red-400' : 'bg-red-50 text-red-500'}`}>
+                <ArrowDownCircle size={20} />
+              </div>
+              <div>
+                <h3 className={`text-base font-black font-noto ${madrasah?.theme === 'dark' ? 'text-slate-100' : 'text-red-500'}`}>
+                  {lang === 'bn' ? 'ব্যয়ের খাতসমূহ' : 'Expense by Category'}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {viewMode === 'daily' ? selectedDate : viewMode === 'monthly' ? selectedMonth : selectedYear}
+                </p>
+              </div>
+            </div>
+            <span className="text-sm font-black text-red-500">
+              ৳{expenseCategorySummary.reduce((s, c) => s + c.total, 0).toLocaleString()}
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            {expenseCategorySummary.length > 0 ? (
+              expenseCategorySummary.map((item) => {
+                const grandTotal = expenseCategorySummary.reduce((s, c) => s + c.total, 0) || 1;
+                const pct = Math.round((item.total / grandTotal) * 100);
+                return (
+                  <div key={item.category} className={`p-3.5 rounded-2xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
+                    <div className="flex items-center justify-between text-xs font-black mb-1.5">
+                      <span className={`font-noto truncate ${madrasah?.theme === 'dark' ? 'text-slate-200' : 'text-slate-700'}`}>
+                        {item.category} <span className="text-[10px] font-bold text-slate-400">({item.count})</span>
+                      </span>
+                      <span className="text-red-500 shrink-0">৳{item.total.toLocaleString()} ({pct}%)</span>
+                    </div>
+                    <div className={`h-1.5 rounded-full overflow-hidden ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200/70'}`}>
+                      <div className="h-full bg-red-500 rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-slate-400 text-xs font-bold">
+                {lang === 'bn' ? 'এই সময়সীমায় কোনো ব্যয় নেই' : 'No expense recorded in this period'}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

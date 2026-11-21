@@ -497,6 +497,7 @@ const StandardMeetingEngine: React.FC<MeetingEngineProps> = ({ lang, madrasah, o
                     onViewMeeting={setSelectedMeeting}
                     onViewList={() => setActiveTab('meetings')}
                     lang={lang}
+                    isDark={isDark}
                 />
             )}
 

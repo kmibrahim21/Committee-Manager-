@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Play, UserCheck, LayoutDashboard, Calendar, Landmark, PiggyBank, Briefcase, Gift, Building2, Vote, HelpCircle, MoreHorizontal } from 'lucide-react';
+import { Home, User, BookOpen, Wallet, ShieldCheck, BarChart3, CreditCard, RefreshCw, Smartphone, Bell, X, Info, AlertTriangle, CheckCircle2, Clock, Calculator, ClipboardList, GraduationCap, Banknote, MessageSquare, Users, Mic, Play, UserCheck, LayoutDashboard, Landmark, PiggyBank, Briefcase, Gift, Building2, HelpCircle, MoreHorizontal } from 'lucide-react';
 import { View, Language, Institution, Transaction, Profile } from 'types';
 import { t } from 'translations';
 import { supabase } from 'supabase';
@@ -112,7 +112,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
     if (tab === 'list' && currentView === 'admin-panel') return true;
     if (tab === 'dashboard' && currentView === 'admin-dashboard') return true;
     if (tab === 'approvals' && currentView === 'admin-approvals') return true;
-    if (tab === 'accounting' && currentView === 'accounting') return true;
+    if (tab === 'accounting' && (currentView === 'accounting' || currentView === 'member-accounting')) return true;
     if (tab === 'attendance' && currentView === 'attendance') return true;
     if (tab === 'meetings' && (currentView === 'meetings' || currentView === 'minutes')) return true;
     if (tab === 'events' && currentView === 'events') return true;
@@ -234,12 +234,6 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 <button onClick={() => setView('meetings')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('meetings') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
                   <GraduationCap size={22} strokeWidth={isTabActive('meetings') ? 2.5 : 2} />
                   <span className="text-sm font-bold font-noto">{t('meetings', lang)}</span>
-                </button>
-              )}
-              {(isSuperAdmin || role === 'org_admin') && (
-                <button onClick={() => setView('events')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('events') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-white hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
-                  <Calendar size={22} strokeWidth={isTabActive('events') ? 2.5 : 2} />
-                  <span className="text-sm font-bold font-noto">{lang === 'bn' ? 'ইভেন্টসমূহ' : 'Events'}</span>
                 </button>
               )}
               <button onClick={() => setView('account')} className={`flex items-center gap-4 p-4 rounded-2xl transition-all w-full ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'bg-slate-800 text-[#42f5e9]' : 'bg-slate-50 text-[#0fb5ab]') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700')}`}>
@@ -411,100 +405,81 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
                 {/* 1. Home Tab */}
                 <button 
                   onClick={() => setView('home')} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('home') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                  className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all flex-1 px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('home') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
                 >
                   <Home size={20} strokeWidth={isTabActive('home') ? 2.5 : 2} />
                   <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('home', lang)}</span>
                 </button>
 
-                {/* 2. Members Tab */}
-                <button 
-                  onClick={() => setView(modules.modules.departments !== false ? 'departments' : 'members')} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('departments') || currentView === 'members' || currentView === 'member-details' || currentView === 'member-form' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-                >
-                  <Users size={20} strokeWidth={isTabActive('departments') || currentView === 'members' || currentView === 'member-details' || currentView === 'member-form' ? 2.5 : 2} />
-                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'সদস্য' : 'Members'}</span>
-                </button>
+                {/* 2. Departments / Members Tab */}
+                {(isSuperAdmin || role === 'org_admin' || role === 'executive' || (role !== 'member' && hasPermission('can_manage_members'))) && (
+                  <button 
+                    onClick={() => setView(modules.modules.departments !== false ? 'departments' : 'members')} 
+                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all flex-1 px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('departments') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                  >
+                    <Users size={20} strokeWidth={isTabActive('departments') ? 2.5 : 2} />
+                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('departments', lang, madrasah?.institution_type)}</span>
+                  </button>
+                )}
 
-                {/* 3. Accounting Tab */}
-                <button 
-                  onClick={() => setView('accounting')} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('accounting') || currentView === 'member-accounting' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-                >
-                  <Banknote size={20} strokeWidth={isTabActive('accounting') || currentView === 'member-accounting' ? 2.5 : 2} />
-                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'হিসাব' : 'Accounts'}</span>
-                </button>
+                {/* 3. Communication (SMS / Voice) Tab */}
+                {(isSuperAdmin || role === 'org_admin' || (role !== 'member' && (hasPermission('can_send_sms') || hasPermission('can_use_voice_call')))) && (modules.modules.sms !== false || modules.modules.voice_broadcast) && (
+                  <button 
+                    onClick={() => {
+                      if (modules.modules.sms !== false && modules.modules.voice_broadcast) {
+                        setView('sms-voice-menu');
+                      } else if (modules.modules.sms !== false) {
+                        setView('wallet-sms');
+                      } else if (modules.modules.voice_broadcast) {
+                        setView('voice-broadcast');
+                      }
+                    }} 
+                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all flex-1 px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                  >
+                    <MessageSquare size={20} strokeWidth={isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? 2.5 : 2} />
+                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">
+                      {modules.modules.sms !== false && modules.modules.voice_broadcast ? (lang === 'bn' ? 'যোগাযোগ' : 'SMS/Voice') : modules.modules.sms !== false ? (lang === 'bn' ? 'এসএমএস' : 'SMS') : (lang === 'bn' ? 'ভয়েস' : 'Voice')}
+                    </span>
+                  </button>
+                )}
 
-                {/* 4. Meetings Tab */}
-                <button 
-                  onClick={() => setView('meetings')} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('meetings') || currentView === 'minutes' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-                >
-                  <Calendar size={20} strokeWidth={isTabActive('meetings') || currentView === 'minutes' ? 2.5 : 2} />
-                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'মিটিং' : 'Meetings'}</span>
-                </button>
-
-                {/* 5. Communication (SMS / Voice) Tab */}
-                <button 
-                  onClick={() => {
-                    if (modules.modules.sms !== false && modules.modules.voice_broadcast) setView('sms-voice-menu');
-                    else if (modules.modules.sms !== false) setView('wallet-sms');
-                    else setView('voice-broadcast');
-                  }} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-                >
-                  <MessageSquare size={20} strokeWidth={isTabActive('wallet') || isTabActive('voice-broadcast') || isTabActive('sms-voice-menu') ? 2.5 : 2} />
-                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'যোগাযোগ' : 'SMS/Voice'}</span>
-                </button>
-
-                {/* 6. Attendance Tab */}
-                {modules.modules.attendance && (
+                {/* 4. Attendance Tab */}
+                {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_attendance : hasPermission('can_manage_attendance'))) && modules.modules.attendance && (
                   <button 
                     onClick={() => setView('attendance')} 
-                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('attendance') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all flex-1 px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('attendance') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
                   >
                     <ClipboardList size={20} strokeWidth={isTabActive('attendance') ? 2.5 : 2} />
                     <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('attendance', lang)}</span>
                   </button>
                 )}
 
-                {/* 7. Events Tab */}
-                {(isSuperAdmin || role === 'org_admin' || modules.modules.events) && (
+                {/* 5. Accounting Tab */}
+                {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_finances : hasPermission('can_manage_accounting'))) && modules.modules.accounting && (
                   <button 
-                    onClick={() => setView('events')} 
-                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('events') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                    onClick={() => setView('accounting')} 
+                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all flex-1 px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('accounting') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
                   >
-                    <Calendar size={20} strokeWidth={isTabActive('events') ? 2.5 : 2} />
-                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'ইভেন্ট' : 'Events'}</span>
+                    <Banknote size={20} strokeWidth={isTabActive('accounting') ? 2.5 : 2} />
+                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('accounts', lang)}</span>
                   </button>
                 )}
 
-                {/* 8. Notice Board Tab */}
-                {modules.modules.notices && (
+                {/* 6. Meetings Tab */}
+                {(isSuperAdmin || role === 'org_admin' || (role === 'member' ? !!madrasah?.member_portal_config?.permissions?.view_meetings : hasPermission('can_manage_meetings'))) && modules.modules.meetings && (
                   <button 
-                    onClick={() => setView('notice-board')} 
-                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${currentView === 'notice-board' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                    onClick={() => setView('meetings')} 
+                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all flex-1 px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('meetings') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
                   >
-                    <AlertTriangle size={20} strokeWidth={currentView === 'notice-board' ? 2.5 : 2} />
-                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'নোটিশ' : 'Notices'}</span>
+                    <GraduationCap size={20} strokeWidth={isTabActive('meetings') ? 2.5 : 2} />
+                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('meetings', lang)}</span>
                   </button>
                 )}
 
-                {/* 9. Polls Tab */}
-                {modules.modules.polls && (
-                  <button 
-                    onClick={() => setView('polls')} 
-                    className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${currentView === 'polls' ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-                  >
-                    <Vote size={20} strokeWidth={currentView === 'polls' ? 2.5 : 2} />
-                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'পোলস' : 'Polls'}</span>
-                  </button>
-                )}
-
-                {/* 10. Account Tab */}
+                {/* 7. Account Tab */}
                 <button 
                   onClick={() => setView('account')} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                  className={`relative flex flex-col items-center justify-center min-w-[56px] sm:min-w-[62px] min-h-[44px] gap-1 transition-all flex-1 px-1.5 py-1 rounded-2xl shrink-0 ${isTabActive('account') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10 font-bold' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
                 >
                   <User size={20} strokeWidth={isTabActive('account') ? 2.5 : 2} />
                   <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('account', lang)}</span>

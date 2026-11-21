@@ -10,6 +10,7 @@ import { FlexibleSubscriptionEngine } from 'components/finance/FlexibleSubscript
 import { StandardSubscriptionEngine } from 'components/finance/StandardSubscriptionEngine';
 import MemberLedger from 'components/finance/MemberLedger';
 import { sortMadrasahClasses } from 'pages/Departments';
+import { parseConfigJson } from '../utils/feeCategoryHelper';
 
 interface AccountingProps {
   lang: Language;
@@ -32,7 +33,9 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [ledgerFilter, setLedgerFilter] = useState<'all' | 'income' | 'expense' | 'qard'>('all');
+  const [ledgerFilter, setLedgerFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [ledgerSearch, setLedgerSearch] = useState('');
+  const [ledgerMonth, setLedgerMonth] = useState('');
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -65,26 +68,6 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
   const [desc, setDesc] = useState('');
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
   const [templates, setTemplates] = useState<any[]>([]);
-
-  // Qard Hasan Integration States
-  const [txType, setTxType] = useState<'general' | 'qard'>('general');
-  const [qardHasanLoans, setQardHasanLoans] = useState<any[]>([]);
-  const [selectedQardLoanId, setSelectedQardLoanId] = useState('');
-  const [qardReceiptNo, setQardReceiptNo] = useState('');
-
-  useEffect(() => {
-    if (madrasah?.id) {
-      const stored = localStorage.getItem(`special_qard_hasan_${madrasah.id}`);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          setQardHasanLoans(parsed.filter((app: any) => app.status === 'approved'));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-  }, [madrasah?.id, activeTab]);
 
   useEffect(() => {
     if (madrasah?.id) {
@@ -119,7 +102,10 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
       }
   }
 
-  const feeEngine = madrasah?.config_json?.fee_engine || 'school';
+  const parsedConfig = parseConfigJson(madrasah);
+  const accountingMode = parsedConfig?.accounting_mode;
+  const feeEngine = parsedConfig?.fee_engine || 'standard';
+  const useFlexibleEngine = accountingMode === 'flexible' || accountingMode === 'qawmi_flexible' || feeEngine === 'qawmi';
 
   useEffect(() => {
     if (madrasah) {
@@ -170,9 +156,6 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
     setAmount('');
     setCategory('');
     setDesc('');
-    setSelectedQardLoanId('');
-    setQardReceiptNo('');
-    setTxType('general');
     setTransactionDate(new Date().toISOString().split('T')[0]);
   };
 
@@ -234,8 +217,13 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
         </div>
         <div className="flex gap-2">
             <button 
-              onClick={() => fetchData()} 
+              onClick={() => {
+                setRefreshKey(prev => prev + 1);
+                fetchData();
+                fetchClasses();
+              }} 
               className={`w-10 h-10 rounded-2xl border flex items-center justify-center active:scale-95 transition-all shadow-sm ${isDark ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-white text-slate-400 border-slate-200'} ${loading ? 'animate-spin' : ''}`}
+              title={lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}
             >
               <RefreshCw size={16}/>
             </button>
@@ -290,18 +278,13 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
       ) : (
         <>
           {(activeTab === 'fees' || activeTab === 'structures') && madrasah && (
-            <>
-              {feeEngine === 'school' && (
+            <React.Fragment key={`engine-${refreshKey}`}>
+              {useFlexibleEngine ? (
                 <FlexibleSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => onMemberClick ? onMemberClick(student) : setSelectedStudentForDetail(student)} role={role} profile={profile} />
-              )}
-              {feeEngine === 'qawmi' && (
+              ) : (
                 <StandardSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => onMemberClick ? onMemberClick(student) : setSelectedStudentForDetail(student)} role={role} profile={profile} />
               )}
-              {/* Default to School Engine for others for now */}
-              {feeEngine !== 'school' && feeEngine !== 'qawmi' && (
-                <FlexibleSubscriptionEngine activeTab={activeTab} madrasah={madrasah} lang={lang} departments={departments} onStudentClick={(student) => onMemberClick ? onMemberClick(student) : setSelectedStudentForDetail(student)} role={role} profile={profile} />
-              )}
-            </>
+            </React.Fragment>
           )}
           
           {activeTab === 'summary' && (
@@ -329,31 +312,62 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
           animate={{ opacity: 1, y: 0 }}
           className="space-y-4 px-2"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
-            <div>
-              <h3 className={`text-lg font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>লেনদেনের ইতিহাস</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ledger.length} টি লেনদেন সম্পন্ন হয়েছে</p>
+          <div className="flex flex-col gap-3 px-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className={`text-lg font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>লেনদেনের ইতিহাস</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{ledger.length} টি লেনদেন সম্পন্ন হয়েছে</p>
+              </div>
+              
+              <div className={`flex p-1.5 rounded-2xl border shadow-inner w-fit ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200/50'}`}>
+                <button 
+                  onClick={() => setLedgerFilter('all')}
+                  className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'all' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
+                >
+                  সব
+                </button>
+                <button 
+                  onClick={() => setLedgerFilter('income')}
+                  className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'income' ? (isDark ? 'bg-slate-900 text-emerald-400 shadow-sm' : 'bg-white text-emerald-500 shadow-sm') : 'text-slate-400'}`}
+                >
+                  আয়
+                </button>
+                <button 
+                  onClick={() => setLedgerFilter('expense')}
+                  className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'expense' ? (isDark ? 'bg-slate-900 text-red-400 shadow-sm' : 'bg-white text-red-500 shadow-sm') : 'text-slate-400'}`}
+                >
+                  ব্যয়
+                </button>
+              </div>
             </div>
-            
-            <div className={`flex p-1.5 rounded-2xl border shadow-inner w-fit ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200/50'}`}>
-              <button 
-                onClick={() => setLedgerFilter('all')}
-                className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'all' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
-              >
-                সব
-              </button>
-              <button 
-                onClick={() => setLedgerFilter('income')}
-                className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'income' ? (isDark ? 'bg-slate-900 text-emerald-400 shadow-sm' : 'bg-white text-emerald-500 shadow-sm') : 'text-slate-400'}`}
-              >
-                আয়
-              </button>
-              <button 
-                onClick={() => setLedgerFilter('expense')}
-                className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${ledgerFilter === 'expense' ? (isDark ? 'bg-slate-900 text-red-400 shadow-sm' : 'bg-white text-red-500 shadow-sm') : 'text-slate-400'}`}
-              >
-                ব্যয়
-              </button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="sm:col-span-2 relative">
+                <input
+                  type="text"
+                  value={ledgerSearch}
+                  onChange={(e) => setLedgerSearch(e.target.value)}
+                  placeholder={lang === 'bn' ? 'ক্যাটাগরি, সদস্যের নাম বা বিবরণ দিয়ে খুঁজুন...' : 'Search by category, member, or description...'}
+                  className={`w-full h-11 px-4 rounded-xl border text-xs font-bold outline-none transition-all ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100 focus:border-[#42f5e9]' : 'bg-white border-slate-200 text-slate-700 focus:border-[#0fb5ab]'}`}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="month"
+                  value={ledgerMonth}
+                  onChange={(e) => setLedgerMonth(e.target.value)}
+                  className={`flex-1 h-11 px-3 rounded-xl border text-xs font-bold outline-none transition-all ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100 focus:border-[#42f5e9]' : 'bg-white border-slate-200 text-slate-700 focus:border-[#0fb5ab]'}`}
+                />
+                {ledgerMonth && (
+                  <button
+                    type="button"
+                    onClick={() => setLedgerMonth('')}
+                    className={`h-11 px-3 rounded-xl border text-xs font-black ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-500'}`}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           
@@ -363,9 +377,15 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               <AnimatePresence mode='popLayout'>
                 {ledger.filter(e => {
-                  if (ledgerFilter === 'all') return true;
-                  if (ledgerFilter === 'qard') return e.category === 'করজে হাসানা কিস্তি আদায়';
-                  return e.type === ledgerFilter;
+                  if (ledgerFilter !== 'all' && e.type !== ledgerFilter) return false;
+                  if (ledgerMonth && !(e.transaction_date || '').startsWith(ledgerMonth)) return false;
+                  if (ledgerSearch.trim()) {
+                    const q = ledgerSearch.toLowerCase().trim();
+                    const matchCat = (e.category || '').toLowerCase().includes(q);
+                    const matchDesc = (e.description || '').toLowerCase().includes(q);
+                    if (!matchCat && !matchDesc) return false;
+                  }
+                  return true;
                 }).map((entry, index) => {
                   let displayName = entry.category;
                   let details = '';
@@ -400,13 +420,20 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                     >
                       {isConfirming ? (
                         <div className="h-full flex flex-col justify-between min-h-[140px]">
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             <h5 className="font-black text-sm text-red-600 font-noto">
                               {lang === 'bn' ? 'লেনদেনটি ডিলিট করতে চান?' : 'Confirm Deletion?'}
                             </h5>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                               ৳{entry.amount.toLocaleString('bn-BD')} ({entry.category})
                             </p>
+                            {entry.category === 'Member Fee' && (
+                              <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-snug">
+                                {lang === 'bn'
+                                  ? 'সতর্কতা: এটি ডিলিট করলে শুধু লেজার এন্ট্রি মুছবে, সদস্যের ফি স্ট্যাটাস আলাদাভাবে আপডেট হতে পারে।'
+                                  : 'Warning: Deleting this ledger entry will not automatically alter recorded fee receipts.'}
+                              </p>
+                            )}
                           </div>
                           <div className="flex gap-2 pt-4">
                             <button
@@ -581,110 +608,61 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                     </div>
                   </div>
 
-                  {txType === 'general' ? (
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">ক্যাটাগরি</label>
-                      <div className="relative group">
-                        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#2563EB] transition-colors">
-                          <Tag size={18} className="sm:w-5 sm:h-5" />
-                        </div>
-                        <input 
-                          type="text" 
-                          className={`w-full h-14 sm:h-16 rounded-[1.5rem] sm:rounded-[1.8rem] pl-16 pr-6 font-black text-sm outline-none border-2 transition-all placeholder:text-slate-300 ${isDark ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30 focus:bg-slate-900' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/20 focus:bg-white'}`} 
-                          placeholder="যেমন: অফিস খরচ" 
-                          value={category} 
-                          onChange={(e) => setCategory(e.target.value)} 
-                        />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">ক্যাটাগরি</label>
+                    <div className="relative group">
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#2563EB] transition-colors">
+                        <Tag size={18} className="sm:w-5 sm:h-5" />
                       </div>
-                      <div className="flex flex-wrap gap-2 px-1 pt-1">
-                        {(type === 'income' ? ['মাসিক চাঁদা', 'অনুদান', 'বিশেষ দান'] : ['অফিস খরচ', 'কমিটি মিটিং', 'বেতন']).map(suggestion => (
-                            <button 
-                              key={suggestion}
-                              type="button"
-                              onClick={() => setCategory(suggestion)}
-                              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider border transition-all ${category === suggestion ? (isDark ? 'bg-[#42f5e9]/20 text-[#42f5e9] border-[#42f5e9]/30 shadow-sm' : 'bg-blue-50 text-blue-600 border-blue-100 shadow-sm') : (isDark ? 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200')}`}
-                            >
-                              {suggestion}
-                            </button>
-                        ))}
-                        {templates.filter(t => t.type === type).map(t => (
-                            <div key={t.id} className="relative group">
-                              <button 
-                                type="button"
-                                onClick={() => { setCategory(t.category); setAmount(t.amount); }}
-                                className={`px-3 py-1.5 sm:px-4 sm:py-2 pr-8 sm:pr-10 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider border transition-all ${category === t.category && amount === t.amount ? (isDark ? 'bg-[#42f5e9]/20 text-[#42f5e9] border-[#42f5e9]/30 shadow-sm' : 'bg-blue-50 text-[#1E3A8A] border-slate-100 shadow-sm') : (isDark ? 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200')}`}
-                              >
-                                {t.category} - ৳{t.amount}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => deleteTemplate(t.id, e)}
-                                className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                        ))}
-                        {amount && category && !templates.find(t => t.type === type && t.category === category && t.amount === amount) && (
-                          <button
+                      <input 
+                        type="text" 
+                        className={`w-full h-14 sm:h-16 rounded-[1.5rem] sm:rounded-[1.8rem] pl-16 pr-6 font-black text-sm outline-none border-2 transition-all placeholder:text-slate-300 ${isDark ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30 focus:bg-slate-900' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/20 focus:bg-white'}`} 
+                        placeholder="যেমন: অফিস খরচ" 
+                        value={category} 
+                        onChange={(e) => setCategory(e.target.value)} 
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2 px-1 pt-1">
+                      {(type === 'income' ? ['মাসিক চাঁদা', 'অনুদান', 'বিশেষ দান'] : ['অফিস খরচ', 'কমিটি মিটিং', 'বেতন']).map(suggestion => (
+                          <button 
+                            key={suggestion}
                             type="button"
-                            onClick={saveTemplate}
-                            className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider border border-dashed transition-all flex items-center gap-1 ${isDark ? 'border-[#42f5e9]/50 text-[#42f5e9] hover:bg-[#42f5e9]/10' : 'border-[#0fb5ab]/50 text-[#0fb5ab] hover:bg-[#0fb5ab]/10'}`}
+                            onClick={() => setCategory(suggestion)}
+                            className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider border transition-all ${category === suggestion ? (isDark ? 'bg-[#42f5e9]/20 text-[#42f5e9] border-[#42f5e9]/30 shadow-sm' : 'bg-blue-50 text-blue-600 border-blue-100 shadow-sm') : (isDark ? 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200')}`}
                           >
-                            <BookmarkPlus size={12} />
-                            সেভ টেমপ্লেট
+                            {suggestion}
                           </button>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">ঋণগ্রহীতা সদস্য</label>
-                        <select 
-                          className={`w-full h-14 sm:h-16 rounded-[1.5rem] sm:rounded-[1.8rem] px-6 font-black text-sm outline-none border-2 transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30 focus:bg-slate-900' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/20 focus:bg-white'}`}
-                          value={selectedQardLoanId}
-                          onChange={(e) => {
-                            const loanId = e.target.value;
-                            setSelectedQardLoanId(loanId);
-                            const loan = qardHasanLoans.find(l => l.id === loanId);
-                            if (loan) {
-                              setAmount(loan.installmentAmount.toString());
-                              setCategory("করজে হাসানা কিস্তি আদায়");
-                              setDesc(`কিস্তি আদায় - ${loan.name} (${loan.phone})`);
-                            } else {
-                              setAmount('');
-                              setCategory('করজে হাসানা কিস্তি আদায়');
-                              setDesc('');
-                            }
-                          }}
+                      ))}
+                      {templates.filter(t => t.type === type).map(t => (
+                          <div key={t.id} className="relative group">
+                            <button 
+                              type="button"
+                              onClick={() => { setCategory(t.category); setAmount(t.amount); }}
+                              className={`px-3 py-1.5 sm:px-4 sm:py-2 pr-8 sm:pr-10 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider border transition-all ${category === t.category && amount === t.amount ? (isDark ? 'bg-[#42f5e9]/20 text-[#42f5e9] border-[#42f5e9]/30 shadow-sm' : 'bg-blue-50 text-[#1E3A8A] border-slate-100 shadow-sm') : (isDark ? 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200')}`}
+                            >
+                              {t.category} - ৳{t.amount}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => deleteTemplate(t.id, e)}
+                              className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                      ))}
+                      {amount && category && !templates.find(t => t.type === type && t.category === category && t.amount === amount) && (
+                        <button
+                          type="button"
+                          onClick={saveTemplate}
+                          className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider border border-dashed transition-all flex items-center gap-1 ${isDark ? 'border-[#42f5e9]/50 text-[#42f5e9] hover:bg-[#42f5e9]/10' : 'border-[#0fb5ab]/50 text-[#0fb5ab] hover:bg-[#0fb5ab]/10'}`}
                         >
-                          <option value="">সদস্য নির্বাচন করুন</option>
-                          {qardHasanLoans.map(loan => {
-                            const repayments = loan.repayments || [];
-                            const paid = repayments.reduce((sum: number, r: any) => sum + r.amount, 0);
-                            const remaining = loan.amount - paid;
-                            return (
-                              <option key={loan.id} value={loan.id}>
-                                {loan.name} ({loan.phone}) - বকেয়া: ৳{remaining.toLocaleString('bn-BD')} (কিস্তি: ৳{loan.installmentAmount})
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">রসিদ নম্বর (Receipt No)</label>
-                        <input 
-                          type="text" 
-                          className={`w-full h-14 sm:h-16 rounded-[1.5rem] sm:rounded-[1.8rem] px-6 font-black text-sm outline-none border-2 transition-all placeholder:text-slate-300 ${isDark ? 'bg-slate-800 border-slate-700 text-white focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-[#1E3A8A] focus:border-[#2563EB]/20'}`}
-                          placeholder="যেমন: RECP-101 (ফাঁকা রাখলে অটো জেনারেট হবে)"
-                          value={qardReceiptNo}
-                          onChange={(e) => setQardReceiptNo(e.target.value)}
-                        />
-                      </div>
+                          <BookmarkPlus size={12} />
+                          সেভ টেমপ্লেট
+                        </button>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 <div className="space-y-6">

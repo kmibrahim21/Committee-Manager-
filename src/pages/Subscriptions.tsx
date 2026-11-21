@@ -669,25 +669,30 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ lang, madrasah, onBack, r
                 >
                   {/* Top Row: Member Info + Total Months Paid */}
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-xs shrink-0 ${
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-base shrink-0 overflow-hidden ${
                         row.paidMonthsCount > 0
                           ? 'bg-emerald-500/15 text-emerald-500'
                           : row.partialMonthsCount > 0
                             ? 'bg-amber-500/15 text-amber-500'
                             : isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500'
                       }`}>
-                        {row.roll}
+                        {row.name?.trim()?.charAt(0) || '#'}
                       </div>
-                      <div className="min-w-0">
-                        <h4 className={`text-sm sm:text-base font-black font-noto truncate flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                          {row.name}
+                      <div className="min-w-0 flex-1">
+                        <h4 className={`text-sm sm:text-base font-black font-noto break-words whitespace-normal flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                          <span>{row.name}</span>
                           <ChevronRight size={14} className="text-slate-400 shrink-0" />
                         </h4>
-                        <p className="text-[10px] font-bold text-slate-400 truncate">
-                          {row.deptName || (lang === 'bn' ? 'সাধারণ সদস্য' : 'General Member')}
-                          {row.monthlyPayable > 0 && ` • ${lang === 'bn' ? 'মাসিক:' : 'Monthly:'} ৳${row.monthlyPayable}`}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-bold text-slate-400 mt-0.5">
+                          {row.roll && row.roll !== '-' && (
+                            <span className={`px-1.5 py-0.5 rounded-md font-black break-all ${isDark ? 'bg-slate-900 text-[#42f5e9]' : 'bg-[#42f5e9]/15 text-[#0e8a84]'}`}>
+                              #{row.roll}
+                            </span>
+                          )}
+                          <span>{row.deptName || (lang === 'bn' ? 'সাধারণ সদস্য' : 'General Member')}</span>
+                          {row.monthlyPayable > 0 && <span>• {lang === 'bn' ? 'মাসিক:' : 'Monthly:'} ৳{row.monthlyPayable}</span>}
+                        </div>
                       </div>
                     </div>
 

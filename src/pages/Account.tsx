@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { LogOut, Camera, Loader2, User as UserIcon, ShieldCheck, Database, ChevronRight, Check, MessageSquare, Zap, Globe, Smartphone, Save, Users, Layers, Edit3, UserPlus, Languages, Mail, Key, Settings, Fingerprint, Copy, History, Server, CreditCard, Shield, Sliders, Activity, Bell, RefreshCw, AlertTriangle, AlertCircle, GraduationCap, ChevronLeft, ArrowRight, LayoutDashboard, Settings2, X, Sparkles, Box, ShieldAlert, Award, CheckCircle2, Lock, Terminal, Cpu, Calendar as CalendarIcon, MapPin, Play, Moon, Sun, PhoneCall, UserCheck, BookOpen, FileText, Download, Printer, Clock, Package } from 'lucide-react';
+import { LogOut, Camera, Loader2, User as UserIcon, ShieldCheck, Database, ChevronRight, Check, MessageSquare, Zap, Globe, Smartphone, Save, Users, Layers, Edit3, UserPlus, Languages, Mail, Key, Settings, Copy, History, Server, CreditCard, Shield, Sliders, Activity, Bell, RefreshCw, AlertTriangle, AlertCircle, GraduationCap, ChevronLeft, ArrowRight, LayoutDashboard, Settings2, X, Sparkles, Box, ShieldAlert, Award, CheckCircle2, Lock, Terminal, Cpu, Calendar as CalendarIcon, MapPin, Play, Moon, Sun, PhoneCall, UserCheck, BookOpen, FileText, Download, Printer, Clock, Package } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, View, Profile } from 'types';
 import { t } from 'translations';
@@ -104,6 +104,49 @@ interface AccountProps {
   profile?: Profile | null;
 }
 
+interface AccountActionCardProps {
+  onClick: () => void;
+  disabled?: boolean;
+  isDark?: boolean;
+  iconBoxClass: string;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  titleClass?: string;
+}
+
+const ActionCard: React.FC<AccountActionCardProps> = ({
+  onClick,
+  disabled,
+  isDark,
+  iconBoxClass,
+  icon,
+  title,
+  subtitle,
+  titleClass
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className={`w-full p-4 sm:p-5 rounded-[2rem] border shadow-sm transition-transform flex flex-col items-center justify-center text-center gap-3 active:scale-95 duration-150 hover:shadow-md group disabled:opacity-60 disabled:pointer-events-none ${
+      isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'
+    }`}
+  >
+    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform ${iconBoxClass}`}>
+      {icon}
+    </div>
+    <div className="min-w-0 w-full">
+      <h5 className={`text-xs sm:text-sm font-black font-noto leading-tight break-words ${titleClass || (isDark ? 'text-white' : 'text-[#0fb5ab]')}`}>
+        {title}
+      </h5>
+      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate">
+        {subtitle}
+      </p>
+    </div>
+  </button>
+);
+
 const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setView, initialMadrasah, onLogout, profile }) => {
   const [madrasah, setMadrasah] = useState<Institution | null>(initialMadrasah);
   const [saving, setSaving] = useState(false);
@@ -153,7 +196,6 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       : getDefaultSonghoActivityIds()
   );
   
-  const [copiedId, setCopiedId] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Deenora v3 Subscription Sub-Page States
@@ -218,12 +260,6 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       ]);
       setStats({ students: stdRes.count || 0, departments: clsRes.count || 0 });
     } catch (e) { console.error(e); } finally { setLoadingStats(false); }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(true);
-    setTimeout(() => setCopiedId(false), 2000);
   };
 
   const handleUpdate = async () => {
@@ -1267,348 +1303,266 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 pb-36 relative z-10">
+    <div className="space-y-6 animate-in fade-in duration-700 pb-36 relative z-10">
 
-      <div className="relative pt-20 px-1">
-        <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-[4rem] p-6 sm:p-10 pt-28 md:pt-36 shadow-bubble border relative text-center`}>
-          <div className="absolute inset-0 overflow-hidden rounded-[4rem]">
-            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-[#42f5e9] to-[#0fb5ab] opacity-[0.05]" />
+      {/* Compact Profile Hero Card */}
+      <div className="relative pt-14 px-1">
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-[2.5rem] sm:rounded-[3.5rem] p-5 sm:p-8 pt-20 sm:pt-22 shadow-bubble border relative text-center`}>
+          <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] sm:rounded-[3.5rem] pointer-events-none">
+            <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-[#42f5e9] to-[#0fb5ab] opacity-[0.06]" />
           </div>
-          <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-20">
+
+          <div className="absolute -top-14 left-1/2 -translate-x-1/2 z-20">
             <div className="relative group">
-              <div className={`w-40 h-40 p-4 rounded-full shadow-bubble border-[12px] flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-900' : 'bg-white border-slate-50'}`}>
-                {logoUrl ? <img src={logoUrl} className="w-full h-full object-contain" alt="Profile" /> : <div className={`w-full h-full rounded-full flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}><UserIcon size={70} strokeWidth={1.5} /></div>}
+              <div className={`w-28 h-28 sm:w-32 sm:h-32 p-3 rounded-full shadow-bubble border-8 flex items-center justify-center ${isDark ? 'bg-slate-800 border-slate-900' : 'bg-white border-slate-50'}`}>
+                {logoUrl ? (
+                  <img src={logoUrl} className="w-full h-full object-contain rounded-full" alt="Profile" />
+                ) : (
+                  <div className={`w-full h-full rounded-full flex items-center justify-center ${isDark ? 'bg-slate-700 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
+                    <UserIcon size={48} strokeWidth={1.6} />
+                  </div>
+                )}
               </div>
               {madrasah && madrasah.id !== 'super_admin' && (
-                <button 
-                  onClick={() => fileInputRef.current?.click()} 
-                  className="absolute bottom-2 right-2 w-11 h-11 bg-[#42f5e9] text-[#0fb5ab] rounded-2xl flex items-center justify-center shadow-premium border-4 border-white active:scale-90 transition-all z-30"
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-1 right-1 w-9 h-9 bg-[#42f5e9] text-[#0fb5ab] rounded-xl flex items-center justify-center shadow-premium border-2 border-white active:scale-90 transition-all z-30"
+                  title={lang === 'bn' ? 'লোগো পরিবর্তন' : 'Change Logo'}
                 >
-                  {saving ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
                 </button>
               )}
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
             </div>
           </div>
-          <div className="space-y-6 mt-4">
-             <div className="space-y-1">
-               <div className="px-4 pb-3">
-                 <h2 className={`text-[22px] sm:text-[32px] font-black font-noto tracking-tight leading-tight break-words whitespace-normal ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{displayName}</h2>
-               </div>
-               
-               <div className="flex flex-col items-center gap-1 mt-3">
+
+          <div className="space-y-2.5 mt-1 relative z-10">
+            <h2 className={`text-xl sm:text-3xl font-black font-noto tracking-tight leading-tight break-words whitespace-normal px-2 ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>
+              {displayName}
+            </h2>
+
+            {(madrasah?.address || madrasah?.phone || madrasah?.email) && (
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-slate-400">
                 {madrasah?.address && (
-                  <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                    <MapPin size={14} />
-                    <p className="text-xs font-bold">{madrasah.address}</p>
-                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold">
+                    <MapPin size={13} className="text-[#0fb5ab] shrink-0" />
+                    <span className="break-words">{madrasah.address}</span>
+                  </span>
                 )}
                 {madrasah?.phone && (
-                  <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                    <Smartphone size={14} />
-                    <p className="text-xs font-bold">{madrasah.phone}</p>
-                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold">
+                    <Smartphone size={13} className="text-[#0fb5ab] shrink-0" />
+                    <span>{madrasah.phone}</span>
+                  </span>
                 )}
                 {madrasah?.email && (
-                  <div className="flex items-center justify-center gap-1.5 text-slate-400">
-                    <Mail size={14} />
-                    <p className="text-xs font-bold">{madrasah.email}</p>
-                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold">
+                    <Mail size={13} className="text-[#0fb5ab] shrink-0" />
+                    <span className="break-all">{madrasah.email}</span>
+                  </span>
                 )}
               </div>
-            </div>
-            
-            {madrasah && madrasah.id !== 'super_admin' && (
-              <>
-                <div className="pt-4 space-y-3">
-                   <div onClick={() => copyToClipboard(madrasah.id)} className={`p-5 rounded-[2.5rem] border flex items-center gap-5 active:scale-[0.98] cursor-pointer group ${madrasah?.theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50/70 border-slate-100'}`}>
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border group-hover:scale-110 transition-transform ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700 text-[#42f5e9]' : 'bg-white border-slate-100 text-[#0fb5ab]'}`}>
-                       <Fingerprint size={24} />
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                         <p className="text-[9px] font-black text-slate-400 uppercase mb-1">{t('madrasah_uuid', lang)}</p>
-                         <p className={`text-[12px] font-black truncate ${madrasah?.theme === 'dark' ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>{madrasah.id}</p>
-                      </div>
-                      {copiedId ? <Check size={22} className="text-emerald-500 shrink-0" /> : <Copy size={20} className="text-slate-200 shrink-0" />}
-                   </div>
-                </div>
-              </>
             )}
           </div>
         </div>
       </div>
 
       {/* Main Options Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mx-1">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mx-1">
         {/* Subscription Card */}
         {!isMember && madrasah.id !== 'super_admin' && (
-        <button 
-          type="button"
-          onClick={openSubscriptionPage}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <CreditCard size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
-              {lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscription'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate max-w-[130px]">
-              {lang === 'bn' ? 'প্যাকেজ ও পেমেন্ট' : 'Plans & Billing'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={openSubscriptionPage}
+            isDark={isDark}
+            iconBoxClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400"
+            icon={<CreditCard size={22} />}
+            title={lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscription'}
+            subtitle={lang === 'bn' ? 'প্যাকেজ ও পেমেন্ট' : 'Plans & Billing'}
+          />
         )}
 
-        {/* Academic Calendar Card */}
+        {/* Organizational Calendar Card */}
         {!(configObj.modules?.meetings === false && configObj.modules?.events === false) && (!isMember || !!madrasah?.member_portal_config?.permissions?.view_meetings) && (
-        <button 
-          onClick={() => setView('academic-calendar')}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <CalendarIcon size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>
-              {lang === 'bn' ? 'সাংগঠনিক ক্যালেন্ডার' : 'Organizational Calendar'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'ছুটি ও ইভেন্ট' : 'Holidays'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setView('academic-calendar')}
+            isDark={isDark}
+            iconBoxClass="bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400"
+            icon={<CalendarIcon size={22} />}
+            title={lang === 'bn' ? 'সাংগঠনিক ক্যালেন্ডার' : 'Organizational Calendar'}
+            subtitle={lang === 'bn' ? 'ছুটি ও ইভেন্ট' : 'Holidays'}
+          />
         )}
 
+        {/* Events Card */}
+        {configObj.modules?.events !== false && (!isMember || !!madrasah?.member_portal_config?.permissions?.view_meetings) && (
+          <ActionCard
+            onClick={() => setView('events')}
+            isDark={isDark}
+            iconBoxClass="bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400"
+            icon={<Sparkles size={22} />}
+            title={lang === 'bn' ? 'ইভেন্টসমূহ' : 'Events'}
+            subtitle={lang === 'bn' ? 'অনুষ্ঠান ও কর্মসূচি' : 'Programs & Events'}
+          />
+        )}
+
+        {/* Profile Settings Card */}
         {!isMember && (
-        <button 
-          onClick={() => setIsEditingProfile(true)} 
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Edit3 size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{t('profile_settings', lang)}</h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{t('branding', lang)}</p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setIsEditingProfile(true)}
+            isDark={isDark}
+            iconBoxClass="bg-[#42f5e9]/15 text-[#0fb5ab] dark:bg-[#42f5e9]/15 dark:text-[#42f5e9]"
+            icon={<Edit3 size={22} />}
+            title={t('profile_settings', lang)}
+            subtitle={t('branding', lang)}
+          />
         )}
 
+        {/* Backup & Restore Card */}
         {!isMember && (
-        <button 
-          onClick={() => setView('data-management')} 
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Database size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{t('backup_restore', lang)}</h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Excel Tools</p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setView('data-management')}
+            isDark={isDark}
+            iconBoxClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400"
+            icon={<Database size={22} />}
+            title={t('backup_restore', lang)}
+            subtitle="Excel Tools"
+          />
         )}
 
+        {/* Association Management Card */}
         {!isMember && madrasah?.institution_type === 'association' && (
-        <button 
-          onClick={() => setView('management')}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Sliders size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
-              {lang === 'bn' ? 'ম্যানেজমেন্ট (নীতিমালা)' : 'Management (Policies)'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'সমিতির ধরন ও নিয়ম' : 'Type & Rules'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setView('management')}
+            isDark={isDark}
+            iconBoxClass="bg-[#42f5e9]/15 text-[#0fb5ab] dark:bg-[#42f5e9]/15 dark:text-[#42f5e9]"
+            icon={<Sliders size={22} />}
+            title={lang === 'bn' ? 'ম্যানেজমেন্ট (নীতিমালা)' : 'Management (Policies)'}
+            subtitle={lang === 'bn' ? 'সমিতির ধরন ও নিয়ম' : 'Type & Rules'}
+          />
         )}
 
+        {/* Sangha / Union Management Card */}
         {!isMember && (madrasah?.institution_type === 'sangha' || madrasah?.institution_type === 'union') && (
-        <button 
-          onClick={() => setView('management')}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Sliders size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
-              {lang === 'bn' ? 'ম্যানেজমেন্ট (কার্যক্রম ও নীতি)' : 'Management (Activities & Rules)'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'কার্যক্রম ও প্রকল্প নির্ধারণ' : 'Activities & Schemes'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setView('management')}
+            isDark={isDark}
+            iconBoxClass="bg-[#42f5e9]/15 text-[#0fb5ab] dark:bg-[#42f5e9]/15 dark:text-[#42f5e9]"
+            icon={<Sliders size={22} />}
+            title={lang === 'bn' ? 'ম্যানেজমেন্ট (কার্যক্রম ও নীতি)' : 'Management (Activities & Rules)'}
+            subtitle={lang === 'bn' ? 'কার্যক্রম ও প্রকল্প নির্ধারণ' : 'Activities & Schemes'}
+          />
         )}
 
         {/* Executive Committee Card */}
         {!isMember && (
-        <button 
-          onClick={() => setView('executives')}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <UserCheck size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
-              {lang === 'bn' ? 'কার্যনির্বাহী কমিটি' : 'Executive Committee'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'কমিটি মেম্বারস' : 'Committee Members'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setView('executives')}
+            isDark={isDark}
+            iconBoxClass="bg-[#42f5e9]/15 text-[#0fb5ab] dark:bg-[#42f5e9]/15 dark:text-[#42f5e9]"
+            icon={<UserCheck size={22} />}
+            title={lang === 'bn' ? 'কার্যনির্বাহী কমিটি' : 'Executive Committee'}
+            subtitle={lang === 'bn' ? 'কমিটি মেম্বারস' : 'Committee Members'}
+          />
         )}
 
         {/* Video Tutorial Card */}
-        <button 
+        <ActionCard
           onClick={() => setView('tutorials')}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Play size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>
-              {lang === 'bn' ? 'টিউটোরিয়াল' : 'Video Tutorials'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'সহায়তা' : 'Help & Support'}
-            </p>
-          </div>
-        </button>
+          isDark={isDark}
+          iconBoxClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400"
+          icon={<Play size={22} />}
+          title={lang === 'bn' ? 'টিউটোরিয়াল' : 'Video Tutorials'}
+          subtitle={lang === 'bn' ? 'সহায়তা' : 'Help & Support'}
+        />
 
         {/* Voting & Polls Card */}
         {configObj.modules?.polls !== false && (!isMember || !!madrasah?.member_portal_config?.permissions?.view_polls) && (
-        <button 
-          onClick={() => setView('polls')}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Activity size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
-              {t('voting_polls', lang)}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'সদস্যদের মতামত' : 'Member Opinions'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setView('polls')}
+            isDark={isDark}
+            iconBoxClass="bg-[#42f5e9]/15 text-[#0fb5ab] dark:bg-[#42f5e9]/15 dark:text-[#42f5e9]"
+            icon={<Activity size={22} />}
+            title={t('voting_polls', lang)}
+            subtitle={lang === 'bn' ? 'সদস্যদের মতামত' : 'Member Opinions'}
+          />
         )}
 
         {/* Notice Board Card */}
         {configObj.modules?.notices !== false && (!isMember || !!madrasah?.member_portal_config?.permissions?.view_notices) && (
-        <button 
-          onClick={() => setView('notice-board')}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Bell size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>
-              {t('notice_board', lang)}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'জরুরী নোটিশ' : 'Announcement'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setView('notice-board')}
+            isDark={isDark}
+            iconBoxClass="bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400"
+            icon={<Bell size={22} />}
+            title={t('notice_board', lang)}
+            subtitle={lang === 'bn' ? 'জরুরী নোটিশ' : 'Announcement'}
+          />
         )}
 
         {/* Member Types Config Card */}
         {!isMember && (
-        <button 
-          onClick={() => setShowMemberTypeManager(true)}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Layers size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
-              {lang === 'bn' ? 'সদস্য ধরন' : 'Member Types'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'কাস্টম ক্যাটাগরি' : 'Custom Types'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setShowMemberTypeManager(true)}
+            isDark={isDark}
+            iconBoxClass="bg-[#42f5e9]/15 text-[#0fb5ab] dark:bg-[#42f5e9]/15 dark:text-[#42f5e9]"
+            icon={<Layers size={22} />}
+            title={lang === 'bn' ? 'সদস্য ধরন' : 'Member Types'}
+            subtitle={lang === 'bn' ? 'কাস্টম ক্যাটাগরি' : 'Custom Types'}
+          />
         )}
 
         {/* Member Portal Settings Card */}
         {!isMember && (
-        <button 
-          onClick={() => setShowMemberPortalSettings(true)}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-[#42f5e9]/10 text-[#0fb5ab] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            <Smartphone size={24} />
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
-              {lang === 'bn' ? 'সদস্য পোর্টাল' : 'Member Portal'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'পারমিশন ম্যানেজ' : 'Manage Permissions'}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={() => setShowMemberPortalSettings(true)}
+            isDark={isDark}
+            iconBoxClass="bg-[#42f5e9]/15 text-[#0fb5ab] dark:bg-[#42f5e9]/15 dark:text-[#42f5e9]"
+            icon={<Smartphone size={22} />}
+            title={lang === 'bn' ? 'সদস্য পোর্টাল' : 'Member Portal'}
+            subtitle={lang === 'bn' ? 'পারমিশন ম্যানেজ' : 'Manage Permissions'}
+          />
         )}
 
         {/* Member Form PDF Download Card */}
         {!isMember && (
-        <button 
-          onClick={handleDownloadForm}
-          disabled={downloadingForm}
-          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 disabled:opacity-60 disabled:pointer-events-none ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
-        >
-          <div className="w-14 h-14 bg-blue-50 text-[#2563EB] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-            {downloadingForm ? <Loader2 className="animate-spin text-[#2563EB]" size={24} /> : <FileText size={24} />}
-          </div>
-          <div>
-            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-              {lang === 'bn' ? 'সদস্য ফর্ম PDF' : 'Member Form PDF'}
-            </h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {downloadingForm ? (lang === 'bn' ? 'ডাউনলোড হচ্ছে...' : 'Downloading...') : (lang === 'bn' ? 'অফলাইন ফরম ডাউনলোড' : 'Offline Registration Form')}
-            </p>
-          </div>
-        </button>
+          <ActionCard
+            onClick={handleDownloadForm}
+            disabled={downloadingForm}
+            isDark={isDark}
+            iconBoxClass="bg-blue-50 text-[#2563EB] dark:bg-blue-500/15 dark:text-blue-400"
+            icon={downloadingForm ? <Loader2 className="animate-spin text-[#2563EB]" size={22} /> : <FileText size={22} />}
+            title={lang === 'bn' ? 'সদস্য ফর্ম PDF' : 'Member Form PDF'}
+            subtitle={downloadingForm ? (lang === 'bn' ? 'ডাউনলোড হচ্ছে...' : 'Downloading...') : (lang === 'bn' ? 'অফলাইন ফরম ডাউনলোড' : 'Offline Registration Form')}
+          />
         )}
+      </div>
 
+      {/* Compact Horizontal Preference & Session Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mx-1">
         {/* Language Card */}
-        <div className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between gap-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
-              <Languages size={24} />
+        <div className={`p-3.5 sm:p-4 rounded-[1.5rem] sm:rounded-[2rem] border shadow-sm flex items-center justify-between gap-3 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400 rounded-2xl flex items-center justify-center shrink-0">
+              <Languages size={20} />
             </div>
-            <div className="text-left">
-              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>{t('language', lang)}</h5>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{t('change_lang', lang)}</p>
+            <div className="text-left min-w-0">
+              <h5 className={`text-sm font-black font-noto leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t('language', lang)}</h5>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">{t('change_lang', lang)}</p>
             </div>
           </div>
-          <div className={`flex p-1 rounded-2xl border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-            <button 
-              onClick={() => setLang('bn')} 
-              className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'bn' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
+          <div className={`flex p-1 rounded-xl border shrink-0 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+            <button
+              type="button"
+              onClick={() => setLang('bn')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${lang === 'bn' ? (isDark ? 'bg-slate-700 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
             >
               বাংলা
             </button>
-            <button 
-              onClick={() => setLang('en')} 
-              className={`px-4 py-2.5 rounded-xl text-[10px] font-black transition-all ${lang === 'en' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
+            <button
+              type="button"
+              onClick={() => setLang('en')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${lang === 'en' ? (isDark ? 'bg-slate-700 text-[#42f5e9] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
             >
               ENG
             </button>
@@ -1616,46 +1570,49 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         </div>
 
         {/* Theme Switcher Card */}
-        <div className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between gap-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
-              {madrasah?.theme === 'dark' ? <Moon size={24} /> : <Sun size={24} />}
+        <div className={`p-3.5 sm:p-4 rounded-[1.5rem] sm:rounded-[2rem] border shadow-sm flex items-center justify-between gap-3 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-[#42f5e9]/15 text-[#0fb5ab]'}`}>
+              {isDark ? <Moon size={20} /> : <Sun size={20} />}
             </div>
-            <div className="text-left">
-              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>
+            <div className="text-left min-w-0">
+              <h5 className={`text-sm font-black font-noto leading-tight truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
                 {lang === 'bn' ? 'ডার্ক মোড' : 'Dark Mode'}
               </h5>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">
                 {lang === 'bn' ? 'চোখের আরামের জন্য' : 'For eye comfort'}
               </p>
             </div>
           </div>
-          <button 
+          <button
+            type="button"
             onClick={toggleTheme}
-            className={`w-14 h-8 rounded-full p-1 transition-colors relative ${madrasah?.theme === 'dark' ? 'bg-indigo-600' : 'bg-slate-200'}`}
+            className={`w-13 h-7 rounded-full p-1 transition-colors relative shrink-0 ${isDark ? 'bg-[#0fb5ab]' : 'bg-slate-200'}`}
           >
-            <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${madrasah?.theme === 'dark' ? 'translate-x-6' : 'translate-x-0'}`} />
+            <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${isDark ? 'translate-x-6' : 'translate-x-0'}`} />
           </button>
         </div>
 
-        <button 
-          onClick={handleLogoutClick} 
+        {/* Logout Card */}
+        <button
+          type="button"
+          onClick={handleLogoutClick}
           disabled={isLoggingOut}
-          className={`col-span-2 p-6 rounded-[3rem] border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all disabled:opacity-60 disabled:pointer-events-none ${madrasah?.theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50/50 border-red-100'}`}
+          className={`md:col-span-2 p-3.5 sm:p-4 rounded-[1.5rem] sm:rounded-[2rem] border shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all disabled:opacity-60 disabled:pointer-events-none ${isDark ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50/50 border-red-100'}`}
         >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-              {isLoggingOut ? <Loader2 className="animate-spin text-red-600" size={24} /> : <LogOut size={24} />}
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+              {isLoggingOut ? <Loader2 className="animate-spin text-red-600" size={20} /> : <LogOut size={20} />}
             </div>
             <div className="text-left">
-              <h5 className={`text-base font-black font-noto leading-none ${madrasah?.theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+              <h5 className={`text-sm font-black font-noto leading-tight ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                 {isLoggingOut ? (lang === 'bn' ? 'লগআউট হচ্ছে...' : 'Logging out...') : t('logout', lang)}
               </h5>
-              <p className="text-[10px] font-bold text-red-300 uppercase tracking-widest mt-1.5">{t('logout_system', lang)}</p>
+              <p className="text-[10px] font-bold text-red-400/80 uppercase tracking-widest mt-0.5">{t('logout_system', lang)}</p>
             </div>
           </div>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-red-900/50' : 'bg-white text-red-200'}`}>
-            <ChevronRight size={20} />
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-red-400' : 'bg-white text-red-400'}`}>
+            <ChevronRight size={18} />
           </div>
         </button>
       </div>

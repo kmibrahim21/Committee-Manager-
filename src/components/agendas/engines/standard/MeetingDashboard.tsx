@@ -19,32 +19,37 @@ interface MeetingDashboardProps {
     onViewMeeting: (meeting: any) => void;
     onViewList: () => void;
     lang: string;
+    isDark?: boolean;
 }
 
-const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ stats, nextMeeting, onViewMeeting, onViewList, lang }) => {
+const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ stats, nextMeeting, onViewMeeting, onViewList, lang, isDark = false }) => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-700">
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                    { label: lang === 'bn' ? 'মোট' : 'Total', value: stats.total, icon: Calendar, color: 'text-blue-500', bg: 'bg-blue-50' },
-                    { label: lang === 'bn' ? 'আসন্ন' : 'Upcoming', value: stats.upcoming, icon: Clock3, color: 'text-amber-500', bg: 'bg-amber-50' },
-                    { label: lang === 'bn' ? 'সম্পন্ন' : 'Completed', value: stats.completed, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                    { label: lang === 'bn' ? 'উপস্থিতি হার' : 'Rate', value: `${stats.attendanceRate}%`, icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                    { label: lang === 'bn' ? 'মোট' : 'Total', value: stats.total, icon: Calendar, color: 'text-[#0fb5ab]', bg: isDark ? 'bg-[#42f5e9]/10' : 'bg-[#42f5e9]/15' },
+                    { label: lang === 'bn' ? 'আসন্ন' : 'Upcoming', value: stats.upcoming, icon: Clock3, color: 'text-amber-500', bg: isDark ? 'bg-amber-500/15' : 'bg-amber-50' },
+                    { label: lang === 'bn' ? 'সম্পন্ন' : 'Completed', value: stats.completed, icon: CheckCircle, color: 'text-emerald-500', bg: isDark ? 'bg-emerald-500/15' : 'bg-emerald-50' },
+                    { label: lang === 'bn' ? 'উপস্থিতি হার' : 'Rate', value: `${stats.attendanceRate}%`, icon: TrendingUp, color: 'text-indigo-500', bg: isDark ? 'bg-indigo-500/15' : 'bg-indigo-50' },
                 ].map((stat, i) => (
                     <motion.div 
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
                         key={stat.label} 
-                        className="bg-white p-3 rounded-2xl border border-blue-50/70 shadow-[0_2px_12px_rgba(37,99,235,0.01)] hover:shadow-[0_4px_20px_rgba(37,99,235,0.03)] hover:border-blue-100 flex items-center gap-3 group hover:bg-blue-50/5 transition-all"
+                        className={`p-3.5 rounded-2xl border flex items-center gap-3 group transition-all ${
+                            isDark 
+                                ? 'bg-slate-800 border-slate-700 hover:border-[#42f5e9]/40' 
+                                : 'bg-white border-slate-100 shadow-sm hover:border-[#0fb5ab]/40 hover:shadow-md'
+                        }`}
                     >
-                        <div className={`p-2 rounded-lg ${stat.bg} ${stat.color} transition-transform group-hover:scale-105`}>
+                        <div className={`p-2.5 rounded-xl ${stat.bg} ${stat.color} transition-transform group-hover:scale-105`}>
                             <stat.icon size={16} />
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 truncate">{stat.label}</p>
-                            <h3 className="text-lg font-black text-[#1E3A8A] leading-none">{stat.value}</h3>
+                            <p className={`text-[9px] font-black uppercase tracking-widest leading-none mb-1 truncate ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>{stat.label}</p>
+                            <h3 className={`text-lg font-black leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>{stat.value}</h3>
                         </div>
                     </motion.div>
                 ))}
@@ -52,7 +57,7 @@ const MeetingDashboard: React.FC<MeetingDashboardProps> = ({ stats, nextMeeting,
 
             {/* Next Meeting Section */}
             <div className="w-full">
-                <div className="bg-[#1E3A8A] rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 text-white relative overflow-hidden group shadow-xl">
+                <div className={`${isDark ? 'bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border border-slate-700' : 'bg-gradient-to-br from-[#0fb5ab] to-[#0a7c75]'} rounded-[1.5rem] sm:rounded-[2rem] p-5 sm:p-8 text-white relative overflow-hidden group shadow-xl`}>
                     {/* Decorative background elements */}
                     <div className="absolute top-0 right-0 w-1/2 h-full bg-linear-to-bl from-blue-400/10 to-transparent pointer-events-none" />
                     

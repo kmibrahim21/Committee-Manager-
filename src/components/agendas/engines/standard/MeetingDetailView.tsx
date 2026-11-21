@@ -38,7 +38,7 @@ const MeetingDetailView: React.FC<MeetingDetailViewProps> = ({
     const [newAgenda, setNewAgenda] = useState('');
     const [newDecision, setNewDecision] = useState({ title: '', description: '' });
     const [memberSearch, setMemberSearch] = useState('');
-    const [elapsedSeconds, setElapsedSeconds] = useState(5130); // starts around 1 hr 25 mins like in the photo
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
     // Keep counting up elapsed seconds if meeting is ongoing
     useEffect(() => {

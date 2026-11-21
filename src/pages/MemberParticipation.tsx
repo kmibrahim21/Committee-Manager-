@@ -366,12 +366,16 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                    {students.map(s => (
                      <div key={s.id} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between group active:scale-[0.98] transition-all ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className={`w-11 h-11 rounded-[1.1rem] flex flex-col items-center justify-center border shrink-0 shadow-inner ${isDark ? 'bg-slate-900 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}>
-                            <span className="text-[8px] font-black opacity-40 leading-none">ID</span>
-                            <span className="text-base font-black leading-none mt-1">{s.member_id_number || s.roll || '-'}</span>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className={`w-11 h-11 rounded-[1.1rem] flex items-center justify-center font-black text-base border shrink-0 shadow-inner overflow-hidden ${isDark ? 'bg-slate-900 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}>
+                            {s.name?.trim()?.charAt(0) || '#'}
                           </div>
-                          <h5 className={`font-black font-noto truncate text-base ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>{s.name}</h5>
+                          <div className="min-w-0 flex-1">
+                            <h5 className={`font-black font-noto break-words whitespace-normal leading-snug text-base ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>{s.name}</h5>
+                            <span className="inline-block text-[10px] font-bold text-slate-400 break-all">
+                              ID: {s.member_id_number || s.roll || '-'}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex gap-2 shrink-0">
                            <button onClick={() => setStatus(s.id, 'present')} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${attendance[s.id] === 'present' ? 'bg-emerald-500 text-white shadow-lg' : (isDark ? 'bg-slate-900 text-slate-600 border border-slate-700' : 'bg-slate-50 text-slate-300')}`} title="Present"><CheckCircle size={18}/></button>
@@ -494,11 +498,11 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                         return (
                             <div key={item.student_id} className={`p-6 rounded-[2.5rem] border shadow-lg space-y-4 group ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white/95 border-white'}`}>
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4 min-w-0">
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black border shadow-inner shrink-0 ${isDark ? 'bg-slate-900 text-[#A179FF] border-slate-700' : 'bg-slate-50 text-[#A179FF] border-slate-100'}`}>#{item.roll || '-'}</div>
-                                        <div className="min-w-0">
-                                            <h5 className={`font-black font-noto text-[17px] truncate leading-tight mb-0.5 ${isDark ? 'text-slate-100' : 'text-[#2E0B5E]'}`}>{item.name}</h5>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'bn' ? 'হাজিরা স্ট্যাটাস' : 'Attendance Status'}</p>
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg border shadow-inner shrink-0 overflow-hidden ${isDark ? 'bg-slate-900 text-[#A179FF] border-slate-700' : 'bg-slate-50 text-[#A179FF] border-slate-100'}`}>{item.name?.trim()?.charAt(0) || '#'}</div>
+                                        <div className="min-w-0 flex-1">
+                                            <h5 className={`font-black font-noto text-[17px] break-words whitespace-normal leading-snug mb-0.5 ${isDark ? 'text-slate-100' : 'text-[#2E0B5E]'}`}>{item.name}</h5>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider break-all">#{item.roll || '-'} • {lang === 'bn' ? 'হাজিরা স্ট্যাটাস' : 'Attendance Status'}</p>
                                         </div>
                                     </div>
                                     <div className={`text-2xl font-black ${pct >= 90 ? 'text-green-500' : pct >= 75 ? 'text-amber-500' : 'text-red-500'}`}>{pct}%</div>

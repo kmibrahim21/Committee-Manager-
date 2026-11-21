@@ -5,6 +5,8 @@ import { Institution, Language, Department, LedgerEntry, Fee, Subscription } fro
 import { motion } from 'motion/react';
 import { X, ArrowLeft, Download, Calendar, DollarSign, ArrowUpCircle, FileText, Loader2, TrendingUp, TrendingDown, Clock, CreditCard, Hash } from 'lucide-react';
 
+import { getInstitutionFeeCategories, getCategoryForStructure } from '../../utils/feeCategoryHelper';
+
 interface MemberLedgerProps {
   member: any;
   madrasah: Institution;
@@ -18,6 +20,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
   const [fees, setFees] = useState<Subscription[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
   const [structures, setStructures] = useState<any[]>([]);
+  const [yearPaidTotal, setYearPaidTotal] = useState<number>(0);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
   useEffect(() => {
@@ -27,24 +30,13 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
   const fetchMemberAccountingData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch all fees (or fallback to subscriptions) for the member in the selected year
-      let resolvedStructures: any[] = [];
       const { data: feeStructureData } = await supabase
         .from('fee_structures')
         .select('*')
         .eq('institution_id', madrasah.id)
         .or(`department_id.eq.${member.department_id},department_id.is.null`);
 
-      if (feeStructureData && feeStructureData.length > 0) {
-        resolvedStructures = feeStructureData;
-      } else {
-        const { data: subStructureData } = await supabase
-          .from('subscription_structures')
-          .select('*')
-          .eq('institution_id', madrasah.id)
-          .or(`department_id.eq.${member.department_id},department_id.is.null`);
-        if (subStructureData) resolvedStructures = subStructureData;
-      }
+      const resolvedStructures = feeStructureData || [];
       setStructures(resolvedStructures);
 
       const monthlyPayable = resolvedStructures.reduce((sum, s) => sum + Number(s.amount || 0), 0);
@@ -67,7 +59,6 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
         if (subsTableData) rawFees = subsTableData;
       }
 
-      // Group/normalize by period (YYYY-MM) so multiple fee rows in the same month aggregate properly
       const feeByMonth: Record<string, Subscription> = {};
       rawFees.forEach((f: any) => {
         const periodKey = f.period || f.month || '';
@@ -105,18 +96,32 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
 
       setFees(normalizedFees);
 
-      // 2. Fetch ledger entries mentioning this member
+      // Fetch ledger entries for selected year and match this exact member accurately
       const { data: ledgerData } = await supabase
         .from('ledger')
         .select('*')
         .eq('institution_id', madrasah.id)
         .eq('category', 'Member Fee')
-        .ilike('description', `%${member.name}%`);
-      
-      if (ledgerData) setLedgerEntries(ledgerData.sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()));
+        .gte('transaction_date', `${selectedYear}-01-01`)
+        .lte('transaction_date', `${selectedYear}-12-31`);
 
+      const memberNameLower = (member.name || '').toLowerCase().trim();
+      const memberCode = (member.member_id_number || member.roll || '').toString().trim();
+
+      const matchedLedger = (ledgerData || []).filter((entry: any) => {
+        const desc = (entry.description || '').toLowerCase();
+        const exactNameMatch = memberNameLower && (desc.includes(`- ${memberNameLower} (`) || desc.includes(`- ${memberNameLower}`));
+        const exactIdMatch = memberCode && memberCode !== '-' && desc.includes(`id: ${memberCode.toLowerCase()}`);
+        return Boolean(exactIdMatch || exactNameMatch);
+      }).sort((a: any, b: any) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime());
+
+      setLedgerEntries(matchedLedger);
+
+      const paidFromFees = rawFees.reduce((sum: number, f: any) => sum + Number(f.amount_paid || 0) + Number(f.discount || 0), 0);
+      const paidFromLedger = matchedLedger.reduce((sum: number, l: any) => sum + Number(l.amount || 0), 0);
+      setYearPaidTotal(paidFromFees > 0 ? paidFromFees : paidFromLedger);
     } catch (error) {
-      console.error('Error fetching student accounting:', error);
+      console.error('Error fetching member accounting:', error);
     } finally {
       setLoading(false);
     }
@@ -127,12 +132,25 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
   const isDark = madrasah.theme === 'dark';
   const className = departments.find(c => c.id === member.department_id)?.name || '';
 
-  const totalPayablePerMonth = structures.reduce((sum, s) => sum + Number(s.amount), 0);
-  const totalPaid = ledgerEntries.reduce((sum, l) => sum + Number(l.amount), 0);
-  
-  // Calculate total due for the year up to current month
-  const currentMonth = new Date().getMonth() + 1;
-  const totalPayableYearToDate = totalPayablePerMonth * currentMonth;
+  const feeCategories = getInstitutionFeeCategories(madrasah);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const selYearNum = Number(selectedYear);
+  const elapsedMonths = selYearNum < currentYear ? 12 : selYearNum === currentYear ? now.getMonth() + 1 : 0;
+
+  const monthlyRecurringAmount = structures.reduce((sum, s) => {
+    const cat = getCategoryForStructure(s, feeCategories, madrasah);
+    return cat.frequency === 'monthly' ? sum + Number(s.amount || 0) : sum;
+  }, 0);
+
+  const nonMonthlyAmount = structures.reduce((sum, s) => {
+    const cat = getCategoryForStructure(s, feeCategories, madrasah);
+    return cat.frequency !== 'monthly' ? sum + Number(s.amount || 0) : sum;
+  }, 0);
+
+  const totalPayablePerMonth = monthlyRecurringAmount;
+  const totalPaid = yearPaidTotal;
+  const totalPayableYearToDate = (monthlyRecurringAmount * elapsedMonths) + (elapsedMonths > 0 ? nonMonthlyAmount : 0);
   const totalDue = Math.max(0, totalPayableYearToDate - totalPaid);
 
   return (
@@ -143,24 +161,24 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
     >
       {/* Header */}
       <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3 sm:gap-5 min-w-0">
           <button 
             onClick={onBack}
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all active:scale-90 ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
+            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center border transition-all active:scale-90 shrink-0 ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'}`}
           >
             <ArrowLeft size={20} />
           </button>
-          <div>
-            <h2 className={`text-2xl font-black font-noto ${isDark ? 'text-white' : 'text-[#1E293B]'}`}>{member.name}</h2>
+          <div className="min-w-0">
+            <h2 className={`text-xl sm:text-2xl font-black font-noto break-words ${isDark ? 'text-white' : 'text-[#1E293B]'}`}>{member.name}</h2>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{className} • সদস্য আইডি: {member.member_id_number || member.roll || '-'}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
             <div className="relative">
               <select 
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className={`h-11 px-5 pr-10 rounded-2xl border text-[11px] font-black uppercase outline-none transition-all appearance-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}
+                  className={`h-11 px-4 sm:px-5 pr-9 sm:pr-10 rounded-2xl border text-[11px] font-black uppercase outline-none transition-all appearance-none ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600'}`}
               >
                   {[0, 1, 2].map(offset => {
                       const year = (new Date().getFullYear() - offset).toString();
@@ -185,7 +203,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <motion.div 
                 whileHover={{ y: -5 }}
-                className={`p-6 rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
+                className={`p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-[#42f5e9]/10 text-[#42f5e9]' : 'bg-[#42f5e9]/10 text-[#0fb5ab]'}`}>
@@ -198,7 +216,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
 
               <motion.div 
                 whileHover={{ y: -5 }}
-                className={`p-6 rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
+                className={`p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
@@ -211,7 +229,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
 
               <motion.div 
                 whileHover={{ y: -5 }}
-                className={`p-6 rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
+                className={`p-5 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border-2 shadow-sm transition-all ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>
@@ -224,10 +242,10 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
             </div>
 
             {/* Monthly Grid */}
-            <div className={`p-10 rounded-[3.5rem] border shadow-2xl relative overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800 shadow-black/20' : 'bg-white border-white/20 shadow-blue-900/5'}`}>
+            <div className={`p-5 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] border shadow-2xl relative overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800 shadow-black/20' : 'bg-white border-white/20 shadow-blue-900/5'}`}>
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
               
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
                 <div>
                   <h3 className={`text-lg font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>মাসিক ফি স্ট্যাটাস</h3>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{selectedYear} সালের সাবস্ক্রিপশন কার্ড</p>
@@ -248,7 +266,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
                 {Array.from({ length: 12 }, (_, i) => {
                   const monthStr = `${selectedYear}-${String(i + 1).padStart(2, '0')}`;
                   const monthName = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][i];
@@ -261,7 +279,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
                     <motion.div 
                       whileHover={{ scale: 1.05 }}
                       key={monthStr} 
-                      className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col justify-between h-32 ${status === 'paid' ? (isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-100') : status === 'partial' ? (isDark ? 'bg-orange-500/10 border-orange-500/30' : 'bg-orange-50 border-orange-100') : (isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100')}`}
+                      className={`p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] border-2 transition-all flex flex-col justify-between h-28 sm:h-32 ${status === 'paid' ? (isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-100') : status === 'partial' ? (isDark ? 'bg-orange-500/10 border-orange-500/30' : 'bg-orange-50 border-orange-100') : (isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100')}`}
                     >
                       <p className={`text-[11px] font-black uppercase tracking-widest ${status === 'paid' ? 'text-emerald-600' : status === 'partial' ? 'text-orange-600' : 'text-slate-400'}`}>{monthName}</p>
                       <div className="space-y-2">
@@ -285,8 +303,8 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
 
           {/* Right Column: Recent Transactions */}
           <div className="space-y-6">
-            <div className={`p-10 rounded-[3.5rem] border shadow-2xl h-full relative overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800 shadow-black/20' : 'bg-white border-white/20 shadow-blue-900/5'}`}>
-              <div className="flex items-center justify-between mb-10">
+            <div className={`p-5 sm:p-8 rounded-[2.5rem] sm:rounded-[3.5rem] border shadow-2xl h-full relative overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800 shadow-black/20' : 'bg-white border-white/20 shadow-blue-900/5'}`}>
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
                 <div>
                   <h3 className={`text-lg font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>লেনদেনের ইতিহাস</h3>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">এই সদস্যের সর্বশেষ লেনদেনসমূহ</p>

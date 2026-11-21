@@ -252,6 +252,11 @@ export const translations = {
     urgent_notices: 'জরুরী নোটিশ',
     add_notice: 'নতুন নোটিশ',
     create_poll: 'নতুন পোল তৈরি',
+    reset_password: 'পাসওয়ার্ড রিসেট',
+    send_otp: 'ওটিপি পাঠান',
+    verify_otp: 'ওটিপি যাচাই করুন',
+    new_password: 'নতুন পাসওয়ার্ড',
+    confirm_new_password: 'পাসওয়ার্ড নিশ্চিত করুন',
   },
   en: {
     home: 'Dashboard',
@@ -502,6 +507,11 @@ export const translations = {
     urgent_notices: 'Urgent Notices',
     add_notice: 'Add Notice',
     create_poll: 'Create Poll',
+    reset_password: 'Reset Password',
+    send_otp: 'Send OTP',
+    verify_otp: 'Verify OTP',
+    new_password: 'New Password',
+    confirm_new_password: 'Confirm Password',
   }
 };
 

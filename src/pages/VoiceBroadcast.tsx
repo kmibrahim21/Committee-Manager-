@@ -114,8 +114,16 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   const [rechargePhone, setRechargePhone] = useState('');
   const [isRecharging, setIsRecharging] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
+  const parsedInstConfig: any = useMemo(() => {
+    const raw = madrasah?.config_json as any;
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch { return {}; }
+    }
+    return raw || {};
+  }, [madrasah?.config_json]);
+
   const [adminBkash, setAdminBkash] = useState('01766-XXXXXX');
-  const [voiceRate, setVoiceRate] = useState(1.00);
+  const [voiceRate, setVoiceRate] = useState<number>(() => Number(parsedInstConfig?.voice_rate) > 0 ? Number(parsedInstConfig.voice_rate) : 1.00);
 
   const formatDigits = (str: string) => {
     if (!str) return 'N/A';
@@ -139,16 +147,21 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   useEffect(() => {
     if (!madrasah) return;
     fetchWalletBalance();
+    fetchSystemSettings();
     if (activeTab === 'templates') fetchVoices();
     if (activeTab === 'broadcast') { fetchClasses(); fetchVoices(); fetchSenders(); }
     if (activeTab === 'history') fetchHistory();
-    if (activeTab === 'recharge') fetchSystemSettings();
-  }, [activeTab, madrasah?.id, dataVersion]);
+  }, [activeTab, madrasah?.id, dataVersion, parsedInstConfig?.voice_rate]);
 
   const fetchSystemSettings = async () => {
-    const { data } = await supabase.from('system_settings').select('bkash_number, voice_rate').single();
+    const { data } = await supabase.from('system_settings').select('bkash_number, voice_rate').maybeSingle();
     if (data?.bkash_number) setAdminBkash(data.bkash_number);
-    if (data?.voice_rate) setVoiceRate(data.voice_rate);
+    const customVoiceRate = Number(parsedInstConfig?.voice_rate);
+    if (customVoiceRate > 0) {
+      setVoiceRate(customVoiceRate);
+    } else if (data?.voice_rate) {
+      setVoiceRate(Number(data.voice_rate));
+    }
   };
 
   const fetchWalletBalance = async () => {
@@ -414,7 +427,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
       const sNumber = sender.number || sender.sender_id || sender.id;
 
       // Calculate cost
-      const estimatedCost = phoneNumbers.length * 0.5; // Assuming 0.5 per call
+      const estimatedCost = phoneNumbers.length * voiceRate;
 
       if (walletBalance < estimatedCost) {
         setStatusModal({

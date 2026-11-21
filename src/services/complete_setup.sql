@@ -766,3 +766,29 @@ BEGIN
   RETURN json_build_object('success', true);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =========================================================================
+-- OTP VERIFICATIONS (Mobile SMS OTP Password Reset)
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS public.otp_verifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  identifier TEXT NOT NULL,
+  otp TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_otp_verifications_identifier_otp
+  ON public.otp_verifications(identifier, otp, created_at DESC);
+
+ALTER TABLE public.otp_verifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Deny direct client access to otp_verifications" ON public.otp_verifications;
+CREATE POLICY "Deny direct client access to otp_verifications"
+  ON public.otp_verifications
+  FOR ALL
+  USING (false)
+  WITH CHECK (false);
+

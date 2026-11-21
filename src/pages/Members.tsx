@@ -35,6 +35,33 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteStudentId, setDeleteStudentId] = useState<string | null>(null);
   const [isDeletingMember, setIsDeletingMember] = useState(false);
+  const [orgMemberCount, setOrgMemberCount] = useState<number | null>(null);
+
+  const memberLimit = useMemo(() => {
+    let cfg: any = madrasah?.config_json || {};
+    if (typeof cfg === 'string') {
+      try { cfg = JSON.parse(cfg); } catch { cfg = {}; }
+    }
+    return Number(cfg?.member_limit) || 0;
+  }, [madrasah?.config_json]);
+
+  useEffect(() => {
+    if (!institutionId || memberLimit <= 0) {
+      setOrgMemberCount(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('members')
+      .select('*', { count: 'exact', head: true })
+      .eq('institution_id', institutionId)
+      .then(({ count }) => {
+        if (!cancelled && typeof count === 'number') {
+          setOrgMemberCount(count);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [institutionId, memberLimit, dataVersion]);
 
   const handleDeleteMember = async (id: string) => {
     try {
@@ -213,11 +240,22 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
                 <h1 className="text-xl font-black text-white font-noto tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.2)]">
                   {selectedClass?.name || t('members', lang)}
                 </h1>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2 mt-1">
                   <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
                   <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em]">
                     {students.length} {t('members', lang)}
                   </p>
+                  {memberLimit > 0 && (
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${
+                      (orgMemberCount ?? students.length) >= memberLimit
+                        ? 'bg-red-500/30 text-white border-red-200/50'
+                        : 'bg-white/20 text-white border-white/30'
+                    }`}>
+                      {lang === 'bn'
+                        ? `সদস্য: ${orgMemberCount ?? students.length} / ${memberLimit}`
+                        : `Limit: ${orgMemberCount ?? students.length} / ${memberLimit}`}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

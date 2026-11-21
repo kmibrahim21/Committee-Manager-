@@ -41,7 +41,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
   const handleRefreshClick = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    await handleHardRefresh();
+    try {
+      if (triggerRefresh) triggerRefresh();
+      await handleHardRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
   
   const canAccess = (module: string) => {
@@ -275,12 +280,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               {notifications.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
             </button>
             <button 
+              type="button"
               onClick={handleRefreshClick} 
               disabled={isRefreshing}
               title={lang === 'bn' ? 'রিফ্রেশ করুন' : 'Refresh'}
-              className={`p-2.5 rounded-[1rem] active:scale-95 transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white' : 'bg-slate-50 text-slate-400 border-slate-100 hover:text-slate-600'}`}
+              className="px-3 py-2 rounded-2xl active:scale-95 transition-all border border-[#42f5e9]/40 shadow-sm shadow-[#0fb5ab]/20 bg-gradient-to-r from-[#42f5e9] to-[#0fb5ab] text-[#042f2e] flex items-center gap-1.5 disabled:opacity-70"
             >
-              <RefreshCw size={18} className={isRefreshing ? 'animate-spin text-[#0fb5ab]' : ''} />
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} strokeWidth={2.5} />
+              <span className="text-[11px] font-black font-noto">{lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}</span>
             </button>
           </div>
         </header>
@@ -306,13 +313,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
               {notifications.length > 0 && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
             </button>
             <button 
+              type="button"
               onClick={handleRefreshClick} 
               disabled={isRefreshing}
               title={lang === 'bn' ? 'রিফ্রেশ করুন' : 'Refresh'}
-              className={`px-3 py-2 rounded-xl transition-all border shadow-sm flex items-center gap-2 active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+              className="px-3.5 py-2 rounded-xl transition-all border border-[#42f5e9]/40 shadow-sm shadow-[#0fb5ab]/20 bg-gradient-to-r from-[#42f5e9] to-[#0fb5ab] text-[#042f2e] flex items-center gap-2 active:scale-95 disabled:opacity-70"
             >
-              <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-[#0fb5ab]' : ''} />
-              <span className="text-xs font-bold font-noto">{lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}</span>
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} strokeWidth={2.5} />
+              <span className="text-xs font-black font-noto">{lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}</span>
             </button>
           </div>
         </header>

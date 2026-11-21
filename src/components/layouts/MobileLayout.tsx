@@ -27,8 +27,19 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const isSuperAdmin = profile?.role === 'super_admin';
   const role = profile?.role || 'org_admin';
+
+  const handleRefreshClick = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await handleHardRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   
   const modules = React.useMemo(() => {
     let config = madrasah?.config_json as any;
@@ -122,8 +133,15 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
             <Bell size={20} />
             {notifications.length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
           </button>
-          <button onClick={handleHardRefresh} className={`p-2 rounded-xl transition-all border shadow-sm ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-white text-slate-400 border-slate-200'}`}>
-            <RefreshCw size={20} />
+          <button
+            type="button"
+            onClick={handleRefreshClick}
+            disabled={isRefreshing}
+            title={lang === 'bn' ? 'রিফ্রেশ করুন' : 'Refresh'}
+            className="px-3 py-2 rounded-xl transition-all border border-[#42f5e9]/40 shadow-sm shadow-[#0fb5ab]/20 bg-gradient-to-r from-[#42f5e9] to-[#0fb5ab] text-[#042f2e] flex items-center gap-1.5 active:scale-95 disabled:opacity-70"
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} strokeWidth={2.5} />
+            <span className="text-[11px] font-black font-noto">{lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}</span>
           </button>
         </div>
       </header>

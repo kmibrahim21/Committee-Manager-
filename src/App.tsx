@@ -39,7 +39,7 @@ import { TutorialsManager } from 'components/TutorialsManager';
 import { ManagerManagement } from 'components/ManagerManagement';
 import { View, Department as Department, Member as Member, Language } from 'types';
 import { t } from 'translations';
-import { BookOpen, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
+import { BookOpen, ShieldAlert, CheckCircle2, AlertCircle, Lock, RefreshCw, LogOut, Calendar, CreditCard } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 const App: React.FC = () => {
@@ -117,6 +117,17 @@ const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('_v=')) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('_v')) {
+        url.searchParams.delete('_v');
+        const cleanUrl = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '') + url.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
+  }, []);
+
   const missingVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   if (loading) return (
@@ -175,6 +186,118 @@ const App: React.FC = () => {
   );
 
   if (!session && !madrasah) return <Auth lang={lang} signInAsMember={signInAsMember} />;
+
+  // Enforce Portal Active / Suspended / Subscription Expiry Lock Screen
+  const isPortalExempt = profile?.role === 'super_admin' || profile?.role === 'manager' || !!madrasah?.is_super_admin;
+  let parsedPortalConfig: any = madrasah?.config_json || {};
+  if (typeof parsedPortalConfig === 'string') {
+    try {
+      parsedPortalConfig = JSON.parse(parsedPortalConfig);
+    } catch {
+      parsedPortalConfig = {};
+    }
+  }
+  const isSuspendedOrInactive = madrasah?.is_active === false || madrasah?.status === 'suspended';
+  const isLifetimePlan = parsedPortalConfig?.subscription_type === 'lifetime';
+  const isExpired = !isLifetimePlan && (() => {
+    if (madrasah?.status === 'trial' && madrasah?.created_at) {
+      const trialExpired = Date.now() > new Date(madrasah.created_at).getTime() + 3 * 24 * 60 * 60 * 1000;
+      if (trialExpired) {
+        if (madrasah?.subscription_end) {
+          return new Date(madrasah.subscription_end + 'T23:59:59').getTime() < Date.now();
+        }
+        return true;
+      }
+      return false;
+    }
+    if (madrasah?.subscription_end) {
+      return new Date(madrasah.subscription_end + 'T23:59:59').getTime() < Date.now();
+    }
+    return false;
+  })();
+
+  if (!isPortalExempt && madrasah && (isSuspendedOrInactive || isExpired)) {
+    const isDarkLock = madrasah?.theme === 'dark';
+    const dueAmount = Number(parsedPortalConfig?.due_amount || 0);
+    const subNote = parsedPortalConfig?.subscription_note;
+    const statusLabel = isSuspendedOrInactive
+      ? (lang === 'bn' ? 'অ্যাকাউন্ট সাময়িকভাবে স্থগিত' : 'Account Suspended')
+      : madrasah?.status === 'trial'
+        ? (lang === 'bn' ? 'ট্রায়াল মেয়াদ শেষ' : 'Trial Expired')
+        : (lang === 'bn' ? 'সাবস্ক্রিপশনের মেয়াদ শেষ' : 'Subscription Expired');
+
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center p-6 font-noto transition-colors ${isDarkLock ? 'bg-[#0B132B] text-white' : 'bg-[#F8FAFC] text-slate-800'}`}>
+        <div className={`w-full max-w-md rounded-[2.5rem] p-8 sm:p-10 shadow-2xl border text-center space-y-6 ${isDarkLock ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+          <div className="w-20 h-20 rounded-3xl bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center mx-auto">
+            <Lock size={38} strokeWidth={2.2} />
+          </div>
+
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20">
+              <ShieldAlert size={13} />
+              {statusLabel}
+            </span>
+            <h1 className={`text-2xl font-black tracking-tight pt-1 ${isDarkLock ? 'text-white' : 'text-slate-900'}`}>
+              {madrasah.name}
+            </h1>
+            <p className={`text-sm font-semibold leading-relaxed ${isDarkLock ? 'text-slate-400' : 'text-slate-500'}`}>
+              {isSuspendedOrInactive
+                ? (lang === 'bn'
+                    ? 'আপনার কমিটির পোর্টালটি বর্তমানে নিষ্ক্রিয় বা সাময়িকভাবে স্থগিত রয়েছে। পোর্টাল পুনরায় চালু করতে সিস্টেম অ্যাডমিনের সাথে যোগাযোগ করুন।'
+                    : 'Your committee portal is currently inactive or suspended. Please contact the system administrator to restore access.')
+                : (lang === 'bn'
+                    ? 'আপনার সাবস্ক্রিপশনের মেয়াদ শেষ হয়ে গেছে। সেবাটি নিরবচ্ছিন্ন রাখতে অনুগ্রহ করে সাবস্ক্রিপশন নবায়ন করুন।'
+                    : 'Your subscription has expired. Please renew your subscription to continue using the portal.')}
+            </p>
+          </div>
+
+          <div className={`p-4 rounded-2xl border text-left space-y-2.5 text-xs ${isDarkLock ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200/70'}`}>
+            {parsedPortalConfig?.package_name && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-400 font-bold">{lang === 'bn' ? 'প্যাকেজ:' : 'Package:'}</span>
+                <span className={`font-black ${isDarkLock ? 'text-white' : 'text-slate-800'}`}>{parsedPortalConfig.package_name}</span>
+              </div>
+            )}
+            {madrasah.subscription_end && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-400 font-bold flex items-center gap-1"><Calendar size={12} /> {lang === 'bn' ? 'মেয়াদ শেষের তারিখ:' : 'Expiry Date:'}</span>
+                <span className="font-black text-red-500">{madrasah.subscription_end}</span>
+              </div>
+            )}
+            {dueAmount > 0 && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-400 font-bold flex items-center gap-1"><CreditCard size={12} /> {lang === 'bn' ? 'বকেয়া পরিমাণ:' : 'Due Amount:'}</span>
+                <span className="font-black text-amber-500">৳ {dueAmount.toLocaleString()}</span>
+              </div>
+            )}
+            {subNote && (
+              <div className={`pt-2 border-t text-[11px] font-bold ${isDarkLock ? 'border-slate-700 text-slate-300' : 'border-slate-200 text-slate-600'}`}>
+                {subNote}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              onClick={() => refreshMadrasah()}
+              className="flex-1 py-3.5 px-5 rounded-2xl bg-[#0fb5ab] hover:bg-[#0e9f96] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#0fb5ab]/20 active:scale-95 transition-all"
+            >
+              <RefreshCw size={15} />
+              {lang === 'bn' ? 'রিফ্রেশ করুন' : 'Refresh'}
+            </button>
+            <button
+              onClick={() => handleLogout()}
+              className={`flex-1 py-3.5 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 border active:scale-95 transition-all ${isDarkLock ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'}`}
+            >
+              <LogOut size={15} />
+              {lang === 'bn' ? 'লগআউট' : 'Logout'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const isVercel = window.location.hostname.includes('vercel.app');
 

@@ -229,6 +229,30 @@ const StudentForm: React.FC<StudentFormProps> = ({ student, madrasah, defaultCla
 
     setLoading(true);
     try {
+      if (!isEditing) {
+        let cfg: any = madrasah.config_json || {};
+        if (typeof cfg === 'string') {
+          try { cfg = JSON.parse(cfg); } catch { cfg = {}; }
+        }
+        const memberLimit = Number(cfg?.member_limit) || 0;
+        if (memberLimit > 0 && navigator.onLine) {
+          const { count, error: countErr } = await supabase
+            .from('members')
+            .select('*', { count: 'exact', head: true })
+            .eq('institution_id', madrasah.id);
+          if (!countErr && typeof count === 'number' && count >= memberLimit) {
+            setErrorModal({
+              show: true,
+              message: lang === 'bn'
+                ? `সদস্য যোগ করার সীমা (${memberLimit} জন) পূর্ণ হয়ে গেছে। সীমা বাড়াতে সুপার অ্যাডমিনের সাথে যোগাযোগ করুন।`
+                : `Your member limit (${memberLimit}) has been reached. Please contact the Super Admin to upgrade your plan.`
+            });
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       let finalPhotoUrl = photoUrl.trim() || student?.photo_url || null;
 
       let addressPayload = student?.address || null;

@@ -157,15 +157,31 @@ export default defineConfig(({ mode }) => {
             ]
           },
           devOptions: {
-            enabled: true
+            enabled: false
           },
           workbox: {
             skipWaiting: true,
             clientsClaim: true,
             cleanupOutdatedCaches: true,
+            navigateFallback: null,
             maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-            globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+            globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
             runtimeCaching: [
+              {
+                urlPattern: ({ request }) => request.mode === 'navigate',
+                handler: 'NetworkFirst',
+                options: {
+                  cacheName: 'pages-cache',
+                  networkTimeoutSeconds: 3,
+                  expiration: {
+                    maxEntries: 10,
+                    maxAgeSeconds: 60 * 60
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200]
+                  }
+                }
+              },
               {
                 urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
                 handler: 'CacheFirst',

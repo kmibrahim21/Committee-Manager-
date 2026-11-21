@@ -98,9 +98,17 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
   const [rechargeType, setRechargeType] = useState<'sms' | 'voice'>('sms');
   const [requesting, setRequesting] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
+  const parsedInstConfig: any = useMemo(() => {
+    const raw = madrasah?.config_json as any;
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch { return {}; }
+    }
+    return raw || {};
+  }, [madrasah?.config_json]);
+
   const [adminBkash, setAdminBkash] = useState('01766-XXXXXX');
-  const [smsRate, setSmsRate] = useState<number>(0.50);
-  const [voiceRate, setVoiceRate] = useState<number>(1.00);
+  const [smsRate, setSmsRate] = useState<number>(() => Number(parsedInstConfig?.sms_rate) > 0 ? Number(parsedInstConfig.sms_rate) : 0.50);
+  const [voiceRate, setVoiceRate] = useState<number>(() => Number(parsedInstConfig?.voice_rate) > 0 ? Number(parsedInstConfig.voice_rate) : 1.00);
 
   const formatDigits = (str: string) => {
     if (!str) return 'N/A';
@@ -109,6 +117,10 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
     if (lang === 'en') return str.replace(/[০-৯]/g, d => bnToEn[d] || d);
     return str.replace(/[0-9]/g, d => enToBn[d] || d);
   };
+
+  useEffect(() => {
+    if (madrasah?.id) fetchSystemSettings();
+  }, [madrasah?.id, parsedInstConfig?.sms_rate, parsedInstConfig?.voice_rate]);
 
   useEffect(() => { 
     if (activeTab === 'templates') fetchTemplates(); 
@@ -124,8 +136,12 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
   const fetchSystemSettings = async () => {
     const settings = await smsApi.getGlobalSettings();
     if (settings.bkash_number) setAdminBkash(settings.bkash_number);
-    if (settings.sms_rate) setSmsRate(settings.sms_rate);
-    if (settings.voice_rate) setVoiceRate(settings.voice_rate);
+    const customSmsRate = Number(parsedInstConfig?.sms_rate);
+    const customVoiceRate = Number(parsedInstConfig?.voice_rate);
+    if (customSmsRate > 0) setSmsRate(customSmsRate);
+    else if (settings.sms_rate) setSmsRate(settings.sms_rate);
+    if (customVoiceRate > 0) setVoiceRate(customVoiceRate);
+    else if (settings.voice_rate) setVoiceRate(settings.voice_rate);
   };
 
   const fetchClasses = async () => {

@@ -64,7 +64,14 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
   const [loadingVoices, setLoadingVoices] = useState(false);
   const [isVoiceSending, setIsVoiceSending] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
-  const [voiceRate, setVoiceRate] = useState<number>(0.60);
+  const [voiceRate, setVoiceRate] = useState<number>(() => {
+    let cfg: any = madrasah?.config_json || {};
+    if (typeof cfg === 'string') {
+      try { cfg = JSON.parse(cfg); } catch { cfg = {}; }
+    }
+    const r = Number(cfg?.voice_rate);
+    return r > 0 ? r : 0.60;
+  });
   const [voiceStatusModal, setVoiceStatusModal] = useState<{ show: boolean; type: 'success' | 'error'; title: string; message: string } | null>(null);
 
   const availableShortcodes = [
@@ -482,16 +489,32 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
     setShowVoiceModal(true);
     setLoadingVoices(true);
     try {
-      // 1. Fetch institution balance & rates
+      // 1. Fetch institution balance & custom voice rate from config_json
       const { data: instData } = await supabase
         .from('institutions')
-        .select('balance, voice_rate')
+        .select('balance, config_json')
         .eq('id', institutionId)
         .single();
 
+      let cfg: any = instData?.config_json ?? madrasah?.config_json ?? {};
+      if (typeof cfg === 'string') {
+        try { cfg = JSON.parse(cfg); } catch { cfg = {}; }
+      }
+      const customVoiceRate = Number(cfg?.voice_rate);
+      if (customVoiceRate > 0) {
+        setVoiceRate(customVoiceRate);
+      } else {
+        const { data: sysSettings } = await supabase
+          .from('system_settings')
+          .select('voice_rate')
+          .maybeSingle();
+        if (sysSettings?.voice_rate) {
+          setVoiceRate(Number(sysSettings.voice_rate));
+        }
+      }
+
       if (instData) {
         setWalletBalance(Number(instData.balance) || 0);
-        if (instData.voice_rate) setVoiceRate(Number(instData.voice_rate));
       }
 
       // 2. Fetch local voice templates

@@ -36,6 +36,7 @@ const ai = new GoogleGenAI({
   }
 });
 
+import authHandler from "./api/auth";
 import executivesHandler from "./api/executives";
 import smsSendHandler from "./api/sms/send";
 import createCommitteeHandler from "./api/admin/create-committee";
@@ -43,6 +44,7 @@ import updateUserPasswordHandler from "./api/admin/update-user-password";
 import { isSafePublicHttpsUrl } from "./api/awaj";
 
 // API Routes
+app.all("/api/auth", (req, res) => authHandler(req as any, res as any));
 app.all("/api/executives*all", (req, res) => executivesHandler(req, res));
 app.all("/api/teachers*all", (req, res) => executivesHandler(req, res));
 app.all("/api/sms/send", (req, res) => smsSendHandler(req as any, res as any));

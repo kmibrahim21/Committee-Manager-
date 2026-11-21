@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { LogOut, Camera, Loader2, User as UserIcon, ShieldCheck, Database, ChevronRight, Check, MessageSquare, Zap, Globe, Smartphone, Save, Users, Layers, Edit3, UserPlus, Languages, Mail, Key, Settings, Fingerprint, Copy, History, Server, CreditCard, Shield, Sliders, Activity, Bell, RefreshCw, AlertTriangle, GraduationCap, ChevronLeft, ArrowRight, LayoutDashboard, Settings2, X, Sparkles, Box, ShieldAlert, Award, CheckCircle2, Lock, Terminal, Cpu, Calendar as CalendarIcon, MapPin, Play, Moon, Sun, PhoneCall, UserCheck, BookOpen, FileText, Download, Printer } from 'lucide-react';
+import { LogOut, Camera, Loader2, User as UserIcon, ShieldCheck, Database, ChevronRight, Check, MessageSquare, Zap, Globe, Smartphone, Save, Users, Layers, Edit3, UserPlus, Languages, Mail, Key, Settings, Fingerprint, Copy, History, Server, CreditCard, Shield, Sliders, Activity, Bell, RefreshCw, AlertTriangle, AlertCircle, GraduationCap, ChevronLeft, ArrowRight, LayoutDashboard, Settings2, X, Sparkles, Box, ShieldAlert, Award, CheckCircle2, Lock, Terminal, Cpu, Calendar as CalendarIcon, MapPin, Play, Moon, Sun, PhoneCall, UserCheck, BookOpen, FileText, Download, Printer, Clock, Package } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, View, Profile } from 'types';
 import { t } from 'translations';
@@ -10,6 +10,89 @@ import MultiCalendar from 'components/MultiCalendar';
 import { generateMemberFormPDF } from '../utils/pdfGenerator';
 import { SONGHO_ACTIVITIES, getDefaultSonghoActivityIds } from '../utils/songhoActivities';
 import { uploadOptimizedImage } from '../utils/imageOptimizer';
+import { toPng } from 'html-to-image';
+import jsPDF from 'jspdf';
+
+interface SubscriptionPackage {
+  id: string;
+  name: string;
+  rate: number;
+  badgeBn: string;
+  badgeEn: string;
+  featuresBn: string[];
+  featuresEn: string[];
+}
+
+const SUBSCRIPTION_PACKAGES: SubscriptionPackage[] = [
+  {
+    id: 'STARTER',
+    name: 'STARTER',
+    rate: 200,
+    badgeBn: 'বেসিক',
+    badgeEn: 'Basic',
+    featuresBn: [
+      'সদস্য ও কমিটি ম্যানেজমেন্ট',
+      'নোটিশ বোর্ড ও ডিরেক্টরি',
+      'বাল্ক এসএমএস ইন্টিগ্রেশন',
+      'মোবাইল ও ওয়েব অ্যাক্সেস'
+    ],
+    featuresEn: [
+      'Member & Committee Management',
+      'Notice Board & Directory',
+      'Bulk SMS Integration',
+      'Mobile & Web Access'
+    ]
+  },
+  {
+    id: 'STANDARD',
+    name: 'STANDARD',
+    rate: 500,
+    badgeBn: 'জনপ্রিয়',
+    badgeEn: 'Popular',
+    featuresBn: [
+      'সদস্য, মিটিং ও মিনিটস ম্যানেজমেন্ট',
+      'হাজিরা ও উপস্থিতি ট্র্যাকিং',
+      'হিসাব-নিকাশ ও সদস্য চাঁদা আদায়',
+      'এসএমএস ও ভয়েস কল ব্রডকাস্ট'
+    ],
+    featuresEn: [
+      'Members, Meetings & Minutes',
+      'Attendance & Participation Tracking',
+      'Accounting & Member Dues Collection',
+      'SMS & Voice Broadcast'
+    ]
+  },
+  {
+    id: 'PRO',
+    name: 'PRO',
+    rate: 1000,
+    badgeBn: 'প্রিমিয়াম',
+    badgeEn: 'Premium',
+    featuresBn: [
+      'সকল প্রিমিয়াম মডিউল আনলকড',
+      'ইভেন্টস ও ভোটিং পোল সিস্টেম',
+      'কাস্টম রিপোর্ট ও পিডিএফ এক্সপোর্ট',
+      'প্রায়োরিটি সাপোর্ট ও অসীম সুবিধা'
+    ],
+    featuresEn: [
+      'All Premium Modules Unlocked',
+      'Events & Voting Poll System',
+      'Custom Reports & PDF Exports',
+      'Priority Support & Extended Limits'
+    ]
+  }
+];
+
+const MONTHS_BN = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const escapeHtml = (val: any) =>
+  String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 interface AccountProps {
   lang: Language;
@@ -72,6 +155,27 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   
   const [copiedId, setCopiedId] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Deenora v3 Subscription Sub-Page States
+  const [isEditingSubscription, setIsEditingSubscription] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('STANDARD');
+  const [packageDetailModal, setPackageDetailModal] = useState<SubscriptionPackage | null>(null);
+  const [subscriptionYear, setSubscriptionYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
+  const [senderPhone, setSenderPhone] = useState('');
+  const [trxId, setTrxId] = useState('');
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [subPaymentError, setSubPaymentError] = useState('');
+  const [subTransactions, setSubTransactions] = useState<any[]>([]);
+  const [loadingSubTx, setLoadingSubTx] = useState(false);
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState<string | null>(null);
+  const [paymentNumbers, setPaymentNumbers] = useState({
+    bkash_number: '01700-000000',
+    nagad_number: '',
+    rocket_number: ''
+  });
+  const [copiedPayNum, setCopiedPayNum] = useState(false);
 
   const toggleTheme = async () => {
     if (!madrasah) return;
@@ -156,8 +260,8 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       const fileName = `logo_${madrasah.id}_${Date.now()}`;
       
       const uploadResult = await uploadOptimizedImage(file, {
-        primaryBucket: 'madrasah-assets',
-        fallbackBuckets: ['voice-templates', 'member_photo'],
+        primaryBucket: 'committee-assets',
+        fallbackBuckets: ['institution-assets', 'madrasah-assets', 'member_photo'],
         filePath: `logos/${fileName}`,
         maxWidthOrHeight: 400,
         maxSizeMB: 0.12, // Max ~120KB compressed
@@ -241,7 +345,926 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
     }
   }
   const configObj: any = (typeof config === 'object' && config !== null) ? config : {};
-  const subscriptionsEnabled = configObj.modules?.subscriptions ?? true;
+
+  const fetchSubscriptionData = async () => {
+    if (!madrasah?.id) return;
+    setLoadingSubTx(true);
+    try {
+      const [txRes, sysRes] = await Promise.all([
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('institution_id', madrasah.id)
+          .order('created_at', { ascending: false })
+          .limit(50),
+        supabase
+          .from('system_settings')
+          .select('bkash_number, nagad_number, rocket_number')
+          .limit(1)
+          .maybeSingle()
+      ]);
+
+      if (!txRes.error && txRes.data) {
+        const subOnly = txRes.data.filter((tr: any) =>
+          tr.module === 'subscription' ||
+          (tr.description || '').toLowerCase().includes('subscription') ||
+          String(tr.transaction_id || '').toUpperCase().startsWith('SUB_')
+        );
+        setSubTransactions(subOnly);
+      }
+
+      if (!sysRes.error && sysRes.data) {
+        setPaymentNumbers({
+          bkash_number: sysRes.data.bkash_number || '01700-000000',
+          nagad_number: sysRes.data.nagad_number || '',
+          rocket_number: sysRes.data.rocket_number || ''
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load subscription data:', err);
+    } finally {
+      setLoadingSubTx(false);
+    }
+  };
+
+  const openSubscriptionPage = () => {
+    const activePkgName = String(configObj.package_name || 'STANDARD').toUpperCase();
+    const matchedPkg = SUBSCRIPTION_PACKAGES.find(p => p.name === activePkgName || p.id === activePkgName);
+    setSelectedPackageId(matchedPkg ? matchedPkg.id : 'STANDARD');
+    setSelectedMonths([]);
+    setSubPaymentError('');
+    setIsEditingSubscription(true);
+    fetchSubscriptionData();
+  };
+
+  const selectedPackage = SUBSCRIPTION_PACKAGES.find(p => p.id === selectedPackageId) || SUBSCRIPTION_PACKAGES[1];
+  const paidMonths: string[] = Array.from(new Set([
+    ...(Array.isArray(configObj?.paid_months) ? configObj.paid_months : []),
+    ...subTransactions
+      .filter((tr: any) => tr.status === 'approved')
+      .flatMap((tr: any) => Array.isArray(tr.metadata?.months) && tr.metadata.months.length > 0
+        ? tr.metadata.months
+        : ((tr.description || '').match(/\b\d{4}-\d{2}\b/g) || []))
+  ])).sort();
+
+  const activePackageName = String(configObj.package_name || 'STANDARD').toUpperCase();
+  const isSelectingCurrentPackage = selectedPackage.name === activePackageName;
+  const effectiveRate = (isSelectingCurrentPackage && configObj.custom_subscription_fee !== undefined && configObj.custom_subscription_fee !== null && configObj.custom_subscription_fee !== '')
+    ? Number(configObj.custom_subscription_fee)
+    : (isSelectingCurrentPackage && Number(configObj.package_rate) > 0)
+      ? Number(configObj.package_rate)
+      : selectedPackage.rate;
+
+  const calculatedFee = effectiveRate * selectedMonths.length;
+
+  const toggleMonth = (monthKey: string) => {
+    if (paidMonths.includes(monthKey)) return;
+    setSubPaymentError('');
+    setSelectedMonths(prev =>
+      prev.includes(monthKey) ? prev.filter(m => m !== monthKey) : [...prev, monthKey].sort()
+    );
+  };
+
+  const formatMonthBadge = (ym: string) => {
+    const parts = String(ym).split('-');
+    if (parts.length === 2) {
+      const mIdx = parseInt(parts[1], 10) - 1;
+      if (mIdx >= 0 && mIdx < 12) {
+        return `${lang === 'bn' ? MONTHS_BN[mIdx] : MONTHS_EN[mIdx]} ${parts[0]}`;
+      }
+    }
+    return ym;
+  };
+
+  const getCurrentPaymentNumber = () => {
+    if (paymentMethod === 'Nagad' && paymentNumbers.nagad_number) return paymentNumbers.nagad_number;
+    if (paymentMethod === 'Rocket' && paymentNumbers.rocket_number) return paymentNumbers.rocket_number;
+    return paymentNumbers.bkash_number || '01700-000000';
+  };
+
+  const handleCopyPaymentNumber = async () => {
+    const num = getCurrentPaymentNumber();
+    if (!num) return;
+    try {
+      await navigator.clipboard.writeText(num);
+      setCopiedPayNum(true);
+      setTimeout(() => setCopiedPayNum(false), 2000);
+    } catch {
+      // ignore clipboard errors
+    }
+  };
+
+  const handleSubmitSubscriptionPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!madrasah || selectedMonths.length === 0) return;
+
+    const cleanPhone = senderPhone.trim();
+    const cleanTrx = trxId.trim();
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setSubPaymentError(lang === 'bn' ? 'সঠিক প্রেরকের মোবাইল নম্বর দিন।' : 'Please enter a valid sender phone number.');
+      return;
+    }
+    if (!cleanTrx || cleanTrx.length < 4) {
+      setSubPaymentError(lang === 'bn' ? 'সঠিক ট্রানজ্যাকশন আইডি (TrxID) দিন।' : 'Please enter a valid Transaction ID (TrxID).');
+      return;
+    }
+
+    setSubmittingPayment(true);
+    setSubPaymentError('');
+
+    const subDescription = `Subscription Payment (${selectedPackage.name}) - ${selectedMonths.join(', ')} via ${paymentMethod}`;
+    const fullPayload: Record<string, any> = {
+      institution_id: madrasah.id,
+      amount: calculatedFee,
+      transaction_id: cleanTrx,
+      sender_phone: cleanPhone,
+      description: subDescription,
+      type: 'credit',
+      status: 'pending',
+      sms_count: 0,
+      module: 'subscription',
+      metadata: {
+        months: selectedMonths,
+        package_name: selectedPackage.name,
+        subscription_type: configObj.subscription_type || 'monthly',
+        payment_method: paymentMethod,
+        expected_amount: calculatedFee
+      }
+    };
+
+    try {
+      let { error: insertErr } = await supabase.from('transactions').insert(fullPayload);
+      if (insertErr && (insertErr.message?.includes('module') || insertErr.message?.includes('metadata') || insertErr.code === '42703')) {
+        const { module: _m, metadata: _md, ...basePayload } = fullPayload;
+        const retryRes = await supabase.from('transactions').insert(basePayload);
+        insertErr = retryRes.error;
+      }
+
+      if (insertErr) throw insertErr;
+
+      setSelectedMonths([]);
+      setSenderPhone('');
+      setTrxId('');
+      await fetchSubscriptionData();
+      setShowSuccessModal({
+        show: true,
+        title: lang === 'bn' ? 'রিকোয়েস্ট সফল' : 'Request Submitted',
+        message: lang === 'bn'
+          ? 'পেমেন্ট রিকোয়েস্ট পাঠানো হয়েছে! সুপার অ্যাডমিন অনুমোদন করলে আপনার সাবস্ক্রিপশন আপডেট হয়ে যাবে।'
+          : 'Payment request submitted! Your subscription will update once Super Admin approves it.'
+      });
+    } catch (err: any) {
+      setSubPaymentError(err?.message || (lang === 'bn' ? 'পেমেন্ট রিকোয়েস্ট পাঠাতে সমস্যা হয়েছে।' : 'Failed to submit payment request.'));
+    } finally {
+      setSubmittingPayment(false);
+    }
+  };
+
+  const handleDownloadSubReceipt = async (tr: any) => {
+    if (!madrasah) return;
+    setDownloadingReceiptId(tr.id);
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '680px';
+    container.style.backgroundColor = '#ffffff';
+    container.style.color = '#0f172a';
+    container.style.fontFamily = "'Noto Sans Bengali', 'Inter', sans-serif";
+    container.style.padding = '36px';
+    container.style.boxSizing = 'border-box';
+
+    const formattedDate = escapeHtml(new Date(tr.created_at).toLocaleString(lang === 'bn' ? 'bn-BD' : 'en-US'));
+    const monthsText = Array.isArray(tr.metadata?.months) && tr.metadata.months.length > 0
+      ? escapeHtml(tr.metadata.months.map((m: string) => formatMonthBadge(m)).join(', '))
+      : '';
+    const pkgText = tr.metadata?.package_name ? ` (${escapeHtml(tr.metadata.package_name)})` : '';
+    const statusText = escapeHtml(String(tr.status || 'pending').toUpperCase());
+
+    container.innerHTML = `
+      <div style="border: 2px solid #0fb5ab; border-radius: 20px; padding: 32px; background: #ffffff; position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px dashed #cbd5e1; padding-bottom: 20px; margin-bottom: 24px;">
+          <div>
+            <div style="font-size: 24px; font-weight: 900; color: #0fb5ab; letter-spacing: -0.5px;">Committee Manager</div>
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px;">Official Subscription Receipt</div>
+          </div>
+          <div style="text-align: right;">
+            <span style="display: inline-block; padding: 6px 14px; border-radius: 999px; background: #ecfdf5; color: #059669; border: 1.5px solid #10b981; font-size: 12px; font-weight: 900; letter-spacing: 1px;">${statusText}</span>
+            <div style="font-size: 10px; color: #64748b; font-weight: 700; margin-top: 8px;">${formattedDate}</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; background: #f8fafc; padding: 18px; border-radius: 14px; border: 1px solid #e2e8f0;">
+          <div>
+            <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Committee / Organization</div>
+            <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 4px;">${escapeHtml(madrasah.name)}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${escapeHtml(madrasah.phone || '')}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Transaction ID</div>
+            <div style="font-size: 13px; font-weight: 800; color: #0fb5ab; margin-top: 4px;">${escapeHtml(tr.transaction_id || tr.id)}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Sender: ${escapeHtml(tr.sender_phone || 'Admin Direct')}</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+          <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">Subscription Details</div>
+          <div style="font-size: 14px; font-weight: 700; color: #1e293b; padding: 14px 16px; background: #f0fdfa; border-radius: 12px; border: 1px solid #ccfbf1;">
+            ${escapeHtml(tr.description || 'Subscription Payment')}${pkgText}
+            ${monthsText ? `<div style="font-size: 11px; color: #0f766e; margin-top: 6px;">Months: ${monthsText}</div>` : ''}
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #0fb5ab; color: #ffffff; padding: 18px 24px; border-radius: 14px;">
+          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Total Amount Paid</div>
+          <div style="font-size: 24px; font-weight: 900;">৳ ${Number(tr.amount || 0).toFixed(2)}</div>
+        </div>
+
+        <div style="margin-top: 24px; text-align: center; font-size: 10px; color: #94a3b8; font-weight: 600;">
+          Generated by Committee Manager
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(container);
+    try {
+      const imgData = await toPng(container, { pixelRatio: 2, backgroundColor: '#ffffff' });
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData, 'PNG', 10, 15, pdfWidth, pdfHeight);
+      pdf.save(`Committee_Subscription_Receipt_${tr.transaction_id || tr.id}.pdf`);
+    } catch (err) {
+      console.error('Receipt generation error:', err);
+    } finally {
+      document.body.removeChild(container);
+      setDownloadingReceiptId(null);
+    }
+  };
+
+  const isDark = madrasah?.theme === 'dark';
+
+  if (isEditingSubscription && !isMember) {
+    const billingCycleLabel =
+      configObj.subscription_type === 'lifetime'
+        ? (lang === 'bn' ? 'লাইফটাইম' : 'Lifetime')
+        : configObj.subscription_type === 'yearly'
+          ? (lang === 'bn' ? 'বার্ষিক' : 'Yearly')
+          : configObj.subscription_type === 'quarterly'
+            ? (lang === 'bn' ? 'ত্রৈমাসিক' : 'Quarterly')
+            : (lang === 'bn' ? 'মাসিক' : 'Monthly');
+
+    const expiresAtLabel =
+      configObj.subscription_type === 'lifetime'
+        ? (lang === 'bn' ? 'লাইফটাইম' : 'Lifetime')
+        : madrasah.subscription_end
+          ? new Date(madrasah.subscription_end).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+          : madrasah.status === 'trial' && madrasah.created_at
+            ? new Date(new Date(madrasah.created_at).getTime() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+            : (lang === 'bn' ? 'নির্ধারিত নয়' : 'Not Set');
+
+    const statusBadge =
+      madrasah.is_active === false || madrasah.status === 'suspended'
+        ? { label: lang === 'bn' ? 'স্থগিত' : 'Suspended', cls: 'bg-red-500/10 text-red-500 border-red-500/20' }
+        : madrasah.status === 'trial'
+          ? { label: lang === 'bn' ? 'ট্রায়াল' : 'Trial', cls: 'bg-amber-500/10 text-amber-500 border-amber-500/20' }
+          : { label: lang === 'bn' ? 'সক্রিয়' : 'Active', cls: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' };
+
+    const overviewRate =
+      configObj.custom_subscription_fee !== undefined && configObj.custom_subscription_fee !== null && configObj.custom_subscription_fee !== ''
+        ? Number(configObj.custom_subscription_fee)
+        : Number(configObj.package_rate) > 0
+          ? Number(configObj.package_rate)
+          : (SUBSCRIPTION_PACKAGES.find(p => p.name === activePackageName)?.rate || 500);
+
+    const paidInSelectedYear = Array.from({ length: 12 }, (_, idx) => `${subscriptionYear}-${String(idx + 1).padStart(2, '0')}`)
+      .filter(k => paidMonths.includes(k));
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300 pb-36 relative z-10">
+        {/* Top Header */}
+        <div className="flex items-center justify-between gap-4 px-1">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setIsEditingSubscription(false)}
+              className={`w-11 h-11 rounded-2xl border flex items-center justify-center active:scale-95 transition-all shadow-sm shrink-0 ${
+                isDark ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-white text-[#0fb5ab] border-slate-200'
+              }`}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="min-w-0">
+              <h1 className={`text-lg sm:text-xl font-black font-noto leading-tight truncate ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                {lang === 'bn' ? 'সাবস্ক্রিপশন ম্যানেজমেন্ট' : 'Subscription Management'}
+              </h1>
+              <p className="text-[11px] font-bold text-slate-400 truncate">
+                {lang === 'bn' ? 'প্যাকেজ, মাসভিত্তিক স্ট্যাটাস ও চার্জ পরিশোধ করুন' : 'Manage plan, monthly payment status & billing'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={fetchSubscriptionData}
+            className={`w-10 h-10 rounded-2xl border flex items-center justify-center active:scale-95 transition-all shrink-0 ${
+              isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-white text-slate-500 border-slate-200'
+            }`}
+            title={lang === 'bn' ? 'রিফ্রেশ' : 'Refresh'}
+          >
+            <RefreshCw size={16} className={loadingSubTx ? 'animate-spin text-[#0fb5ab]' : ''} />
+          </button>
+        </div>
+
+        {/* Dual-Column Responsive Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 px-1">
+          {/* Left Column */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Current Package Overview Card */}
+            <div className={`p-6 rounded-[2.2rem] border shadow-sm space-y-5 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-[#42f5e9]/15 text-[#0fb5ab]'}`}>
+                    <Package size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      {lang === 'bn' ? 'বর্তমান প্যাকেজ' : 'Current Package'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <h2 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {activePackageName}
+                      </h2>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${statusBadge.cls}`}>
+                        {statusBadge.label}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {Number(configObj.due_amount) > 0 && (
+                  <div className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-black flex items-center gap-1.5">
+                    <AlertTriangle size={14} />
+                    <span>{lang === 'bn' ? `বকেয়া: ৳${Number(configObj.due_amount).toLocaleString()}` : `Due: ৳${Number(configObj.due_amount).toLocaleString()}`}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-700/70' : 'bg-slate-50 border-slate-100'}`}>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                    {lang === 'bn' ? 'মোট সদস্য' : 'Total Members'}
+                  </p>
+                  <p className={`text-base font-black mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {stats.students}
+                    {Number(configObj.member_limit) > 0 && (
+                      <span className="text-xs font-bold text-slate-400"> / {configObj.member_limit}</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-700/70' : 'bg-slate-50 border-slate-100'}`}>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                    {lang === 'bn' ? 'বিলিং সাইকেল' : 'Billing Cycle'}
+                  </p>
+                  <p className={`text-base font-black mt-1 font-noto ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
+                    {billingCycleLabel}
+                  </p>
+                </div>
+
+                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-700/70' : 'bg-slate-50 border-slate-100'}`}>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                    {lang === 'bn' ? 'প্যাকেজ রেট' : 'Package Rate'}
+                  </p>
+                  <p className={`text-base font-black mt-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {overviewRate} ৳
+                  </p>
+                </div>
+
+                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-700/70' : 'bg-slate-50 border-slate-100'}`}>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                    {lang === 'bn' ? 'মেয়াদ শেষ' : 'Expires At'}
+                  </p>
+                  <p className={`text-xs sm:text-sm font-black mt-1.5 font-noto ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                    {expiresAtLabel}
+                  </p>
+                </div>
+              </div>
+
+              {configObj.subscription_note && (
+                <div className={`p-3.5 rounded-2xl border text-xs font-bold leading-relaxed ${
+                  isDark ? 'bg-slate-900/50 border-slate-700 text-slate-300' : 'bg-slate-50/80 border-slate-200/70 text-slate-600'
+                }`}>
+                  <span className="text-[#0fb5ab] mr-1.5">{lang === 'bn' ? 'নোট:' : 'Note:'}</span>
+                  {configObj.subscription_note}
+                </div>
+              )}
+            </div>
+
+            {/* Section 1: Select Subscription Package */}
+            <div className={`p-6 rounded-[2.2rem] border shadow-sm space-y-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  {lang === 'bn' ? '১. প্যাকেজ নির্বাচন করুন' : '1. Select Subscription Package'}
+                </h3>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {lang === 'bn' ? '৩টি প্ল্যান' : '3 Plans'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {SUBSCRIPTION_PACKAGES.map((pkg) => {
+                  const isActivePkg = pkg.name === activePackageName;
+                  const isSelectedPkg = pkg.id === selectedPackage.id;
+                  return (
+                    <div
+                      key={pkg.id}
+                      onClick={() => setSelectedPackageId(pkg.id)}
+                      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-3 relative ${
+                        isSelectedPkg
+                          ? isDark
+                            ? 'bg-[#0fb5ab]/15 border-[#42f5e9] ring-2 ring-[#42f5e9]/20'
+                            : 'bg-[#42f5e9]/10 border-[#0fb5ab] ring-2 ring-[#0fb5ab]/15'
+                          : isDark
+                            ? 'bg-slate-900/50 border-slate-700 hover:border-slate-600'
+                            : 'bg-slate-50/70 border-slate-100 hover:border-slate-200'
+                      }`}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                            isDark ? 'bg-slate-800 text-[#42f5e9]' : 'bg-white text-[#0fb5ab] border border-[#42f5e9]/30'
+                          }`}>
+                            {lang === 'bn' ? pkg.badgeBn : pkg.badgeEn}
+                          </span>
+                          {isActivePkg && (
+                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white">
+                              {lang === 'bn' ? 'বর্তমান' : 'Current'}
+                            </span>
+                          )}
+                        </div>
+                        <h4 className={`text-base font-black tracking-tight pt-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          {pkg.name}
+                        </h4>
+                        <p className={`text-lg font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
+                          ৳{pkg.rate}
+                          <span className="text-[10px] font-bold text-slate-400">/{lang === 'bn' ? 'মাস' : 'mo'}</span>
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPackageDetailModal(pkg);
+                        }}
+                        className={`w-full py-2 rounded-xl text-[10px] font-black transition-colors ${
+                          isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-white hover:bg-slate-100 text-[#0fb5ab] border border-slate-200'
+                        }`}
+                      >
+                        {lang === 'bn' ? 'বিস্তারিত দেখুন' : 'View Details'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 2: Monthly Payment Status */}
+            <div className={`p-6 rounded-[2.2rem] border shadow-sm space-y-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {lang === 'bn' ? '২. মাসের পেমেন্ট স্ট্যাটাস' : '2. Monthly Payment Status'}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <CheckCircle2 size={11} />
+                      {lang === 'bn'
+                        ? `পরিশোধিত: ${paidInSelectedYear.length} / ১২ মাস (${subscriptionYear})`
+                        : `Paid: ${paidInSelectedYear.length} / 12 mos (${subscriptionYear})`}
+                    </span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                      isDark ? 'bg-slate-900 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {lang === 'bn' ? `মোট পরিশোধ: ${paidMonths.length} মাস` : `Total: ${paidMonths.length} mos`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Year Switcher */}
+                <div className={`flex items-center gap-1 p-1 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setSubscriptionYear(y => y - 1)}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-white text-slate-600'}`}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className={`px-3 text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {subscriptionYear}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSubscriptionYear(y => y + 1)}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-white text-slate-600'}`}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* 12-Month Grid */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {Array.from({ length: 12 }, (_, idx) => {
+                  const monthKey = `${subscriptionYear}-${String(idx + 1).padStart(2, '0')}`;
+                  const monthLabel = lang === 'bn' ? MONTHS_BN[idx] : MONTHS_EN[idx];
+                  const isPaid = paidMonths.includes(monthKey);
+                  const isSelected = selectedMonths.includes(monthKey);
+
+                  return (
+                    <button
+                      key={monthKey}
+                      type="button"
+                      disabled={isPaid}
+                      onClick={() => toggleMonth(monthKey)}
+                      className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between min-h-[72px] ${
+                        isPaid
+                          ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 cursor-default'
+                          : isSelected
+                            ? 'bg-[#0fb5ab] border-[#0fb5ab] text-white shadow-md shadow-[#0fb5ab]/20 active:scale-95'
+                            : isDark
+                              ? 'bg-slate-900/60 border-slate-700 text-slate-200 hover:border-[#42f5e9]/50 active:scale-95'
+                              : 'bg-slate-50/70 border-slate-200/80 text-slate-700 hover:border-[#0fb5ab]/50 active:scale-95'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="text-xs font-black font-noto leading-tight">{monthLabel}</span>
+                        {isPaid && <CheckCircle2 size={12} className="shrink-0 mt-0.5" />}
+                      </div>
+
+                      <span className={`text-[9px] font-bold uppercase tracking-wider mt-1.5 ${
+                        isPaid
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : isSelected
+                            ? 'text-white/90'
+                            : 'text-slate-400'
+                      }`}>
+                        {isPaid
+                          ? (lang === 'bn' ? 'পরিশোধিত' : 'Paid')
+                          : isSelected
+                            ? (lang === 'bn' ? 'নির্বাচিত' : 'Selected')
+                            : (lang === 'bn' ? 'বকেয়া' : 'Due')}
+                      </span>
+
+                      <div className={`absolute bottom-0 left-0 right-0 h-1 ${
+                        isPaid
+                          ? 'bg-emerald-500'
+                          : isSelected
+                            ? 'bg-white'
+                            : 'bg-transparent'
+                      }`} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="text-[11px] font-bold text-slate-400 leading-relaxed">
+                {lang === 'bn'
+                  ? '* সবুজ চিহ্নিত মাসগুলো ইতিমধ্যে পরিশোধিত। নতুন পেমেন্টের জন্য বকেয়া মাসগুলো সিলেক্ট করুন।'
+                  : '* Green highlighted months are already paid. Select unpaid months to submit a new payment.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="lg:col-span-5 space-y-5">
+            {/* Payment Submission Card */}
+            <div className={`p-6 rounded-[2.2rem] border shadow-sm space-y-5 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              <div className="flex items-center justify-between">
+                <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                  {lang === 'bn' ? '৩. পেমেন্ট সাবমিট করুন' : '3. Submit Payment'}
+                </h3>
+                <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-[#42f5e9]/15 text-[#0fb5ab]'}`}>
+                  bKash / Nagad / Rocket
+                </span>
+              </div>
+
+              {selectedMonths.length === 0 ? (
+                <div className={`p-8 rounded-3xl border-2 border-dashed text-center space-y-3 ${isDark ? 'bg-slate-900/40 border-slate-700' : 'bg-slate-50/70 border-slate-200'}`}>
+                  <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-[#42f5e9]' : 'bg-white text-[#0fb5ab] shadow-sm'}`}>
+                    <Clock size={28} />
+                  </div>
+                  <h4 className={`text-base font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {lang === 'bn' ? 'মাস নির্বাচন করুন' : 'Select Months'}
+                  </h4>
+                  <p className="text-xs font-bold text-slate-400 leading-relaxed max-w-xs mx-auto">
+                    {lang === 'bn'
+                      ? 'পেমেন্ট করার জন্য বাম পাশের ২ নম্বর ধাপ থেকে অন্তত একটি বকেয়া মাস সিলেক্ট করুন।'
+                      : 'Select at least one unpaid month from Step 2 on the left to proceed with payment.'}
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitSubscriptionPayment} className="space-y-4">
+                  {/* Selected Summary */}
+                  <div className={`p-4 rounded-2xl border space-y-2.5 ${isDark ? 'bg-slate-900/70 border-slate-700' : 'bg-[#42f5e9]/10 border-[#42f5e9]/30'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-slate-500 dark:text-slate-400">
+                        {lang === 'bn' ? `নির্বাচিত মাস (${selectedMonths.length}টি)` : `Selected (${selectedMonths.length} mos)`}
+                      </span>
+                      <span className={`text-lg font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
+                        {calculatedFee.toLocaleString()} ৳
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedMonths.map(m => (
+                        <span
+                          key={m}
+                          onClick={() => toggleMonth(m)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black cursor-pointer ${
+                            isDark ? 'bg-slate-800 text-[#42f5e9] border border-slate-700' : 'bg-white text-[#0fb5ab] border border-[#0fb5ab]/20'
+                          }`}
+                        >
+                          {formatMonthBadge(m)}
+                          <X size={10} />
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Admin Payment Number Box */}
+                  <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 ${isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-200/80'}`}>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                        {lang === 'bn' ? `${paymentMethod} পার্সোনাল/মার্চেন্ট নম্বর` : `${paymentMethod} Payment Number`}
+                      </p>
+                      <p className={`text-base font-black font-mono mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {getCurrentPaymentNumber()}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyPaymentNumber}
+                      className={`px-3 py-2 rounded-xl text-[11px] font-black flex items-center gap-1.5 shrink-0 transition-all ${
+                        isDark ? 'bg-slate-800 hover:bg-slate-700 text-[#42f5e9]' : 'bg-white hover:bg-slate-100 text-[#0fb5ab] border border-slate-200'
+                      }`}
+                    >
+                      {copiedPayNum ? <Check size={14} /> : <Copy size={14} />}
+                      {copiedPayNum ? (lang === 'bn' ? 'কপি হয়েছে' : 'Copied') : (lang === 'bn' ? 'কপি' : 'Copy')}
+                    </button>
+                  </div>
+
+                  {/* Method Selector */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['bKash', 'Nagad', 'Rocket'] as const).map(method => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setPaymentMethod(method)}
+                        className={`py-2.5 rounded-xl text-xs font-black border transition-all ${
+                          paymentMethod === method
+                            ? 'bg-[#0fb5ab] text-white border-[#0fb5ab] shadow-sm'
+                            : isDark
+                              ? 'bg-slate-900/60 text-slate-300 border-slate-700'
+                              : 'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Sender Phone & TrxID */}
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                        {lang === 'bn' ? 'প্রেরকের নম্বর (Send Money)' : 'Sender Phone Number'}
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={senderPhone}
+                        onChange={(e) => setSenderPhone(e.target.value)}
+                        placeholder="01XXXXXXXXX"
+                        className={`w-full h-11 px-4 rounded-xl border text-xs font-black outline-none ${
+                          isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-[#42f5e9]' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-[#0fb5ab]'
+                        }`}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                        {lang === 'bn' ? 'ট্রানজ্যাকশন আইডি (TrxID)' : 'Transaction ID (TrxID)'}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={trxId}
+                        onChange={(e) => setTrxId(e.target.value)}
+                        placeholder="e.g. BGD9X4K21M"
+                        className={`w-full h-11 px-4 rounded-xl border text-xs font-mono font-black uppercase outline-none ${
+                          isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-[#42f5e9]' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-[#0fb5ab]'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {subPaymentError && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-2">
+                      <AlertCircle size={15} className="shrink-0" />
+                      <span>{subPaymentError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={submittingPayment}
+                    className="w-full h-12 bg-[#0fb5ab] hover:bg-[#0d9e95] text-white font-black rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-[#0fb5ab]/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-60"
+                  >
+                    {submittingPayment ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                    {lang === 'bn' ? 'পেমেন্ট রিকোয়েস্ট পাঠান' : 'Submit Payment Request'}
+                  </button>
+                </form>
+              )}
+            </div>
+
+            {/* Subscription Payment History List */}
+            <div className={`p-6 rounded-[2.2rem] border shadow-sm space-y-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <History size={16} className="text-[#0fb5ab]" />
+                  <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {lang === 'bn' ? 'সাবস্ক্রিপশন পেমেন্ট হিস্ট্রি' : 'Subscription Payment History'}
+                  </h3>
+                </div>
+                <span className="text-[10px] font-black text-slate-400">
+                  {subTransactions.length}
+                </span>
+              </div>
+
+              {loadingSubTx ? (
+                <div className="py-8 flex justify-center">
+                  <Loader2 size={24} className="animate-spin text-[#0fb5ab]" />
+                </div>
+              ) : subTransactions.length === 0 ? (
+                <div className={`p-6 rounded-2xl border-2 border-dashed text-center ${isDark ? 'bg-slate-900/40 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <p className="text-xs font-bold text-slate-400">
+                    {lang === 'bn' ? 'এখনো কোনো সাবস্ক্রিপশন পেমেন্ট রেকর্ড নেই।' : 'No subscription payment history found.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                  {subTransactions.map((tr: any) => {
+                    const st = tr.status || 'pending';
+                    const stMeta =
+                      st === 'approved'
+                        ? { label: lang === 'bn' ? 'সফল' : 'Approved', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', icon: CheckCircle2 }
+                        : st === 'rejected'
+                          ? { label: lang === 'bn' ? 'প্রত্যাখ্যাত' : 'Rejected', cls: 'bg-red-500/10 text-red-500 border-red-500/20', icon: X }
+                          : { label: lang === 'bn' ? 'অপেক্ষা' : 'Pending', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', icon: Clock };
+                    const StIcon = stMeta.icon;
+                    const txMonths: string[] = Array.isArray(tr.metadata?.months) ? tr.metadata.months : [];
+
+                    return (
+                      <div
+                        key={tr.id}
+                        className={`p-4 rounded-2xl border space-y-2.5 ${isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50/70 border-slate-100'}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                {Number(tr.amount || 0).toLocaleString()} ৳
+                              </span>
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black border ${stMeta.cls}`}>
+                                <StIcon size={10} />
+                                {stMeta.label}
+                              </span>
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                              {new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {tr.transaction_id ? ` • TrxID: ${tr.transaction_id}` : ''}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={downloadingReceiptId === tr.id}
+                            onClick={() => handleDownloadSubReceipt(tr)}
+                            className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black flex items-center gap-1 shrink-0 border transition-colors ${
+                              isDark ? 'bg-slate-800 hover:bg-slate-700 text-[#42f5e9] border-slate-700' : 'bg-white hover:bg-slate-100 text-[#0fb5ab] border-slate-200'
+                            }`}
+                          >
+                            {downloadingReceiptId === tr.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                            <span>{lang === 'bn' ? 'রসিদ' : 'Receipt'}</span>
+                          </button>
+                        </div>
+
+                        {txMonths.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-[#0fb5ab]/10 text-[#0fb5ab]">
+                              {lang === 'bn' ? `${txMonths.length} মাস` : `${txMonths.length} mos`}
+                            </span>
+                            {txMonths.map((m) => (
+                              <span
+                                key={m}
+                                className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${
+                                  isDark ? 'bg-slate-800 text-slate-300' : 'bg-white text-slate-600 border border-slate-200/80'
+                                }`}
+                              >
+                                {formatMonthBadge(m)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Package Details Modal */}
+        {packageDetailModal && createPortal(
+          <div className="modal-overlay bg-slate-900/50 backdrop-blur-xl animate-in fade-in duration-200 z-[9999]">
+            <div className={`w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl border space-y-5 animate-in zoom-in-95 duration-300 ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-100 text-slate-900'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0fb5ab]">
+                    {lang === 'bn' ? packageDetailModal.badgeBn : packageDetailModal.badgeEn}
+                  </span>
+                  <h3 className="text-xl font-black mt-0.5">{packageDetailModal.name}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPackageDetailModal(null)}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-800/70 border-slate-700' : 'bg-[#42f5e9]/10 border-[#42f5e9]/30'}`}>
+                <p className="text-2xl font-black text-[#0fb5ab]">
+                  ৳{packageDetailModal.rate}
+                  <span className="text-xs font-bold text-slate-400"> / {lang === 'bn' ? 'মাস' : 'month'}</span>
+                </p>
+              </div>
+
+              <ul className="space-y-2.5">
+                {(lang === 'bn' ? packageDetailModal.featuresBn : packageDetailModal.featuresEn).map((feat, i) => (
+                  <li key={i} className="flex items-center gap-2.5 text-xs font-bold">
+                    <div className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                      <Check size={12} strokeWidth={3} />
+                    </div>
+                    <span>{feat}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPackageId(packageDetailModal.id);
+                    setPackageDetailModal(null);
+                  }}
+                  className="w-full py-3.5 bg-[#0fb5ab] text-white font-black rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-[#0fb5ab]/20"
+                >
+                  {lang === 'bn' ? 'এই প্যাকেজ সিলেক্ট করুন' : 'Select This Plan'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Feedback / Success Modal */}
+        {showSuccessModal.show && createPortal(
+          <div className="modal-overlay bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300 z-[9999]">
+            <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-50'} w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl border animate-in zoom-in-95 duration-300`}>
+              <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-500 border-4 border-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={34} />
+              </div>
+              <h3 className={`text-xl font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>{showSuccessModal.title}</h3>
+              <p className="text-xs font-bold text-slate-400 mt-2 leading-relaxed">{showSuccessModal.message}</p>
+              <button
+                type="button"
+                onClick={() => setShowSuccessModal({ show: false, title: '', message: '' })}
+                className="w-full mt-6 py-3.5 bg-[#42f5e9] text-[#0e8a84] font-black rounded-2xl text-xs uppercase tracking-widest"
+              >
+                {lang === 'bn' ? 'ঠিক আছে' : 'Continue'}
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-36 relative z-10">
@@ -317,8 +1340,29 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
 
       {/* Main Options Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mx-1">
+        {/* Subscription Card */}
+        {!isMember && madrasah.id !== 'super_admin' && (
+        <button 
+          type="button"
+          onClick={openSubscriptionPage}
+          className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
+        >
+          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <CreditCard size={24} />
+          </div>
+          <div>
+            <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+              {lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscription'}
+            </h5>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 truncate max-w-[130px]">
+              {lang === 'bn' ? 'প্যাকেজ ও পেমেন্ট' : 'Plans & Billing'}
+            </p>
+          </div>
+        </button>
+        )}
+
         {/* Academic Calendar Card */}
-        {(!isMember || !!madrasah?.member_portal_config?.permissions?.view_meetings) && (
+        {!(configObj.modules?.meetings === false && configObj.modules?.events === false) && (!isMember || !!madrasah?.member_portal_config?.permissions?.view_meetings) && (
         <button 
           onClick={() => setView('academic-calendar')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -444,7 +1488,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         </button>
 
         {/* Voting & Polls Card */}
-        {(!isMember || !!madrasah?.member_portal_config?.permissions?.view_polls) && (
+        {configObj.modules?.polls !== false && (!isMember || !!madrasah?.member_portal_config?.permissions?.view_polls) && (
         <button 
           onClick={() => setView('polls')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -464,7 +1508,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
         )}
 
         {/* Notice Board Card */}
-        {(!isMember || !!madrasah?.member_portal_config?.permissions?.view_notices) && (
+        {configObj.modules?.notices !== false && (!isMember || !!madrasah?.member_portal_config?.permissions?.view_notices) && (
         <button 
           onClick={() => setView('notice-board')}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
@@ -875,6 +1919,27 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                  <button onClick={handleUpdate} disabled={saving} className="flex-[2] py-4 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-2xl text-[10px] uppercase shadow-premium flex items-center justify-center gap-2">{saving ? <Loader2 className="animate-spin" size={16} /> : 'সংরক্ষণ করুন'}</button>
               </div>
            </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Success / Info Modal - PORTALED */}
+      {showSuccessModal.show && createPortal(
+        <div className="modal-overlay bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300 z-[9999]">
+          <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-50'} w-full max-w-sm rounded-[2.5rem] p-8 text-center shadow-2xl border animate-in zoom-in-95 duration-300`}>
+            <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-500 border-4 border-emerald-100 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 size={34} />
+            </div>
+            <h3 className={`text-xl font-black font-noto ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>{showSuccessModal.title}</h3>
+            <p className="text-xs font-bold text-slate-400 mt-2 leading-relaxed">{showSuccessModal.message}</p>
+            <button
+              type="button"
+              onClick={() => setShowSuccessModal({ show: false, title: '', message: '' })}
+              className="w-full mt-6 py-3.5 bg-[#42f5e9] text-[#0e8a84] font-black rounded-2xl text-xs uppercase tracking-widest"
+            >
+              {lang === 'bn' ? 'ঠিক আছে' : 'Continue'}
+            </button>
+          </div>
         </div>,
         document.body
       )}

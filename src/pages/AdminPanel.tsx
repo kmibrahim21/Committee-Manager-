@@ -87,7 +87,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     currentView === 'approvals' ? 'approvals' : currentView === 'dashboard' ? 'dashboard' : 'list'
   );
 
-  const [paymentTab, setPaymentTab] = useState<'sms' | 'voice'>('sms');
+  const [paymentTab, setPaymentTab] = useState<'sms' | 'voice' | 'subscription'>('sms');
   const [showPaymentFilter, setShowPaymentFilter] = useState(false);
   const [paymentSearch, setPaymentSearch] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -1076,18 +1076,84 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     });
   };
 
+  const isSubscriptionTransaction = (tr: Transaction) => {
+    const desc = (tr.description || '').toLowerCase();
+    return (
+      tr.module === 'subscription' ||
+      desc.includes('subscription') ||
+      String(tr.transaction_id || '').toUpperCase().startsWith('SUB_')
+    );
+  };
+
   const approveTransaction = async (tr: Transaction) => {
-    const isVoice = (tr.description || '').toLowerCase().includes('voice');
+    const isSub = isSubscriptionTransaction(tr);
+    const isVoice = !isSub && (tr.description || '').toLowerCase().includes('voice');
     const sms = Number(smsToCredit[tr.id]);
     
-    if (!isVoice && (!sms || sms <= 0)) {
+    if (!isSub && !isVoice && (!sms || sms <= 0)) {
       setStatusModal({ show: true, type: 'error', title: 'ত্রুটি', message: 'সঠিক SMS সংখ্যা লিখুন' });
       return;
     }
     
     setApprovingIds(prev => new Set(prev).add(tr.id));
     try {
-      if (isVoice) {
+      if (isSub) {
+        const { error: updateError } = await supabase.from('transactions').update({ status: 'approved' }).eq('id', tr.id);
+        if (updateError) throw updateError;
+
+        const { data: instData, error: instError } = await supabase
+          .from('institutions')
+          .select('id, config_json, subscription_end, status, is_active')
+          .eq('id', tr.institution_id)
+          .single();
+        if (instError) throw instError;
+
+        let currentCfg: any = instData?.config_json || {};
+        if (typeof currentCfg === 'string') {
+          try { currentCfg = JSON.parse(currentCfg); } catch { currentCfg = {}; }
+        }
+        const existingPaid: string[] = Array.isArray(currentCfg?.paid_months) ? currentCfg.paid_months : [];
+        const fallbackMonths = (tr.description || '').match(/\b\d{4}-\d{2}\b/g) || [];
+        const newMonths: string[] = Array.isArray(tr.metadata?.months) && tr.metadata.months.length > 0
+          ? tr.metadata.months
+          : fallbackMonths;
+        const mergedPaidMonths = Array.from(new Set([...existingPaid, ...newMonths])).sort();
+
+        const pkgMatch = (tr.description || '').match(/Subscription Payment \(([^)]+)\)/i);
+        const resolvedPackageName = tr.metadata?.package_name || (pkgMatch ? pkgMatch[1] : undefined);
+
+        // Advance subscription_end based on latest paid month if applicable
+        let nextSubEnd = instData?.subscription_end || null;
+        if (mergedPaidMonths.length > 0) {
+          const latestYm = mergedPaidMonths[mergedPaidMonths.length - 1];
+          const [yrStr, moStr] = latestYm.split('-');
+          const yr = Number(yrStr);
+          const mo = Number(moStr);
+          if (yr && mo) {
+            const lastDay = new Date(yr, mo, 0).toISOString().split('T')[0];
+            if (!nextSubEnd || lastDay > nextSubEnd) {
+              nextSubEnd = lastDay;
+            }
+          }
+        }
+
+        const updatedCfg = {
+          ...currentCfg,
+          paid_months: mergedPaidMonths,
+          ...(resolvedPackageName ? { package_name: resolvedPackageName } : {})
+        };
+
+        const { error: instUpdateErr } = await supabase
+          .from('institutions')
+          .update({
+            config_json: updatedCfg,
+            subscription_end: nextSubEnd,
+            status: 'active',
+            is_active: true
+          })
+          .eq('id', tr.institution_id);
+        if (instUpdateErr) throw instUpdateErr;
+      } else if (isVoice) {
         // ১. ডাটাবেসে পেমেন্ট অনুমোদন করা (Manual update for Voice)
         const { error: updateError } = await supabase.from('transactions').update({ status: 'approved' }).eq('id', tr.id);
         if (updateError) throw updateError;
@@ -1120,9 +1186,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       if (isSmsEnabled) {
         const userPhone = tr.institutions?.phone || tr.sender_phone;
         if (userPhone) {
-          const msg = isVoice 
-            ? `আস-সালামু আলাইকুম, আপনার পেমেন্ট অনুমোদিত হয়েছে। আপনার অ্যাকাউন্টে ${tr.amount} ৳ ভয়েস ব্যালেন্স যোগ করা হয়েছে। ধন্যবাদ।`
-            : `আস-সালামু আলাইকুম, আপনার পেমেন্ট অনুমোদিত হয়েছে। আপনার অ্যাকাউন্টে ${sms} টি SMS যোগ করা হয়েছে। ধন্যবাদ।`;
+          const msg = isSub
+            ? `আস-সালামু আলাইকুম, আপনার সাবস্ক্রিপশন পেমেন্ট (${tr.amount} ৳) অনুমোদিত হয়েছে। ধন্যবাদ।`
+            : isVoice
+              ? `আস-সালামু আলাইকুম, আপনার পেমেন্ট অনুমোদিত হয়েছে। আপনার অ্যাকাউন্টে ${tr.amount} ৳ ভয়েস ব্যালেন্স যোগ করা হয়েছে। ধন্যবাদ।`
+              : `আস-সালামু আলাইকুম, আপনার পেমেন্ট অনুমোদিত হয়েছে। আপনার অ্যাকাউন্টে ${sms} টি SMS যোগ করা হয়েছে। ধন্যবাদ।`;
           // Fire and forget SMS to avoid blocking UI
           smsApi.sendDirect(userPhone, msg).catch(err => console.error("SMS Send Error:", err));
         }
@@ -1135,7 +1203,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         show: true, 
         type: 'success', 
         title: 'সফল', 
-        message: isSmsEnabled ? 'রিচার্জ সফল হয়েছে এবং ইউজারকে SMS পাঠানো হয়েছে।' : 'রিচার্জ সফল হয়েছে (SMS পাঠানো হয়নি)।' 
+        message: isSub
+          ? 'সাবস্ক্রিপশন পেমেন্ট অনুমোদিত ও আপডেট হয়েছে।'
+          : isSmsEnabled
+            ? 'রিচার্জ সফল হয়েছে এবং ইউজারকে SMS পাঠানো হয়েছে।'
+            : 'রিচার্জ সফল হয়েছে (SMS পাঠানো হয়নি)।' 
       });
       
       // ব্যাকগ্রাউন্ডে ডাটা রিফ্রেশ করা
@@ -1376,7 +1448,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     if (paymentStatusFilter === 'approved' || paymentStatusFilter === 'rejected') return [];
     return pendingTrans.filter(tr => {
       const desc = (tr.description || '').toLowerCase();
-      const matchesTab = paymentTab === 'sms' ? (desc.includes('sms') || !desc.includes('voice')) : desc.includes('voice');
+      const isSub = isSubscriptionTransaction(tr);
+      const isVoice = !isSub && desc.includes('voice');
+      const matchesTab =
+        paymentTab === 'subscription'
+          ? isSub
+          : paymentTab === 'voice'
+            ? isVoice
+            : !isSub && !isVoice;
       const matchesSearch = matchesPaymentSearch(tr, paymentSearch);
       const matchesDate = isTransactionMatchingDate(tr.created_at, paymentDateFilter);
       return matchesTab && matchesSearch && matchesDate;
@@ -1387,7 +1466,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     if (paymentStatusFilter === 'pending') return [];
     return transactionHistory.filter(tr => {
       const desc = (tr.description || '').toLowerCase();
-      const matchesTab = paymentTab === 'sms' ? (desc.includes('sms') || !desc.includes('voice')) : desc.includes('voice');
+      const isSub = isSubscriptionTransaction(tr);
+      const isVoice = !isSub && desc.includes('voice');
+      const matchesTab =
+        paymentTab === 'subscription'
+          ? isSub
+          : paymentTab === 'voice'
+            ? isVoice
+            : !isSub && !isVoice;
       const matchesStatus = paymentStatusFilter === 'all' || tr.status === paymentStatusFilter;
       const matchesSearch = matchesPaymentSearch(tr, paymentSearch);
       const matchesDate = isTransactionMatchingDate(tr.created_at, paymentDateFilter);
@@ -1804,7 +1890,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                 </div>
               )}
 
-              <div className={`flex ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'} p-1 rounded-2xl`}>
+              <div className={`flex ${madrasah?.theme === 'dark' ? 'bg-slate-800' : 'bg-slate-100'} p-1 rounded-2xl gap-1`}>
                 <button 
                   onClick={() => setPaymentTab('sms')}
                   className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'sms' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
@@ -1816,6 +1902,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                   className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'voice' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
                 >
                   {lang === 'bn' ? 'ভয়েস রিচার্জ' : 'Voice Recharge'}
+                </button>
+                <button 
+                  onClick={() => setPaymentTab('subscription')}
+                  className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${paymentTab === 'subscription' ? (madrasah?.theme === 'dark' ? 'bg-slate-700 text-[#0fb5ab] shadow-sm' : 'bg-white text-[#0fb5ab] shadow-sm') : 'text-slate-400'}`}
+                >
+                  {lang === 'bn' ? 'সাবস্ক্রিপশন' : 'Subscription'}
                 </button>
               </div>
               
@@ -1840,8 +1932,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                              <p className="text-[10px] font-bold text-slate-400">TrxID: <span className="text-[#0fb5ab]">{tr.transaction_id}</span></p>
                              <p className="text-[11px] font-black text-[#0fb5ab] flex items-center gap-1.5">
                                  <Smartphone size={12} className="text-[#0fb5ab]" /> 
-                                 {lang === 'bn' ? 'বিকাশ নম্বর:' : 'bKash Number:'} <span className="text-slate-800">{tr.sender_phone || 'N/A'}</span>
+                                 {lang === 'bn' ? 'প্রেরক নম্বর:' : 'Sender Number:'} <span className="text-slate-800">{tr.sender_phone || 'N/A'}</span>
                              </p>
+                             {isSubscriptionTransaction(tr) && (
+                               <p className="text-[10px] font-bold text-indigo-600 mt-1">
+                                 {tr.metadata?.package_name ? `${tr.metadata.package_name} • ` : ''}
+                                 {Array.isArray(tr.metadata?.months) && tr.metadata.months.length > 0
+                                   ? tr.metadata.months.join(', ')
+                                   : tr.description}
+                               </p>
+                             )}
                           </div>
                         </div>
                         
@@ -1914,10 +2014,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                                </span>
                             </div>
                             <p className="text-[12px] font-black text-[#0fb5ab] font-noto truncate">{tr.institutions?.name}</p>
-                            <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-2">
-                               <Smartphone size={10} /> {lang === 'bn' ? 'বিকাশ:' : 'bKash:'} {tr.sender_phone || 'N/A'}
-                               {tr.sms_count && <span className="text-[#0fb5ab] font-black">({tr.sms_count} SMS)</span>}
+                            <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                               <Smartphone size={10} /> {isSubscriptionTransaction(tr) ? (tr.metadata?.payment_method || (lang === 'bn' ? 'প্রেরক:' : 'Sender:')) : (lang === 'bn' ? 'বিকাশ:' : 'bKash:')} {tr.sender_phone || 'N/A'}
+                               {Number(tr.sms_count) > 0 && <span className="text-[#0fb5ab] font-black">({tr.sms_count} SMS)</span>}
                             </p>
+                            {isSubscriptionTransaction(tr) && (
+                              <p className="text-[9px] font-bold text-indigo-500 mt-0.5 truncate">
+                                {tr.metadata?.package_name ? `${tr.metadata.package_name} • ` : ''}
+                                {Array.isArray(tr.metadata?.months) && tr.metadata.months.length > 0
+                                  ? tr.metadata.months.join(', ')
+                                  : tr.description}
+                              </p>
+                            )}
                             <div className="flex items-center gap-2 mt-1.5 text-slate-400">
                                <Clock size={10} />
                                <p className="text-[9px] font-bold">{new Date(tr.created_at).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US')}</p>

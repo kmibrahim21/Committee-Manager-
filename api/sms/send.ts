@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .maybeSingle(),
       supabaseAdmin
         .from('institutions')
-        .select('id, is_super_admin, reve_api_key, reve_caller_id, sms_balance')
+        .select('id, is_super_admin, reve_api_key, reve_secret_key, reve_caller_id, reve_client_id, sms_balance')
         .eq('id', user.id)
         .maybeSingle()
     ]);
@@ -111,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (targetInstId && !targetInst) {
       const { data } = await supabaseAdmin
         .from('institutions')
-        .select('id, reve_api_key, reve_caller_id, sms_balance')
+        .select('id, reve_api_key, reve_secret_key, reve_caller_id, reve_client_id, sms_balance')
         .eq('id', targetInstId)
         .maybeSingle();
       targetInst = data;
@@ -124,6 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       '';
     const senderId =
       (targetInst?.reve_caller_id && String(targetInst.reve_caller_id).trim()) ||
+      (targetInst?.reve_client_id && String(targetInst.reve_client_id).trim()) ||
       process.env.MRAM_SENDER_ID ||
       DEFAULT_SENDER_ID;
 

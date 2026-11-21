@@ -152,7 +152,7 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
           </button>
           <div>
             <h2 className={`text-2xl font-black font-noto ${isDark ? 'text-white' : 'text-[#1E293B]'}`}>{member.name}</h2>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{className} • রোল: {member.roll || '-'}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{className} • সদস্য আইডি: {member.member_id_number || member.roll || '-'}</p>
           </div>
         </div>
         <div className="flex gap-2">

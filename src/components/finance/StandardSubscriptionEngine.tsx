@@ -181,7 +181,7 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
             // Robust client-side query fallback directly from public.members table
             let query = supabase
               .from('members')
-              .select('id, name, roll, department_id, departments(name)')
+              .select('id, name, roll, member_id_number, department_id, departments(name)')
               .eq('institution_id', madrasah.id);
             
             if (classId) {
@@ -194,7 +194,8 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
             filteredData = (membersData || []).map((m: any) => ({
               member_id: m.id,
               student_name: m.name,
-              student_roll: m.roll,
+              student_roll: m.member_id_number || m.roll || '-',
+              member_id_number: m.member_id_number,
               department_id: m.department_id,
               department_name: m.departments?.name || m.departments?.[0]?.name || ''
             }));
@@ -203,7 +204,7 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
           console.warn("RPC failed, trying direct query:", e);
           let query = supabase
             .from('members')
-            .select('id, name, roll, department_id, departments(name)')
+            .select('id, name, roll, member_id_number, department_id, departments(name)')
             .eq('institution_id', madrasah.id);
           
           if (classId) {
@@ -216,7 +217,8 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
           filteredData = (membersData || []).map((m: any) => ({
             member_id: m.id,
             student_name: m.name,
-            student_roll: m.roll,
+            student_roll: m.member_id_number || m.roll || '-',
+            member_id_number: m.member_id_number,
             department_id: m.department_id,
             department_name: m.departments?.name || m.departments?.[0]?.name || ''
           }));
@@ -227,10 +229,14 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
         }
 
         const correctedData = filteredData.map((student: any) => {
+            const memberId = student.member_id || student.student_id || student.id;
+            const memberName = student.student_name || student.name || '';
+            const memberRoll = student.member_id_number || student.student_roll || student.roll || '-';
+
             const studentFeeStructures = feeStructures?.filter(fs => fs.department_id === student.department_id || fs.department_id === null) || [];
             const totalPayable = studentFeeStructures.reduce((sum, fs) => sum + Number(fs.amount), 0);
             
-            const studentFees = feesData?.filter(f => f.member_id === student.member_id) || [];
+            const studentFees = feesData?.filter(f => f.member_id === memberId) || [];
             const totalPaid = studentFees.reduce((sum, f) => sum + Number(f.amount_paid) + Number(f.discount || 0), 0);
             
             const balanceDue = Math.max(0, totalPayable - totalPaid);
@@ -242,9 +248,12 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
 
             return {
                 ...student,
-                id: student.member_id,
-                name: student.student_name,
-                roll: student.student_roll,
+                id: memberId,
+                member_id: memberId,
+                name: memberName,
+                student_name: memberName,
+                roll: memberRoll,
+                student_roll: memberRoll,
                 total_payable: totalPayable,
                 total_paid: totalPaid,
                 balance_due: balanceDue,
@@ -333,10 +342,13 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
     try {
       const totalAmt = parseFloat(collectAmount);
       const totalDiscount = parseFloat(discount) || 0;
+      const memberName = selectedStudent.name || selectedStudent.student_name || 'সদস্য';
+      const memberId = selectedStudent.member_id || selectedStudent.student_id || selectedStudent.id;
+      const memberRoll = selectedStudent.roll || selectedStudent.student_roll || selectedStudent.member_id_number || '-';
       
       const feeData = {
         institution_id: madrasah.id,
-        member_id: selectedStudent.member_id,
+        member_id: memberId,
         department_id: selectedStudent.department_id,
         amount_paid: totalAmt,
         month: selectedMonth,
@@ -360,14 +372,13 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
       // Add to Ledger
       const feeDescription = selectedFeeCategories.join(', ');
       const className = departments.find(c => c.id === selectedStudent.department_id)?.name || '';
-      const roll = selectedStudent.roll || '-';
       
       await supabase.from('ledger').insert({
         institution_id: madrasah.id,
         type: 'income',
         amount: totalAmt,
         category: 'Member Fee',
-        description: `${feeDescription} - ${selectedStudent.name} (${className} | Roll: ${roll} | Month: ${selectedMonth})${totalDiscount > 0 ? ` (ছাড়: ৳${totalDiscount})` : ''}`,
+        description: `${feeDescription} - ${memberName} (${className} | ID: ${memberRoll} | Month: ${selectedMonth})${totalDiscount > 0 ? ` (ছাড়: ৳${totalDiscount})` : ''}`,
         transaction_date: new Date().toISOString().split('T')[0]
       });
 
@@ -386,7 +397,7 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
   const handleShowHistory = async (student: any) => {
     setHistoryStudent(student);
     setShowHistoryModal(true);
-    fetchStudentHistory(student.member_id, historyYear);
+    fetchStudentHistory(student.member_id || student.student_id || student.id, historyYear);
   };
 
   const fetchStudentHistory = async (studentId: string, year: string) => {
@@ -399,14 +410,14 @@ export const StandardSubscriptionEngine: React.FC<StandardSubscriptionEngineProp
 
   useEffect(() => {
       if (historyStudent) {
-          fetchStudentHistory(historyStudent.member_id, historyYear);
+          fetchStudentHistory(historyStudent.member_id || historyStudent.student_id || historyStudent.id, historyYear);
       }
   }, [historyYear]);
 
   const handleDownloadClassReport = async (downloadLang: 'en' | 'bn' = lang) => {
     setIsDownloading(true);
     try {
-      const className = departments.find(c => c.id === selectedClass)?.name || 'All Classes';
+      const className = departments.find(c => c.id === selectedClass)?.name || 'All Committees';
       await generateDepartmentSubscriptionReportPDF(
           className,
           selectedMonth,

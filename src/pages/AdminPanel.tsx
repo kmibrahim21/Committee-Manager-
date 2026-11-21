@@ -13,7 +13,6 @@ const ALL_MODULE_META: Record<string, { labelBn: string; labelEn: string; icon: 
   departments: { labelBn: 'শাখা ও বিভাগ', labelEn: 'Departments / Branches', icon: BookOpen },
   attendance: { labelBn: 'উপস্থিতি ট্র্যাকিং', labelEn: 'Attendance Tracking', icon: ClipboardList },
   meetings: { labelBn: 'মিটিং ও এজেন্ডা', labelEn: 'Meetings & Agendas', icon: Calendar },
-  results: { labelBn: 'রেজুলেশন ও সিদ্ধান্ত', labelEn: 'Resolutions & Decisions', icon: GraduationCap },
   minutes: { labelBn: 'কার্যবিবরণী (মিনিটস)', labelEn: 'Meeting Minutes', icon: ClipboardList },
   accounting: { labelBn: 'হিসাব-নিকাশ ও তহবিল', labelEn: 'Accounting & Funds', icon: Banknote },
   subscriptions: { labelBn: 'সদস্য চাঁদা ও বকেয়া', labelEn: 'Member Dues & Fees', icon: CreditCard },
@@ -87,7 +86,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const handleFetchAwajVoices = async () => {
     setIsFetchingAwajVoices(true);
     try {
-      const awajResponse = await fetch('/api/awaj/voices');
+      const { data: { session } } = await supabase.auth.getSession();
+      const awajResponse = await fetch('/api/awaj/voices', {
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+      });
       if (awajResponse.ok) {
         const awajData = await awajResponse.json();
         // Assuming the API returns an array of voices or an object with a voices array
@@ -173,8 +175,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editSubscriptionEnd, setEditSubscriptionEnd] = useState('');
   const [editSubscriptionType, setEditSubscriptionType] = useState<'monthly' | 'yearly' | 'lifetime'>('monthly');
   const [editStatus, setEditStatus] = useState<'active' | 'suspended' | 'trial'>('active');
-  const [editResultEngine, setEditResultEngine] = useState<'school' | 'befaq' | 'qawmi_custom'>('school');
-  const [editResultSystem, setEditResultSystem] = useState<'grading' | 'marks'>('grading');
   const [editAttendanceType, setEditAttendanceType] = useState<'daily' | 'period'>('daily');
   const [editFeeStructure, setEditFeeStructure] = useState<'monthly' | 'session'>('monthly');
   const [editInstitutionType, setEditInstitutionType] = useState<any>('madrasah');
@@ -407,8 +407,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     setEditSubscriptionEnd(user.subscription_end || defaultEndDate);
     setEditSubscriptionType(userConfig?.subscription_type || 'monthly');
     setEditStatus(user.status || 'active');
-    setEditResultEngine(userConfig?.result_engine || 'school');
-    setEditResultSystem(userConfig?.result_system || 'grading');
     setEditAttendanceType(userConfig?.attendance_type || 'daily');
     setEditFeeStructure(userConfig?.fee_structure || 'monthly');
     setEditInstitutionType(user.institution_type || 'madrasah');
@@ -454,8 +452,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
       console.log('Saving config_json:', {
         modules: editModules,
-        result_engine: editResultEngine,
-        result_system: editResultSystem,
         attendance_type: editAttendanceType,
         fee_structure: editFeeStructure,
         fee_engine: editFeeEngine,
@@ -482,8 +478,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         config_json: {
           ...(typeof userConfig === 'object' && userConfig !== null ? userConfig : {}),
           modules: editModules,
-          result_engine: editResultEngine,
-          result_system: editResultSystem,
           attendance_type: editAttendanceType,
           fee_structure: editFeeStructure,
           subscription_type: editSubscriptionType,
@@ -1960,29 +1954,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                          </div>
                          <div className="space-y-4">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Result Engine</label>
-                                  <select 
-                                    className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm outline-none`}
-                                    value={editResultEngine}
-                                    onChange={(e) => setEditResultEngine(e.target.value as any)}
-                                  >
-                                    <option value="school">School (GPA)</option>
-                                    <option value="befaq">Befaq (Division)</option>
-                                    <option value="qawmi_custom">Qawmi Custom</option>
-                                  </select>
-                               </div>
-                               <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Result System</label>
-                                  <select 
-                                    className={`w-full h-12 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-100'} border rounded-xl px-4 font-black text-sm outline-none`}
-                                    value={editResultSystem}
-                                    onChange={(e) => setEditResultSystem(e.target.value as any)}
-                                  >
-                                    <option value="grading">Grading (GPA)</option>
-                                    <option value="marks">Marks Only</option>
-                                  </select>
-                               </div>
                                <div className="space-y-1.5">
                                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Attendance Type</label>
                                   <select 

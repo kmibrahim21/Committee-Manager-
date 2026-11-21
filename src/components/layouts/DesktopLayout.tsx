@@ -111,7 +111,6 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
       'accounting': t('accounting', lang, madrasah?.institution_type) || 'Accounting',
       'attendance': t('attendance', lang, madrasah?.institution_type) || 'Attendance',
       'meetings': t('meetings', lang, madrasah?.institution_type) || 'Exams',
-      'results': t('exam_results', lang, madrasah?.institution_type) || 'Results',
       'voice-broadcast': 'Voice Broadcast',
       'sms-voice-menu': 'Communication',
       'academic-calendar': 'Academic Calendar',
@@ -184,8 +183,8 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
                 <NavItem icon={ClipboardList} label={t('menu_attendance', lang, madrasah?.institution_type)} tab="attendance" onClick={() => setView('attendance')} />
               )}
               
-              {modules.modules.results && (role !== 'executive' || hasPermission('can_manage_meetings')) && (
-                <NavItem icon={GraduationCap} label={t('menu_exams', lang, madrasah?.institution_type)} tab="exams" onClick={() => setView('meetings')} />
+              {modules.modules.meetings && (role !== 'executive' || hasPermission('can_manage_meetings')) && (
+                <NavItem icon={GraduationCap} label={t('meetings', lang, madrasah?.institution_type)} tab="exams" onClick={() => setView('meetings')} />
               )}
               
               {modules.modules.accounting && (role === 'org_admin' || role === 'accountant' || role === 'executive') && (

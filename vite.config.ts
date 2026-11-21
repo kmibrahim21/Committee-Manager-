@@ -213,11 +213,26 @@ export default defineConfig(({ mode }) => {
         })
       ],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'import.meta.env.VITE_VERCEL_URL': JSON.stringify(env.VERCEL_URL || env.VITE_VERCEL_URL),
         'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.SUPABASE_URL || env.VITE_SUPABASE_URL),
         'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY)
+      },
+      build: {
+        chunkSizeWarningLimit: 600,
+        rollupOptions: {
+          output: {
+            manualChunks(id) {
+              if (id.includes('node_modules')) {
+                if (id.includes('jspdf')) return 'vendor-jspdf';
+                if (id.includes('html2canvas')) return 'vendor-html2canvas';
+                if (id.includes('recharts') || id.includes('d3-')) return 'vendor-recharts';
+                if (id.includes('xlsx')) return 'vendor-xlsx';
+                if (id.includes('@supabase')) return 'vendor-supabase';
+                if (id.includes('lucide-react')) return 'vendor-icons';
+              }
+            }
+          }
+        }
       },
       resolve: {
         alias: {

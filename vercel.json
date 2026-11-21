@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.google.com https://*.googleapis.com https://va.vercel-scripts.com; connect-src 'self' https://*.supabase.co https://*.googleapis.com https://*.supabase.net https://*.vercel.app https://risgwrppzvufbelusxlo.supabase.co https://va.vercel-scripts.com; img-src 'self' data: blob: https://*.supabase.co https://picsum.photos https://img.icons8.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.google.com https://*.googleapis.com https://va.vercel-scripts.com; connect-src 'self' https://*.supabase.co https://*.googleapis.com https://*.supabase.net https://*.vercel.app https://va.vercel-scripts.com; img-src 'self' data: blob: https://*.supabase.co https://picsum.photos https://img.icons8.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com;"
         }
       ]
     }

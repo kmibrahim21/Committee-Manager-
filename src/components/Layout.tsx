@@ -329,31 +329,37 @@ const Layout: React.FC<LayoutProps> = ({ children, currentView, setView, lang, m
             {isSystemAdmin ? (
               <>
                 {/* 1. Dashboard */}
-                <button 
-                  onClick={() => setView('admin-dashboard')} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-1 transition-all flex-1 px-1 py-1 rounded-2xl shrink-0 ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-                >
-                  <BarChart3 size={20} strokeWidth={isTabActive('dashboard') ? 2.5 : 2} />
-                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('dashboard', lang)}</span>
-                </button>
+                {canAccess('dashboard') && (
+                  <button 
+                    onClick={() => setView('admin-dashboard')} 
+                    className={`relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-1 transition-all flex-1 px-1 py-1 rounded-2xl shrink-0 ${isTabActive('dashboard') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                  >
+                    <BarChart3 size={20} strokeWidth={isTabActive('dashboard') ? 2.5 : 2} />
+                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('dashboard', lang)}</span>
+                  </button>
+                )}
 
                 {/* 2. Committee */}
-                <button 
-                  onClick={() => setView('admin-panel')} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-1 transition-all flex-1 px-1 py-1 rounded-2xl shrink-0 ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-                >
-                  <Users size={20} strokeWidth={isTabActive('list') ? 2.5 : 2} />
-                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'কমিটি' : 'Committee'}</span>
-                </button>
+                {canAccess('organizations') && (
+                  <button 
+                    onClick={() => setView('admin-panel')} 
+                    className={`relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-1 transition-all flex-1 px-1 py-1 rounded-2xl shrink-0 ${isTabActive('list') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                  >
+                    <Users size={20} strokeWidth={isTabActive('list') ? 2.5 : 2} />
+                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{lang === 'bn' ? 'কমিটি' : 'Committee'}</span>
+                  </button>
+                )}
 
                 {/* 3. Approvals */}
-                <button 
-                  onClick={() => setView('admin-approvals')} 
-                  className={`relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-1 transition-all flex-1 px-1 py-1 rounded-2xl shrink-0 ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-                >
-                  <CreditCard size={20} strokeWidth={isTabActive('approvals') ? 2.5 : 2} />
-                  <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('approvals', lang)}</span>
-                </button>
+                {canAccess('approvals') && (
+                  <button 
+                    onClick={() => setView('admin-approvals')} 
+                    className={`relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] gap-1 transition-all flex-1 px-1 py-1 rounded-2xl shrink-0 ${isTabActive('approvals') ? (madrasah?.theme === 'dark' ? 'text-[#42f5e9] bg-[#42f5e9]/10' : 'text-[#0fb5ab] bg-[#0fb5ab]/10 font-bold') : (madrasah?.theme === 'dark' ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+                  >
+                    <CreditCard size={20} strokeWidth={isTabActive('approvals') ? 2.5 : 2} />
+                    <span className="text-[9px] font-bold font-noto opacity-90 truncate px-0.5">{t('approvals', lang)}</span>
+                  </button>
+                )}
 
                 {/* 4. Managers / Tutorials */}
                 {canAccess('managers') ? (

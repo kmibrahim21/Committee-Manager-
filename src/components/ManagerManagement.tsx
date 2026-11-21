@@ -168,7 +168,9 @@ export const ManagerManagement: React.FC<ManagerManagementProps> = ({
 
     setIsSubmitting(true);
     try {
-      const newManagerId = 'mgr_' + Date.now();
+      const newManagerId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : '00000000-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
       const newManager: ManagerProfile = {
         id: newManagerId,
         full_name: fullName.trim(),
@@ -180,47 +182,65 @@ export const ManagerManagement: React.FC<ManagerManagementProps> = ({
         permissions: formPermissions
       };
 
+        let createdUserId = newManagerId;
         if (email.trim() && password.trim()) {
           try {
             const currentSession = (await supabase.auth.getSession()).data.session;
-            await fetch('/api/admin/update-user-password', {
+            const res = await fetch('/api/admin/update-user-password', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                ...(currentSession?.access_token ? { 'Authorization': `Bearer ${currentSession.access_token}` } : {})
+              },
               body: JSON.stringify({
                 email: email.trim().toLowerCase(),
                 new_password: password.trim(),
+                role: 'manager',
+                full_name: fullName.trim(),
+                permissions: formPermissions,
                 auth_token: currentSession?.access_token
               })
             });
+            if (res.ok) {
+              const resData = await res.json();
+              if (resData?.user_id) createdUserId = resData.user_id;
+            }
           } catch (e) {
             console.warn('Auth user creation for manager error:', e);
           }
         }
 
-        // 1. Try Supabase upsert
+        const savedManager: ManagerProfile = {
+          ...newManager,
+          id: createdUserId
+        };
+
+        // 1. Try Supabase upsert with valid UUID and institution_id: null
         try {
-          const { error } = await supabase.from('profiles').insert({
-          id: newManagerId,
-          institution_id: 'super_admin',
-          full_name: newManager.full_name,
-          role: 'manager',
-          is_active: newManager.is_active,
-          permissions: {
-            ...formPermissions,
-            dashboard: formPermissions.can_view_dashboard,
-            organizations: formPermissions.can_manage_committees,
-            approvals: formPermissions.can_approve_payments,
+          const { error } = await supabase.from('profiles').upsert({
+            id: createdUserId,
+            institution_id: null,
+            full_name: savedManager.full_name,
+            email: savedManager.email,
+            phone: savedManager.phone,
+            role: 'manager',
+            is_active: savedManager.is_active,
+            permissions: {
+              ...formPermissions,
+              dashboard: formPermissions.can_view_dashboard,
+              organizations: formPermissions.can_manage_committees,
+              approvals: formPermissions.can_approve_payments,
+            }
+          });
+          if (error) {
+            console.warn('Profiles table upsert warning:', error);
           }
-        });
-        if (error) {
-          console.warn('Profiles table insert warning:', error);
+        } catch (err) {
+          console.warn('Direct insert skipped, updating local store:', err);
         }
-      } catch (err) {
-        console.warn('Direct insert skipped, updating local store:', err);
-      }
 
       // 2. Update local state & storage
-      const updated = [newManager, ...managers];
+      const updated = [savedManager, ...managers.filter(m => m.id !== createdUserId)];
       setManagers(updated);
       saveLocalManagers(updated);
 
@@ -296,6 +316,8 @@ export const ManagerManagement: React.FC<ManagerManagementProps> = ({
       try {
         await supabase.from('profiles').update({
           full_name: updatedItem.full_name,
+          email: updatedItem.email,
+          phone: updatedItem.phone,
           is_active: updatedItem.is_active,
           permissions: {
             ...formPermissions,

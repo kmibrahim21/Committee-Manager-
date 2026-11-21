@@ -168,9 +168,14 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
     setLoading(true);
     setApiError(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = session?.access_token
+        ? { 'Authorization': `Bearer ${session.access_token}` }
+        : {};
+
       const fetchJson = async (url: string) => {
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, { headers: authHeaders });
           if (!res.ok) {
             const text = await res.text();
             let errorMsg = res.statusText;
@@ -385,9 +390,13 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
       reader.readAsDataURL(fileToUpload);
       const base64Data = await base64Promise;
 
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/awaj/voices/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify({
           name: voiceName.trim(),
           file_base64: base64Data,
@@ -439,7 +448,11 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
   const handleDeleteVoice = async (id: any) => {
     if (!confirm('আপনি কি নিশ্চিত যে এই ভয়েসটি মুছে ফেলতে চান?')) return;
     try {
-      const res = await fetch(`/api/awaj/voices/${id}`, { method: 'DELETE' });
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/awaj/voices/${id}`, {
+        method: 'DELETE',
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
 
@@ -572,9 +585,13 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         }
       };
 
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/awaj/broadcast/direct', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
         body: JSON.stringify(payload)
       });
 

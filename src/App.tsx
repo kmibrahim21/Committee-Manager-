@@ -75,14 +75,23 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (profile?.role === 'super_admin' && (view === 'home' || !view)) {
+    if ((profile?.role === 'super_admin' || profile?.role === 'manager') && (view === 'home' || !view)) {
       const params = new URLSearchParams(window.location.search);
       const urlView = params.get('view') as View;
       if (!urlView || urlView === 'home') {
-        setView('admin-dashboard');
+        const perms = profile?.permissions;
+        if (profile.role === 'manager') {
+          if (perms?.can_view_dashboard !== false) setView('admin-dashboard');
+          else if (perms?.can_manage_committees !== false) setView('admin-panel');
+          else if (perms?.can_approve_payments !== false) setView('admin-approvals');
+          else if (perms?.can_manage_managers) setView('admin-managers');
+          else setView('super-account');
+        } else {
+          setView('admin-dashboard');
+        }
       }
     }
-  }, [profile?.role, view]);
+  }, [profile?.role, profile?.permissions, view]);
 
   useEffect(() => {
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
@@ -174,6 +183,31 @@ const App: React.FC = () => {
 
     switch (view) {
       case 'home':
+        if (role === 'super_admin' || role === 'manager') {
+          const perms = profile?.permissions;
+          if (perms?.can_view_dashboard !== false && perms?.dashboard !== false) {
+            setView('admin-dashboard');
+            return null;
+          } else if (perms?.can_manage_committees !== false && perms?.organizations !== false) {
+            setView('admin-panel');
+            return null;
+          } else if (perms?.can_approve_payments !== false && perms?.approvals !== false) {
+            setView('admin-approvals');
+            return null;
+          } else if (perms?.can_manage_managers) {
+            setView('admin-managers');
+            return null;
+          } else if (perms?.can_access_voice_service) {
+            setView('admin-voice-service');
+            return null;
+          } else if (perms?.can_manage_tutorials) {
+            setView('admin-tutorials');
+            return null;
+          } else {
+            setView('super-account');
+            return null;
+          }
+        }
         return <Home 
                   onMemberClick={(s) => { setSelectedStudent(s); setView('member-details'); }} 
                   lang={lang} 
@@ -204,6 +238,8 @@ const App: React.FC = () => {
                     setView('voice-broadcast');
                   }}
                   onNavigateToSubscriptions={() => setView('subscriptions')}
+                  onNavigateToEvents={() => setView('events')}
+                  setView={setView}
                 />;
       case 'departments':
         if (role === 'member') { setView('home'); return null; }
@@ -260,9 +296,9 @@ const App: React.FC = () => {
         if (role !== 'super_admin' && role !== 'manager') { setView('home'); return null; }
         
         const permissions = profile?.permissions;
-        if (view === 'admin-dashboard' && (permissions?.dashboard === false || permissions?.can_view_dashboard === false)) { setView('home'); return null; }
-        if (view === 'admin-panel' && (permissions?.organizations === false || permissions?.can_manage_committees === false)) { setView('home'); return null; }
-        if (view === 'admin-approvals' && (permissions?.approvals === false || permissions?.can_approve_payments === false)) { setView('home'); return null; }
+        if (view === 'admin-dashboard' && (permissions?.dashboard === false || permissions?.can_view_dashboard === false)) { setView('super-account'); return null; }
+        if (view === 'admin-panel' && (permissions?.organizations === false || permissions?.can_manage_committees === false)) { setView('super-account'); return null; }
+        if (view === 'admin-approvals' && (permissions?.approvals === false || permissions?.can_approve_payments === false)) { setView('super-account'); return null; }
         
         return <AdminPanel lang={lang} currentView={view === 'admin-approvals' ? 'approvals' : view === 'admin-dashboard' ? 'dashboard' : 'list'} dataVersion={dataVersion} onProfileUpdate={refreshMadrasah} madrasah={madrasah} profile={profile} setStatusModal={setStatusModal} />;
       case 'admin-managers':
@@ -272,10 +308,10 @@ const App: React.FC = () => {
         }
         return <ManagerManagement lang={lang} madrasah={madrasah} profile={profile} setStatusModal={setStatusModal} onBack={() => setView('super-account')} />;
       case 'admin-voice-service':
-        if (role !== 'super_admin' && !(role === 'manager' && profile?.permissions?.can_access_voice_service)) { setView('home'); return null; }
+        if (role !== 'super_admin' && !(role === 'manager' && profile?.permissions?.can_access_voice_service)) { setView('super-account'); return null; }
         return <VoiceServiceDashboard onBack={() => setView('super-account')} madrasah={madrasah} setStatusModal={setStatusModal} />;
       case 'admin-tutorials':
-        if (role !== 'super_admin' && !(role === 'manager' && profile?.permissions?.can_manage_tutorials)) { setView('home'); return null; }
+        if (role !== 'super_admin' && !(role === 'manager' && profile?.permissions?.can_manage_tutorials)) { setView('super-account'); return null; }
         return <TutorialsManager onBack={() => setView('super-account')} madrasah={madrasah} setStatusModal={setStatusModal} />;
       case 'wallet-sms':
         return <WalletSMS lang={lang} madrasah={madrasah} triggerRefresh={triggerRefresh} dataVersion={dataVersion} initialTab={walletTab} role={role} profile={profile} onBack={() => setView('home')} />;
@@ -346,6 +382,8 @@ const App: React.FC = () => {
                     setView('voice-broadcast');
                   }}
                   onNavigateToSubscriptions={() => setView('subscriptions')}
+                  onNavigateToEvents={() => setView('events')}
+                  setView={setView}
                 />;
     }
   };

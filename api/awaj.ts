@@ -1,8 +1,8 @@
-
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 import { Buffer } from 'node:buffer';
+import { getSupabaseAdmin } from '../lib/supabase-admin';
 
 const AWAJ_BASE_URL = 'https://api.awajdigital.com/api';
 
@@ -18,6 +18,35 @@ const getAwajHeaders = () => {
   };
 };
 
+export function isSafePublicHttpsUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host === '::1' ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal') ||
+      host.startsWith('127.') ||
+      host.startsWith('10.') ||
+      host.startsWith('192.168.') ||
+      host.startsWith('169.254.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+      host.startsWith('fc') ||
+      host.startsWith('fd') ||
+      host.startsWith('fe80:')
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
@@ -31,6 +60,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const subAction = parts[3] || (req.query.id as string);
 
   try {
+    // Parse string body early if needed
+    if (req.body && typeof req.body === 'string' && req.body.trim().startsWith('{')) {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch (e) {
+        console.warn('Failed to parse req.body as JSON in awaj API:', e);
+      }
+    }
+
+    // Require valid authenticated Supabase session for all non-webhook actions
+    if (action !== 'webhook') {
+      const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
+      const bodyToken = (req.body as any)?.auth_token;
+      const token = (typeof authHeader === 'string' && authHeader.startsWith('Bearer '))
+        ? authHeader.slice(7).trim()
+        : (bodyToken ? String(bodyToken).trim() : '');
+
+      if (!token) {
+        return res.status(401).json({ error: 'Unauthorized: Missing Bearer token' });
+      }
+
+      const supabaseAdmin = getSupabaseAdmin();
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid or expired session token' });
+      }
+    }
+
     // VOICES
     if (action === 'voices') {
       if (req.method === 'GET') {
@@ -40,14 +97,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(data);
       }
       if (req.method === 'POST') {
-        // Ensure body is parsed if it's a string
-        if (req.body && typeof req.body === 'string' && req.body.trim().startsWith('{')) {
-          try {
-            req.body = JSON.parse(req.body);
-          } catch (e) {
-            console.warn('Failed to parse req.body as JSON in awaj API:', e);
-          }
-        }
         const body = req.body || {};
         const { name, file_url, file_base64, filename, content_type } = body;
         let fileBuffer: Buffer | null = null;
@@ -57,6 +106,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (file_base64) {
           fileBuffer = Buffer.from(file_base64, 'base64');
         } else if (file_url) {
+          if (!isSafePublicHttpsUrl(String(file_url))) {
+            return res.status(400).json({ error: 'Invalid file_url: Only public HTTPS URLs are permitted' });
+          }
           const fileRes = await fetch(file_url);
           if (!fileRes.ok) throw new Error(`Failed to download file: ${fileRes.statusText}`);
           const ab = await fileRes.arrayBuffer();

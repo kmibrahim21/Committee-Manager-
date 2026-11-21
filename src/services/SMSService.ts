@@ -4,7 +4,7 @@ import { getSmsLengthInfo } from 'utils/smsUtils';
 import { ShortcodeService } from './ShortcodeService';
 
 const normalizePhone = (phone: string): string => {
-  let p = phone.replace(/\D/g, ''); 
+  const p = String(phone || '').replace(/\D/g, '');
   if (p.length === 13 && p.startsWith('880')) return p;
   if (p.startsWith('0') && p.length === 11) return `88${p}`;
   if (p.startsWith('1') && p.length === 10) return `880${p}`;
@@ -12,59 +12,51 @@ const normalizePhone = (phone: string): string => {
   return p;
 };
 
-const isBanglaText = (text: string): boolean => {
-  return /[\u0980-\u09FF]/.test(text);
-};
-
 export const SMSService = {
   getGlobalSettings: async () => {
+    const defaults = {
+      reve_api_key: '',
+      reve_caller_id: '8809601017065',
+      bkash_number: '01766-XXXXXX',
+      sms_rate: 0.50,
+      voice_rate: 1.00
+    };
     try {
       const { data } = await supabase
         .from('system_settings')
-        .select('*')
-        .eq('id', '00000000-0000-0000-0000-000000000001')
+        .select('id, bkash_number, rocket_number, nagad_number, voice_rate, sms_rate, maintenance_mode')
+        .eq('id', 1)
         .maybeSingle();
-      
-      const defaults = { 
-        reve_api_key: 'demo16a6792c44443d2.81791638', 
-        reve_caller_id: '8809601017065',
-        bkash_number: '01766-XXXXXX',
-        sms_rate: 0.50,
-        voice_rate: 1.00
-      };
 
       if (!data) return defaults;
 
       return {
-        reve_api_key: (data.reve_api_key || defaults.reve_api_key).trim(),
-        reve_caller_id: (data.reve_caller_id || defaults.reve_caller_id).trim(),
+        reve_api_key: '',
+        reve_caller_id: defaults.reve_caller_id,
         bkash_number: data.bkash_number || defaults.bkash_number,
-        sms_rate: data.sms_rate || defaults.sms_rate,
-        voice_rate: data.voice_rate || defaults.voice_rate
+        sms_rate: data.sms_rate ?? defaults.sms_rate,
+        voice_rate: data.voice_rate ?? defaults.voice_rate
       };
-    } catch (e) {
-      return { reve_api_key: 'demo16a6792c44443d2.81791638', bkash_number: '01766-XXXXXX', reve_caller_id: '8809601017065' };
+    } catch {
+      return defaults;
     }
   },
 
   sendBulk: async (institutionId: string, students: Member[], message: string) => {
-    const global = await SMSService.getGlobalSettings();
     const { data: mRes } = await supabase
       .from('institutions')
-      .select('sms_balance, reve_api_key, reve_caller_id')
+      .select('sms_balance')
       .eq('id', institutionId)
       .single();
 
-    if (!mRes) throw new Error("Institution not found");
-    const mData = mRes;
+    if (!mRes) throw new Error('Institution not found');
 
-    const hasShortcodes = /\[(name|phone)\]/i.test(message);
-    let personalizedMessages: { studentId: string, phone: string, text: string, parts: number }[] = [];
+    const hasShortcodes = /\{[a-z_]+\}/i.test(message);
+    let personalizedMessages: { studentId: string; phone: string; text: string; parts: number }[] = [];
     let totalSmsNeeded = 0;
 
     if (hasShortcodes) {
       const shortcodeData = await ShortcodeService.fetchShortcodeData(institutionId, students.map(s => s.id));
-      
       personalizedMessages = students.map(s => {
         const data = shortcodeData.find(d => d.id === s.id) || { name: s.name, phone: s.phone };
         const text = ShortcodeService.replaceShortcodes(message, data);
@@ -74,11 +66,11 @@ export const SMSService = {
       totalSmsNeeded = personalizedMessages.reduce((sum, m) => sum + m.parts, 0);
     } else {
       const { parts } = getSmsLengthInfo(message);
-      if (parts > 7) throw new Error("SMS length exceeds the maximum limit of 7 parts.");
+      if (parts > 7) throw new Error('SMS length exceeds the maximum limit of 7 parts.');
       totalSmsNeeded = students.length * parts;
     }
 
-    const balance = mData.sms_balance || 0;
+    const balance = mRes.sms_balance || 0;
     if (balance < totalSmsNeeded) {
       throw new Error(`ব্যালেন্স পর্যাপ্ত নয়। প্রয়োজন: ${totalSmsNeeded}, আছে: ${balance}`);
     }
@@ -95,103 +87,85 @@ export const SMSService = {
       }
     }
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc('send_bulk_sms_rpc', {
-      p_institution_id: institutionId,
-      p_student_ids: studentIdsForRpc,
-      p_message: message 
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch('/api/sms/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+      },
+      body: JSON.stringify({
+        mode: 'bulk',
+        institution_id: institutionId,
+        student_ids: studentIdsForRpc,
+        phones: students.map(s => normalizePhone(s.phone)),
+        personalized_messages: hasShortcodes ? personalizedMessages : undefined,
+        message,
+        auth_token: session?.access_token
+      })
     });
 
-    if (rpcError) throw new Error("ট্রানজ্যাকশন সফল হয়নি। (RLS Refused)");
-    if (rpcData && rpcData.success === false) throw new Error(rpcData.error || "ট্রানজ্যাকশন সফল হয়নি।");
-
-    const apiKey = (mData.reve_api_key && mData.reve_api_key.trim() !== '') ? mData.reve_api_key.trim() : global.reve_api_key;
-    const senderId = (mData.reve_caller_id && mData.reve_caller_id.trim() !== '') ? mData.reve_caller_id.trim() : global.reve_caller_id;
-
-    if (hasShortcodes) {
-      const chunkSize = 50;
-      const batches = [];
-      for (let i = 0; i < personalizedMessages.length; i += chunkSize) {
-        batches.push(personalizedMessages.slice(i, i + chunkSize));
-      }
-
-      const sendPromises = batches.map(async (chunk) => {
-        for (const m of chunk) {
-          const type = isBanglaText(m.text) ? 'unicode' : 'text';
-          const apiUrl = `https://msg.mram.com.bd/smsapi?api_key=${apiKey}&type=${type}&contacts=${normalizePhone(m.phone)}&senderid=${senderId}&msg=${encodeURIComponent(m.text)}&label=transactional`;
-          try { 
-            await fetch(apiUrl, { mode: "no-cors" });
-          } catch (err) { 
-            console.warn("Personalized SMS failed:", err); 
-          }
-        }
-      });
-      await Promise.all(sendPromises);
-    } else {
-      const chunkSize = 50; 
-      const batches: string[] = [];
-      for (let i = 0; i < students.length; i += chunkSize) {
-        const chunk = students.slice(i, i + chunkSize);
-        const phoneList = chunk.map(s => normalizePhone(s.phone)).join('+');
-        batches.push(phoneList);
-      }
-      
-      const type = isBanglaText(message) ? 'unicode' : 'text';
-      const sendPromises = batches.map(async (toUsers) => {
-        const apiUrl = `https://msg.mram.com.bd/smsapi?api_key=${apiKey}&type=${type}&contacts=${toUsers}&senderid=${senderId}&msg=${encodeURIComponent(message)}&label=transactional`;
-        try { 
-          await fetch(apiUrl, { mode: "no-cors" });
-        } catch (err) { 
-          console.warn("SMS batch failed:", err); 
-        }
-      });
-      await Promise.all(sendPromises);
+    const resData = await response.json().catch(() => ({}));
+    if (!response.ok || !resData.success) {
+      throw new Error(resData.error || 'ট্রানজ্যাকশন সফল হয়নি।');
     }
 
     return { success: true };
   },
 
   sendDirect: async (phone: string, message: string, institutionId?: string) => {
-    const global = await SMSService.getGlobalSettings();
-    let apiKey = global.reve_api_key;
-    let senderId = global.reve_caller_id;
-
-    if (institutionId) {
-      const { data } = await supabase
-        .from('institutions')
-        .select('reve_api_key, reve_caller_id')
-        .eq('id', institutionId)
-        .maybeSingle();
-        
-      if (data) {
-        if (data.reve_api_key && data.reve_api_key.trim() !== '') apiKey = data.reve_api_key.trim();
-        if (data.reve_caller_id && data.reve_caller_id.trim() !== '') senderId = data.reve_caller_id.trim();
-      }
-    }
-
     const target = normalizePhone(phone);
-    const type = isBanglaText(message) ? 'unicode' : 'text';
-    const apiUrl = `https://msg.mram.com.bd/smsapi?api_key=${apiKey}&type=${type}&contacts=${target}&senderid=${senderId}&msg=${encodeURIComponent(message)}&label=transactional`;
-    
-    try { 
-      await fetch(apiUrl, { mode: "no-cors" });
-    } catch (e) { 
-      console.warn("Direct SMS failed:", e); 
+    const { data: { session } } = await supabase.auth.getSession();
+
+    const response = await fetch('/api/sms/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+      },
+      body: JSON.stringify({
+        mode: 'direct',
+        institution_id: institutionId,
+        phones: [target],
+        message,
+        auth_token: session?.access_token
+      })
+    });
+
+    const resData = await response.json().catch(() => ({}));
+    if (!response.ok || !resData.success) {
+      throw new Error(resData.error || 'Direct SMS failed');
     }
+    return { success: true };
   },
 
   getHistory: async (institutionId: string) => {
+    if (!institutionId) return [];
     try {
-      // Mock history for now since MRAM doesn't have an easily callable list endpoint without SMS Shoot ID
-      return [
-        { date: new Date().toISOString(), recipient: '8801712345678', message: 'আস-সালামু আলাইকুম, আপনার সন্তানের হাজিরা রিপোর্ট...', status: 'sent' },
-        { date: new Date(Date.now() - 3600000).toISOString(), recipient: '8801812345678', message: 'পরীক্ষার ফলাফল প্রকাশিত হয়েছে।', status: 'delivered' },
-        { date: new Date(Date.now() - 86400000).toISOString(), recipient: '8801912345678', message: 'বকেয়া ফি পরিশোধ করুন।', status: 'failed', reason: 'Invalid Number' },
-        { date: new Date(Date.now() - 172800000).toISOString(), recipient: '8801612345678', message: 'ছুটির নোটিশ।', status: 'sent' },
-        { date: new Date(Date.now() - 259200000).toISOString(), recipient: '8801512345678', message: 'মাসিক সভার আমন্ত্রণ।', status: 'failed', reason: 'Insufficient Balance' },
-      ];
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, institution_id, amount, transaction_id, sender_phone, description, type, status, sms_count, created_at')
+        .eq('institution_id', institutionId)
+        .or('sms_count.gt.0,transaction_id.ilike.BULK_SMS_%,description.ilike.%SMS%')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error || !data) {
+        return [];
+      }
+
+      return data.map((row: any) => ({
+        id: row.id,
+        date: row.created_at,
+        recipient: row.sender_phone || `${row.sms_count || 0} প্রাপক`,
+        recipients: row.sms_count || 0,
+        message: row.description || row.transaction_id || 'SMS Transaction',
+        status: row.status === 'approved' ? 'delivered' : (row.status || 'sent')
+      }));
     } catch (error) {
-      console.error("Error in getHistory:", error);
+      console.error('Error in getHistory:', error);
       return [];
     }
   }
 };
+

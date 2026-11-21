@@ -27,14 +27,83 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
   const fetchMemberAccountingData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch all subscriptions for the member in the selected year
-      const { data: feesData } = await supabase
-        .from('subscriptions')
+      // 1. Fetch all fees (or fallback to subscriptions) for the member in the selected year
+      let resolvedStructures: any[] = [];
+      const { data: feeStructureData } = await supabase
+        .from('fee_structures')
+        .select('*')
+        .eq('institution_id', madrasah.id)
+        .or(`department_id.eq.${member.department_id},department_id.is.null`);
+
+      if (feeStructureData && feeStructureData.length > 0) {
+        resolvedStructures = feeStructureData;
+      } else {
+        const { data: subStructureData } = await supabase
+          .from('subscription_structures')
+          .select('*')
+          .eq('institution_id', madrasah.id)
+          .or(`department_id.eq.${member.department_id},department_id.is.null`);
+        if (subStructureData) resolvedStructures = subStructureData;
+      }
+      setStructures(resolvedStructures);
+
+      const monthlyPayable = resolvedStructures.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+
+      let rawFees: any[] = [];
+      const { data: feesTableData } = await supabase
+        .from('fees')
         .select('*')
         .eq('member_id', member.id)
-        .like('period', `${selectedYear}-%`);
-      
-      if (feesData) setFees(feesData);
+        .like('month', `${selectedYear}-%`);
+
+      if (feesTableData && feesTableData.length > 0) {
+        rawFees = feesTableData;
+      } else {
+        const { data: subsTableData } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('member_id', member.id)
+          .like('period', `${selectedYear}-%`);
+        if (subsTableData) rawFees = subsTableData;
+      }
+
+      // Group/normalize by period (YYYY-MM) so multiple fee rows in the same month aggregate properly
+      const feeByMonth: Record<string, Subscription> = {};
+      rawFees.forEach((f: any) => {
+        const periodKey = f.period || f.month || '';
+        if (!periodKey) return;
+        const paid = Number(f.amount_paid) || 0;
+        const disc = Number(f.discount) || 0;
+        if (!feeByMonth[periodKey]) {
+          feeByMonth[periodKey] = {
+            ...f,
+            period: periodKey,
+            amount_paid: paid,
+            discount: disc,
+            amount_due: f.amount_due !== undefined ? Number(f.amount_due) : Math.max(0, monthlyPayable - (paid + disc)),
+            status: f.status || 'unpaid'
+          };
+        } else {
+          feeByMonth[periodKey].amount_paid += paid;
+          feeByMonth[periodKey].discount = (feeByMonth[periodKey].discount || 0) + disc;
+        }
+      });
+
+      const normalizedFees = Object.values(feeByMonth).map(item => {
+        const totalCovered = (Number(item.amount_paid) || 0) + (Number(item.discount) || 0);
+        let computedStatus = item.status;
+        if (!fHasExplicitStatus(item.status)) {
+          if (monthlyPayable > 0 && totalCovered >= monthlyPayable) computedStatus = 'paid';
+          else if (totalCovered > 0) computedStatus = 'partial';
+          else computedStatus = 'unpaid';
+        }
+        return {
+          ...item,
+          status: computedStatus
+        };
+      });
+
+      setFees(normalizedFees);
 
       // 2. Fetch ledger entries mentioning this member
       const { data: ledgerData } = await supabase
@@ -46,21 +115,14 @@ const MemberLedger: React.FC<MemberLedgerProps> = ({ member, madrasah, lang, onB
       
       if (ledgerData) setLedgerEntries(ledgerData.sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()));
 
-      // 3. Fetch subscription structures for this member's department
-      const { data: structureData } = await supabase
-        .from('subscription_structures')
-        .select('*')
-        .eq('institution_id', madrasah.id)
-        .or(`department_id.eq.${member.department_id},department_id.is.null`);
-      
-      if (structureData) setStructures(structureData);
-
     } catch (error) {
       console.error('Error fetching student accounting:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const fHasExplicitStatus = (status?: string) => status === 'paid' || status === 'partial';
 
   const isDark = madrasah.theme === 'dark';
   const className = departments.find(c => c.id === member.department_id)?.name || '';

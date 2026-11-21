@@ -146,17 +146,42 @@ const Auth: React.FC<AuthProps> = ({ lang, signInAsMember }) => {
       return;
     }
     if (!token || token.length < 6) {
-      setResetError(lang === 'bn' ? 'অনুগ্রহ করে জিমেইলে প্রাপ্ত সঠিক ৮ ডিজিটের কোডটি প্রদান করুন।' : 'Please enter the valid code received in Gmail.');
+      setResetError(lang === 'bn' ? 'অনুগ্রহ করে জিমেইলে প্রাপ্ত সঠিক কোডটি প্রদান করুন।' : 'Please enter the valid code received in Gmail.');
       return;
     }
 
+    setResetLoading(true);
     setResetError('');
-    setResetStep('new_password');
-    setResetSuccess(
-      lang === 'bn' 
-        ? 'কোড কনফার্ম হয়েছে! এবার আপনার নতুন পাসওয়ার্ড প্রদান করুন।' 
-        : 'Code confirmed! Now enter your new password.'
-    );
+    try {
+      let verifyRes = await supabase.auth.verifyOtp({
+        email: targetEmail,
+        token,
+        type: 'recovery'
+      });
+
+      if (verifyRes.error) {
+        verifyRes = await supabase.auth.verifyOtp({
+          email: targetEmail,
+          token,
+          type: 'email'
+        });
+      }
+
+      if (verifyRes.error) {
+        throw new Error(lang === 'bn' ? 'ভুল অথবা মেয়াদোত্তীর্ণ ভেরিফিকেশন কোড।' : 'Invalid or expired verification code.');
+      }
+
+      setResetStep('new_password');
+      setResetSuccess(
+        lang === 'bn' 
+          ? 'কোড কনফার্ম হয়েছে! এবার আপনার নতুন পাসওয়ার্ড প্রদান করুন।' 
+          : 'Code confirmed! Now enter your new password.'
+      );
+    } catch (err: any) {
+      setResetError(err?.message || (lang === 'bn' ? 'ভেরিফিকেশন কোড যাচাই ব্যর্থ হয়েছে।' : 'Failed to verify code.'));
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   // 3. Set new password & require manual login from login form
@@ -180,56 +205,33 @@ const Auth: React.FC<AuthProps> = ({ lang, signInAsMember }) => {
     setResetSuccess('');
 
     try {
-      let updateSuccess = false;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && resetCode.trim()) {
+        let verifyRes = await supabase.auth.verifyOtp({
+          email: resetEmail.trim().toLowerCase(),
+          token: resetCode.trim(),
+          type: 'recovery'
+        });
 
-      // 1) Attempt OTP verification + updateUser
-      if (resetCode.trim()) {
-        try {
-          let verifyRes = await supabase.auth.verifyOtp({
+        if (verifyRes.error) {
+          verifyRes = await supabase.auth.verifyOtp({
             email: resetEmail.trim().toLowerCase(),
             token: resetCode.trim(),
-            type: 'recovery'
+            type: 'email'
           });
+        }
 
-          if (verifyRes.error) {
-            verifyRes = await supabase.auth.verifyOtp({
-              email: resetEmail.trim().toLowerCase(),
-              token: resetCode.trim(),
-              type: 'email'
-            });
-          }
-
-          if (!verifyRes.error) {
-            const { error: updErr } = await supabase.auth.updateUser({ password });
-            if (!updErr) {
-              updateSuccess = true;
-            }
-          }
-        } catch (otpErr) {
-          console.warn('verifyOtp attempt notice:', otpErr);
+        if (verifyRes.error) {
+          throw new Error(lang === 'bn' ? 'ভুল অথবা মেয়াদোত্তীর্ণ ভেরিফিকেশন কোড।' : 'Invalid or expired verification code.');
         }
       }
 
-      // 2) Server API fallback
-      if (!updateSuccess) {
-        const apiRes = await fetch('/api/auth/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: resetEmail.trim(), new_password: password })
-        });
-        const contentType = apiRes.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const data = await apiRes.json();
-          if (!apiRes.ok || data.error) {
-            throw new Error(data.error || 'পাসওয়ার্ড আপডেট ব্যর্থ হয়েছে');
-          }
-          updateSuccess = true;
-        } else if (!apiRes.ok) {
-          throw new Error('পাসওয়ার্ড আপডেট করতে ব্যর্থ হয়েছে।');
-        }
+      const { error: updErr } = await supabase.auth.updateUser({ password });
+      if (updErr) {
+        throw updErr;
       }
 
-      // 3) Always sign out so user must log in manually as requested
+      // Always sign out so user must log in manually as requested
       try {
         await supabase.auth.signOut();
       } catch {
@@ -240,7 +242,7 @@ const Auth: React.FC<AuthProps> = ({ lang, signInAsMember }) => {
       localStorage.removeItem('executive_session');
       localStorage.removeItem('committee_session');
 
-      // 4) Pre-fill email, close modal, and show success message on login screen
+      // Pre-fill email, close modal, and show success message on login screen
       setEmail(resetEmail.trim());
       setCode('');
       setShowResetModal(false);

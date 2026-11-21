@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Clock, User as UserIcon, RefreshCw, PhoneCall, X, MessageCircle, Phone, AlertCircle, Trash2, AlertTriangle, Loader2, Users, BookOpen, GraduationCap, Wallet, TrendingUp, DollarSign, CheckCircle2, Banknote, ClipboardList, ChevronRight, Trophy, Zap, Mic, UserCheck, Calendar, CreditCard } from 'lucide-react';
 import { supabase, offlineApi } from 'supabase';
-import { Member, Language, Institution, Profile } from 'types';
+import { Member, Language, Institution, Profile, View } from 'types';
 import { t } from 'translations';
 import { isValidUUID } from 'utils/validation';
 import { GenericDashboard } from 'components/dashboards/GenericDashboard';
@@ -29,6 +29,8 @@ interface HomeProps {
   onNavigateToVoiceBroadcast?: () => void;
   onNavigateToMeetings?: () => void;
   onNavigateToSubscriptions?: () => void;
+  onNavigateToEvents?: () => void;
+  setView?: (view: View) => void;
 }
 
 const Home: React.FC<HomeProps> = ({ 
@@ -46,9 +48,46 @@ const Home: React.FC<HomeProps> = ({
   onNavigateToTeachers, 
   onNavigateToVoiceBroadcast, 
   onNavigateToMeetings, 
-  onNavigateToSubscriptions 
+  onNavigateToSubscriptions,
+  onNavigateToEvents,
+  setView
 }) => {
   const instType = madrasah?.institution_type || 'committee';
+
+  const handleDashboardNavigate = (targetView: string) => {
+    switch (targetView) {
+      case 'tournaments':
+      case 'gallery':
+      case 'events':
+        if (onNavigateToEvents) onNavigateToEvents();
+        else if (setView) setView('events');
+        break;
+      case 'certificates':
+      case 'volunteers':
+      case 'members':
+        if (onNavigateToMembers) onNavigateToMembers();
+        else if (setView) setView('members');
+        break;
+      case 'donations':
+      case 'accounting':
+        if (onNavigateToAccounting) onNavigateToAccounting();
+        else if (setView) setView('accounting');
+        break;
+      case 'employees':
+      case 'executives':
+        if (onNavigateToTeachers) onNavigateToTeachers();
+        else if (setView) setView('executives');
+        break;
+      case 'projects':
+      case 'management':
+        if (setView) setView('management');
+        else if (onNavigateToEvents) onNavigateToEvents();
+        break;
+      default:
+        if (setView) setView(targetView as View);
+        break;
+    }
+  };
 
   const commonProps = {
     lang,
@@ -65,7 +104,8 @@ const Home: React.FC<HomeProps> = ({
     onNavigateToTeachers,
     onNavigateToVoiceBroadcast,
     onNavigateToMeetings,
-    onNavigateToSubscriptions
+    onNavigateToSubscriptions,
+    onNavigateToEvents
   };
 
   const renderDashboard = () => {
@@ -77,10 +117,10 @@ const Home: React.FC<HomeProps> = ({
       case 'association':
         return <GenericDashboard {...commonProps} />;
       case 'club':
-        return <ClubDashboard {...commonProps} setView={() => {}} />;
+        return <ClubDashboard {...commonProps} setView={handleDashboardNavigate} />;
       case 'organization':
       case 'foundation':
-        return <OrganizationDashboard {...commonProps} setView={() => {}} />;
+        return <OrganizationDashboard {...commonProps} setView={handleDashboardNavigate} />;
       default:
         return <GenericDashboard {...commonProps} />;
     }

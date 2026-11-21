@@ -20,7 +20,7 @@ export const COMMITTEE_TYPES: CommitteeTypeConfig[] = [
     labelBn: 'কমিটি',
     labelEn: 'Committee',
     icon: Users,
-    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'results', 'polls', 'notices']
+    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'polls', 'notices']
   },
   {
     id: 'association',
@@ -34,7 +34,7 @@ export const COMMITTEE_TYPES: CommitteeTypeConfig[] = [
     labelBn: 'সংস্থা',
     labelEn: 'Organization',
     icon: Building2,
-    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'results', 'polls', 'notices']
+    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'polls', 'notices']
   },
   {
     id: 'club',
@@ -62,7 +62,7 @@ export const COMMITTEE_TYPES: CommitteeTypeConfig[] = [
     labelBn: 'পরিষদ',
     labelEn: 'Council',
     icon: Layers,
-    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'results', 'polls', 'notices']
+    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'polls', 'notices']
   },
   {
     id: 'sangha',
@@ -90,14 +90,14 @@ export const COMMITTEE_TYPES: CommitteeTypeConfig[] = [
     labelBn: 'ফেডারেশন',
     labelEn: 'Federation',
     icon: Layers,
-    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'results', 'polls', 'notices']
+    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'polls', 'notices']
   },
   {
     id: 'board',
     labelBn: 'বোর্ড',
     labelEn: 'Board',
     icon: GraduationCap,
-    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'results', 'polls', 'notices']
+    defaultModules: ['departments', 'attendance', 'meetings', 'minutes', 'events', 'accounting', 'voice_broadcast', 'sms', 'polls', 'notices']
   }
 ];
 

@@ -29,7 +29,6 @@ export interface Institution {
       membership_promotion?: boolean;
       voice_broadcast?: boolean;
       sms?: boolean;
-      results?: boolean;
       polls?: boolean;
       notices?: boolean;
       subscriptions?: boolean;
@@ -81,9 +80,7 @@ export interface Institution {
     finance_mode?: 'flexible' | 'standard';
     attendance_settings?: any;
     fee_engine?: 'school' | 'qawmi' | 'kindergarten' | 'simple';
-    result_engine?: 'standard' | 'school' | 'befaq' | 'qawmi_custom';
     meeting_engine?: string;
-    result_system?: 'grading' | 'marks';
     accounting_mode?: 'qawmi_flexible' | 'school_system';
     subscription_type?: 'monthly' | 'yearly' | 'lifetime';
     accounting_start_date?: string | null;

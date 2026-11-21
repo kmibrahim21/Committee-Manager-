@@ -91,7 +91,6 @@ CREATE TABLE IF NOT EXISTS public.ledger (
     category TEXT NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
     description TEXT,
-    type TEXT DEFAULT 'credit',
     transaction_date DATE DEFAULT CURRENT_DATE,
     created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -129,6 +128,32 @@ CREATE TABLE IF NOT EXISTS public.subscription_structures (
     institution_id UUID REFERENCES public.institutions(id) ON DELETE CASCADE,
     department_id UUID REFERENCES public.departments(id) ON DELETE CASCADE,
     subscription_name TEXT NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Fees
+CREATE TABLE IF NOT EXISTS public.fees (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    institution_id UUID REFERENCES public.institutions(id) ON DELETE CASCADE,
+    member_id UUID REFERENCES public.members(id) ON DELETE CASCADE,
+    department_id UUID REFERENCES public.departments(id) ON DELETE CASCADE,
+    amount_paid DECIMAL(15,2) DEFAULT 0,
+    amount_due DECIMAL(15,2) DEFAULT 0,
+    discount DECIMAL(15,2) DEFAULT 0,
+    month TEXT NOT NULL, -- YYYY-MM
+    period TEXT,
+    status TEXT DEFAULT 'unpaid',
+    paid_at TIMESTAMPTZ DEFAULT now(),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Fee Structures
+CREATE TABLE IF NOT EXISTS public.fee_structures (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    institution_id UUID REFERENCES public.institutions(id) ON DELETE CASCADE,
+    department_id UUID REFERENCES public.departments(id) ON DELETE CASCADE,
+    fee_name TEXT NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now()
 );

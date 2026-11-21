@@ -149,7 +149,7 @@ const SonghoManagement: React.FC<Props> = ({
       };
 
       const { error } = await supabase
-        .from('madrasahs')
+        .from('institutions')
         .update({
           config_json: updatedConfig
         })

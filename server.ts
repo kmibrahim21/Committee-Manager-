@@ -36,235 +36,19 @@ const ai = new GoogleGenAI({
   }
 });
 
-const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
-  committee: {
-    departments: true,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: true,
-    polls: true,
-    notices: true,
-  },
-  association: {
-    departments: false,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: false,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: true,
-    notices: true,
-    savings: true,
-    loans: true,
-    installments: true,
-    profit_distribution: true,
-  },
-  organization: {
-    departments: true,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: true,
-    polls: true,
-    notices: true,
-    employees: true,
-    volunteers: true,
-    tasks: true,
-    projects: true,
-    payroll: true,
-  },
-  club: {
-    departments: false,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: true,
-    notices: true,
-    tournaments: true,
-    gallery: true,
-    certificates: true,
-  },
-  foundation: {
-    departments: false,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: true,
-    notices: true,
-    donations: true,
-    beneficiaries: true,
-    welfare: true,
-    scholarships: true,
-    projects: true,
-  },
-  trust: {
-    departments: false,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: false,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: false,
-    notices: true,
-    trustees: true,
-    properties: true,
-    assets: true,
-    legal_documents: true,
-  },
-  council: {
-    departments: true,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: true,
-    polls: true,
-    notices: true,
-    regional_mgmt: true,
-    election: true,
-  },
-  union: {
-    departments: false,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: true,
-    notices: true,
-    welfare_fund: true,
-    legal_support: true,
-    training: true,
-  },
-  sangha: {
-    departments: true,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: true,
-    notices: true,
-    volunteers: true,
-    projects: true,
-  },
-  forum: {
-    departments: false,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: true,
-    notices: true,
-    discussions: true,
-  },
-  society: {
-    departments: false,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: true,
-    notices: true,
-    election: true,
-  },
-  federation: {
-    departments: true,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: true,
-    polls: true,
-    notices: true,
-    multi_org: true,
-    branches: true,
-    delegates: true,
-    conferences: true,
-  },
-  governing_board: {
-    departments: true,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: true,
-    polls: true,
-    notices: true,
-    institutions: true,
-    board_members: true,
-  },
-  ngo: {
-    departments: true,
-    attendance: true,
-    meetings: true,
-    minutes: true,
-    events: true,
-    accounting: true,
-    voice_broadcast: true,
-    sms: true,
-    results: false,
-    polls: true,
-    notices: true,
-    volunteers: true,
-    beneficiaries: true,
-    relief_mgmt: true,
-    donations: true,
-    projects: true,
-    monitoring: true,
-    gps_tracking: true,
-  },
-};
+import executivesHandler from "./api/executives";
+import smsSendHandler from "./api/sms/send";
+import createCommitteeHandler from "./api/admin/create-committee";
+import updateUserPasswordHandler from "./api/admin/update-user-password";
+import { isSafePublicHttpsUrl } from "./api/awaj";
 
 // API Routes
+app.all("/api/executives*all", (req, res) => executivesHandler(req, res));
+app.all("/api/teachers*all", (req, res) => executivesHandler(req, res));
+app.all("/api/sms/send", (req, res) => smsSendHandler(req as any, res as any));
+app.all("/api/admin/create-committee", (req, res) => createCommitteeHandler(req, res));
+app.all("/api/admin/update-user-password", (req, res) => updateUserPasswordHandler(req, res));
+
 app.all("/api/awaj*all", async (req, res) => {
   const AWAJ_BASE_URL = 'https://api.awajdigital.com/api';
   const token = process.env.AWAJ_API_TOKEN;
@@ -280,10 +64,28 @@ app.all("/api/awaj*all", async (req, res) => {
   });
 
   const urlParts = req.path.split('/').filter(Boolean);
-  const action = urlParts[2]; // /api/awaj/:action
-  const subAction = urlParts[3];
+  const action = urlParts[2] || (req.query.action as string) || 'voices'; // /api/awaj/:action
+  const subAction = urlParts[3] || (req.query.id as string);
 
   try {
+    // Require valid authenticated Supabase session for all non-webhook actions
+    if (action !== "webhook") {
+      const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
+      const bodyToken = req.body?.auth_token;
+      const userToken = (typeof authHeader === 'string' && authHeader.startsWith('Bearer '))
+        ? authHeader.slice(7).trim()
+        : (bodyToken ? String(bodyToken).trim() : '');
+
+      if (!userToken) {
+        return res.status(401).json({ error: "Unauthorized: Missing Bearer token" });
+      }
+
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(userToken);
+      if (authError || !user) {
+        return res.status(401).json({ error: "Unauthorized: Invalid or expired session token" });
+      }
+    }
+
     if (action === "voices") {
       if (req.method === "GET") {
         const response = await fetch(`${AWAJ_BASE_URL}/voices`, { headers: getAwajHeaders() as any });
@@ -291,7 +93,7 @@ app.all("/api/awaj*all", async (req, res) => {
       }
       
       if (req.method === "POST") {
-        const { name, file_url, file_base64, filename, content_type } = req.body;
+        const { name, file_url, file_base64, filename, content_type } = req.body || {};
         let fileBuffer: Buffer | null = null;
         let contentType = content_type || 'audio/mpeg';
         let fName = filename || 'voice.mp3';
@@ -299,7 +101,11 @@ app.all("/api/awaj*all", async (req, res) => {
         if (file_base64) {
           fileBuffer = Buffer.from(file_base64, 'base64');
         } else if (file_url) {
+          if (!isSafePublicHttpsUrl(String(file_url))) {
+            return res.status(400).json({ error: "Invalid file_url: Only public HTTPS URLs are permitted" });
+          }
           const fileRes = await fetch(file_url);
+          if (!fileRes.ok) throw new Error(`Failed to download file: ${fileRes.statusText}`);
           const ab = await fileRes.arrayBuffer();
           fileBuffer = Buffer.from(ab);
           contentType = fileRes.headers.get('content-type') || contentType;
@@ -335,7 +141,6 @@ app.all("/api/awaj*all", async (req, res) => {
     }
 
     if (action === "broadcast" || action === "broadcasts") {
-      // Direct voice broadcast: POST /api/awaj/broadcast/direct or /api/awaj/broadcasts/direct
       if (req.method === "POST" && subAction === "direct") {
         const response = await fetch(`${AWAJ_BASE_URL}/broadcasts/direct`, {
           method: 'POST',
@@ -346,7 +151,6 @@ app.all("/api/awaj*all", async (req, res) => {
         return res.status(response.status).json(data);
       }
 
-      // OTP broadcast: POST /api/awaj/broadcast/otp or /api/awaj/broadcasts/otp
       if (req.method === "POST" && subAction === "otp") {
         const response = await fetch(`${AWAJ_BASE_URL}/broadcasts/otp`, {
           method: 'POST',
@@ -369,14 +173,12 @@ app.all("/api/awaj*all", async (req, res) => {
 
       if (req.method === "GET") {
         if (subAction) {
-          // Try result endpoint first
           let response = await fetch(`${AWAJ_BASE_URL}/broadcasts/${subAction}/result`, { headers: getAwajHeaders() as any });
           if (response.status === 404) {
             response = await fetch(`${AWAJ_BASE_URL}/broadcasts/${subAction}`, { headers: getAwajHeaders() as any });
           }
           return res.status(response.status).json(await response.json());
         } else {
-          // Forward query parameters
           const queryString = new URLSearchParams(req.query as any).toString();
           const targetUrl = queryString ? `${AWAJ_BASE_URL}/broadcasts?${queryString}` : `${AWAJ_BASE_URL}/broadcasts`;
           const response = await fetch(targetUrl, { headers: getAwajHeaders() as any });
@@ -406,10 +208,9 @@ app.all("/api/awaj*all", async (req, res) => {
     }
 
     if (action === "refund") {
-      const { campaign_id, institution_id, rate_per_call } = req.body;
+      const { campaign_id, institution_id, rate_per_call } = req.body || {};
       if (!campaign_id || !institution_id) return res.status(400).json({ error: "Missing parameters" });
 
-      // 1. Get broadcast result from Awaj
       const response = await fetch(`${AWAJ_BASE_URL}/broadcasts/${campaign_id}/result`, { headers: getAwajHeaders() as any });
       if (!response.ok) return res.status(response.status).json({ error: "Failed to fetch result" });
       
@@ -419,8 +220,6 @@ app.all("/api/awaj*all", async (req, res) => {
 
       if (failedCount > 0) {
         const refundAmount = failedCount * (rate_per_call || 1.0);
-        
-        // 2. Add balance to institution via RPC
         const { error } = await supabaseAdmin.rpc('add_balance', {
           p_institution_id: institution_id,
           p_amount: refundAmount
@@ -428,7 +227,6 @@ app.all("/api/awaj*all", async (req, res) => {
 
         if (error) throw error;
 
-        // 3. Mark as refunded in broadcast history (optional but good)
         await supabaseAdmin.from('voice_broadcasts').update({
           refunded_amount: refundAmount,
           status: 'completed'
@@ -440,6 +238,10 @@ app.all("/api/awaj*all", async (req, res) => {
       return res.json({ success: true, refunded: 0 });
     }
 
+    if (action === "webhook") {
+      return res.status(200).json({ received: true });
+    }
+
     res.status(404).json({ error: "Action not found" });
   } catch (error: any) {
     console.error("Awaj API Error:", error);
@@ -449,27 +251,30 @@ app.all("/api/awaj*all", async (req, res) => {
 
 app.post("/api/gemini/generate-minutes", async (req, res) => {
   try {
-    const { title, agendas, description } = req.body;
-    
+    const { title, agendas, agenda, description, notes, date, lang } = req.body || {};
+    const agendaText = Array.isArray(agendas) ? agendas.join(", ") : (agenda || "");
+    const notesText = description || notes || "";
+
     const prompt = `
-      You are an expert secretary for an educational institution (Madrasah). 
+      You are an expert secretary for an organization / committee.
       Generate detailed meeting minutes based on the following information:
       
-      Meeting Title: ${title}
-      Agendas: ${agendas.join(", ")}
-      Description: ${description}
+      Meeting Title: ${title || ""}
+      Date: ${date || ""}
+      Agendas: ${agendaText}
+      Notes / Description: ${notesText}
+      Language: ${lang === 'en' ? 'English' : 'Bengali'}
       
-      Please write a professional summary in Bengali (as the primary language) and English. 
-      The report should include:
+      Please write a professional summary with clear sections:
       1. Intro: Purpose of the meeting.
       2. Highlights: Each agenda item discussed.
-      3. Conclusions: Final decisions taken.
+      3. Conclusions: Final decisions and action items taken.
       
       Keep it structured and formal.
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-4-hydrogen",
       contents: prompt,
     });
 
@@ -477,297 +282,6 @@ app.post("/api/gemini/generate-minutes", async (req, res) => {
   } catch (error) {
     console.error("Gemini Error:", error);
     res.status(500).json({ error: "Failed to generate minutes" });
-  }
-});
-
-app.post("/api/admin/create-committee", async (req, res) => {
-  const { email, password, name, phone, login_code, type, auth_token, songho_activities } = req.body;
-  
-  try {
-    // 1. Verify requester is super admin
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(auth_token);
-    if (authError || !user) {
-      return res.status(401).json({ error: "Unauthorized: Invalid token" });
-    }
-    
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-      
-    if (profileError || profile?.role !== 'super_admin') {
-      return res.status(403).json({ error: "Forbidden: Not a super admin" });
-    }
-
-    // 2. Create User
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name, madrasah_name: name }
-    });
-
-    if (createError) throw createError;
-
-    // 3. Update the institution record with specific details (the trigger handles creation)
-    // Wait a bit for the trigger
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const defaultModules = ACCOUNT_TYPE_DEFAULT_MODULES[type || 'committee'] || ACCOUNT_TYPE_DEFAULT_MODULES.committee;
-    const default_config: Record<string, any> = {
-      modules: defaultModules,
-      org_type: type || 'committee',
-      attendance_type: 'meeting',
-      fee_structure: 'monthly',
-      ui_mode: 'committee'
-    };
-
-    if (type === 'sangha' || type === 'union') {
-      default_config.songho_activities = (Array.isArray(songho_activities) && songho_activities.length > 0)
-        ? songho_activities
-        : ['islamic', 'youth', 'social', 'welfare'];
-    }
-
-    const { error: updateError } = await supabaseAdmin.from('institutions').update({
-      phone,
-      institution_type: type || 'committee',
-      login_code: login_code || null,
-      is_active: true,
-      status: 'active',
-      config_json: default_config
-    }).eq('id', newUser.user.id);
-    
-    if (updateError) {
-      console.warn("Update error (retrying with upsert):", updateError);
-      // Fallback in case trigger was slow or failed
-      await supabaseAdmin.from('institutions').upsert({
-        id: newUser.user.id,
-        name: name,
-        email: email,
-        phone: phone,
-        institution_type: type || 'committee',
-        login_code: login_code || null,
-        is_active: true,
-        is_super_admin: false,
-        balance: 0,
-        sms_balance: 0,
-        status: 'active',
-        config_json: default_config
-      });
-      
-      await supabaseAdmin.from('profiles').upsert({
-        id: newUser.user.id,
-        institution_id: newUser.user.id,
-        full_name: name,
-        role: 'org_admin',
-        is_active: true
-      });
-    }
-
-    res.json({ success: true, userId: newUser.user.id });
-  } catch (error: any) {
-    console.error("Create Committee Error:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post("/api/auth/reset-password", async (req, res) => {
-  const { email, new_password } = req.body;
-  if (!email || !new_password) {
-    return res.status(400).json({ error: "ইমেইল এবং নতুন পাসওয়ার্ড প্রদান করুন।" });
-  }
-
-  if (new_password.length < 6) {
-    return res.status(400).json({ error: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।" });
-  }
-
-  try {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = new_password.trim();
-
-    let targetUser: any = null;
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (!listError && users) {
-      targetUser = users.find((u: any) => u.email?.toLowerCase() === cleanEmail);
-    }
-
-    let instRecord: any = null;
-    if (!targetUser) {
-      const { data: instData } = await supabaseAdmin
-        .from('institutions')
-        .select('id, email, name')
-        .or(`email.ilike.${cleanEmail},login_code.ilike.${cleanEmail}`)
-        .maybeSingle();
-
-      if (instData) {
-        instRecord = instData;
-        try {
-          const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(instData.id);
-          if (user) targetUser = user;
-        } catch {
-          // not found by id
-        }
-      }
-    }
-
-    if (targetUser) {
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
-        password: cleanPassword,
-        email_confirm: true
-      });
-      if (updateError) throw updateError;
-
-      try {
-        await supabaseAdmin.rpc("update_user_by_admin", {
-          p_user_id: targetUser.id,
-          p_password: cleanPassword
-        });
-      } catch {
-        // secondary sync
-      }
-
-      return res.json({ success: true, message: "পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!" });
-    }
-
-    if (instRecord) {
-      const { error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: cleanEmail,
-        password: cleanPassword,
-        email_confirm: true,
-        user_metadata: { name: instRecord.name }
-      });
-      if (createError) throw createError;
-
-      return res.json({ success: true, message: "পাসওয়ার্ড সফলভাবে সেট করা হয়েছে!" });
-    }
-
-    return res.status(404).json({ error: "এই ইমেইলে কোনো একাউন্ট পাওয়া যায়নি।" });
-  } catch (err: any) {
-    console.error("Password reset error:", err);
-    res.status(500).json({ error: err.message || "Failed to reset password" });
-  }
-});
-
-app.post("/api/admin/update-user-password", async (req, res) => {
-  const { user_id, email, new_password, auth_token } = req.body;
-  
-  if (!new_password || new_password.trim().length < 6) {
-    return res.status(400).json({ error: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।" });
-  }
-
-  try {
-    // 1. Verify requester is admin if auth_token passed
-    if (auth_token) {
-      const { data: { user: requester }, error: tokenErr } = await supabaseAdmin.auth.getUser(auth_token);
-      if (tokenErr || !requester) {
-        return res.status(401).json({ error: "অননুমোদিত অ্যাক্সেস" });
-      }
-      const { data: requesterProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('role')
-        .eq('id', requester.id)
-        .single();
-      if (requesterProfile?.role !== 'super_admin' && requesterProfile?.role !== 'manager') {
-        return res.status(403).json({ error: "শুধুমাত্র সুপার অ্যাডমিন অথবা ম্যানেজার পাসওয়ার্ড পরিবর্তন করতে পারেন।" });
-      }
-    }
-
-    // 2. Fetch or find matching user
-    let targetUser: any = null;
-    let authUsers: any[] = [];
-    const searchEmail = email?.trim()?.toLowerCase();
-
-    if (user_id) {
-      try {
-        const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(user_id);
-        if (user) targetUser = user;
-      } catch {
-        // user_id might be institution id
-      }
-    }
-
-    if (!targetUser) {
-      const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      if (!listError && users) {
-        authUsers = users;
-        if (user_id) targetUser = authUsers.find((u: any) => u.id === user_id);
-        const searchEmail = email?.trim()?.toLowerCase();
-        if (!targetUser && searchEmail) {
-          targetUser = authUsers.find((u: any) => u.email?.toLowerCase() === searchEmail);
-        }
-      }
-    }
-
-    // If still not found, check if user_id was an institution ID
-    if (!targetUser && user_id) {
-      const { data: instData } = await supabaseAdmin
-        .from('institutions')
-        .select('email, name')
-        .eq('id', user_id)
-        .maybeSingle();
-
-      if (instData?.email) {
-        targetUser = authUsers.find((u: any) => u.email?.toLowerCase() === instData.email.toLowerCase());
-      }
-
-      // If still not found, check profiles
-      if (!targetUser) {
-        const { data: profData } = await supabaseAdmin
-          .from('profiles')
-          .select('id, full_name')
-          .or(`id.eq.${user_id},institution_id.eq.${user_id}`)
-          .maybeSingle();
-
-        if (profData?.id) {
-          targetUser = authUsers.find((u: any) => u.id === profData.id);
-        }
-      }
-    }
-
-    if (targetUser) {
-      // Update existing auth user password
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
-        password: new_password.trim(),
-        email_confirm: true
-      });
-      if (updateErr) throw updateErr;
-
-      // Also call update_user_by_admin RPC as secondary sync
-      try {
-        await supabaseAdmin.rpc("update_user_by_admin", {
-          p_user_id: targetUser.id,
-          p_password: new_password.trim()
-        });
-      } catch (rpcErr) {
-        console.warn("Secondary RPC error:", rpcErr);
-      }
-
-      return res.json({ success: true, message: "পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!" });
-    }
-
-    // If user doesn't exist in auth yet (legacy record), create user with this email & password
-    let effectiveEmail = searchEmail;
-    if (!effectiveEmail && user_id) {
-      const { data: inst } = await supabaseAdmin.from('institutions').select('email').eq('id', user_id).maybeSingle();
-      effectiveEmail = inst?.email?.toLowerCase();
-    }
-
-    if (effectiveEmail) {
-      const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
-        email: effectiveEmail,
-        password: new_password.trim(),
-        email_confirm: true
-      });
-      if (createErr) throw createErr;
-
-      return res.json({ success: true, message: "নতুন অথেন্টিকেশন একাউন্ট তৈরি করে পাসওয়ার্ড সেট করা হয়েছে!" });
-    }
-
-    return res.status(404).json({ error: "কোনো ব্যবহারকারী পাওয়া যায়নি।" });
-  } catch (err: any) {
-    console.error("Admin password update error:", err);
-    res.status(500).json({ error: err.message || "পাসওয়ার্ড পরিবর্তন করতে ব্যর্থ হয়েছে।" });
   }
 });
 

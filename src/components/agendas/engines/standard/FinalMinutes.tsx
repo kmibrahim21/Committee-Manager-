@@ -93,6 +93,63 @@ const FinalMinutes: React.FC<FinalMinutesProps> = ({ lang, madrasah, onBack, rol
         }
     };
 
+    const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+    const handleDownloadMinutes = async (m: any) => {
+        if (!madrasah) return;
+        setDownloadingId(m.id);
+        try {
+            let membersQuery = supabase
+                .from('members')
+                .select('*')
+                .eq('institution_id', madrasah.id);
+            if (m.department_id) {
+                membersQuery = membersQuery.eq('department_id', m.department_id);
+            }
+
+            const [
+                { data: agendasData },
+                { data: decisionsData },
+                { data: attendanceData },
+                { data: membersData }
+            ] = await Promise.all([
+                supabase.from('meeting_agendas').select('*').eq('meeting_id', m.id).order('created_at', { ascending: true }),
+                supabase.from('meeting_decisions').select('*').eq('meeting_id', m.id).order('created_at', { ascending: true }),
+                supabase.from('meeting_attendance').select('*').eq('meeting_id', m.id),
+                membersQuery
+            ]);
+
+            const attendanceRecords: Record<string, string> = {};
+            const cached = localStorage.getItem(`meeting_attendance_${m.id}`);
+            if (cached) {
+                try {
+                    Object.assign(attendanceRecords, JSON.parse(cached));
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            (attendanceData || []).forEach((r: any) => {
+                if (r.member_id && r.status) {
+                    attendanceRecords[r.member_id] = r.status;
+                }
+            });
+
+            await generateMeetingMinutesPDF(
+                m,
+                madrasah,
+                lang,
+                agendasData || [],
+                decisionsData || [],
+                membersData || [],
+                attendanceRecords
+            );
+        } catch (err) {
+            console.error('Error generating meeting minutes PDF:', err);
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
     const isDark = madrasah?.theme === 'dark';
 
     const filteredMinutes = useMemo(() => {
@@ -137,11 +194,12 @@ const FinalMinutes: React.FC<FinalMinutesProps> = ({ lang, madrasah, onBack, rol
                                 </div>
                             </div>
                             <button 
-                                onClick={() => generateMeetingMinutesPDF(m, madrasah, lang, [], [], [], {})}
-                                className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-[#42f5e9]/10 hover:text-[#0fb5ab] active:scale-95 flex items-center justify-center transition-all cursor-pointer"
+                                onClick={() => handleDownloadMinutes(m)}
+                                disabled={downloadingId === m.id}
+                                className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-[#42f5e9]/10 hover:text-[#0fb5ab] active:scale-95 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
                                 title={lang === 'bn' ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}
                             >
-                                <Download size={18} />
+                                {downloadingId === m.id ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
                             </button>
                         </div>
                     )) : (

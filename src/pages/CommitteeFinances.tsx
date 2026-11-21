@@ -58,6 +58,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
   };
 
   // Ledger State
+  const [editingLedgerId, setEditingLedgerId] = useState<string | null>(null);
   const [type, setType] = useState<'income' | 'expense'>('income');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
@@ -164,20 +165,46 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
     }
   };
 
+  const resetLedgerForm = () => {
+    setEditingLedgerId(null);
+    setAmount('');
+    setCategory('');
+    setDesc('');
+    setSelectedQardLoanId('');
+    setQardReceiptNo('');
+    setTxType('general');
+    setTransactionDate(new Date().toISOString().split('T')[0]);
+  };
+
   const handleAddLedger = async () => {
     if (!madrasah || !amount || !category) return;
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('ledger').insert({
-        institution_id: madrasah.id,
-        type: type,
-        amount: parseFloat(amount),
-        category: category.trim(),
-        description: desc.trim(),
-        transaction_date: transactionDate
-      });
-      if (error) throw error;
-      setAmount(''); setCategory(''); setDesc(''); setSelectedQardLoanId(''); setQardReceiptNo(''); setTxType('general');
+      if (editingLedgerId) {
+        const { error } = await supabase
+          .from('ledger')
+          .update({
+            type: type,
+            amount: parseFloat(amount),
+            category: category.trim(),
+            description: desc.trim(),
+            transaction_date: transactionDate
+          })
+          .eq('id', editingLedgerId)
+          .eq('institution_id', madrasah.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('ledger').insert({
+          institution_id: madrasah.id,
+          type: type,
+          amount: parseFloat(amount),
+          category: category.trim(),
+          description: desc.trim(),
+          transaction_date: transactionDate
+        });
+        if (error) throw error;
+      }
+      resetLedgerForm();
       setActiveTab('ledger');
       fetchData();
     } catch (err: any) { 
@@ -226,13 +253,13 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
       <div className="px-1">
         <div className={`flex p-1.5 rounded-[2rem] border overflow-x-auto no-scrollbar gap-1 ${isDark ? 'bg-slate-800/80 border-slate-700/50' : 'bg-slate-100/80 border-slate-200/50'}`}>
           <button 
-            onClick={() => setActiveTab('fees')} 
+            onClick={() => { setEditingLedgerId(null); setActiveTab('fees'); }} 
             className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'fees' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-sm border border-[#42f5e9]/20') : 'text-slate-400 hover:text-slate-600'}`}
           >
             সদস্য চাঁদা
           </button>
           <button 
-            onClick={() => setActiveTab('structures')} 
+            onClick={() => { setEditingLedgerId(null); setActiveTab('structures'); }} 
             className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'structures' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-sm border border-[#42f5e9]/20') : 'text-slate-400 hover:text-slate-600'}`}
           >
             সেটিং
@@ -241,10 +268,10 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
             onClick={() => setActiveTab('add-ledger')} 
             className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'add-ledger' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-sm border border-[#42f5e9]/20') : 'text-slate-400 hover:text-slate-600'}`}
           >
-            লেনদেন
+            {editingLedgerId ? 'এডিট লেনদেন' : 'লেনদেন'}
           </button>
           <button 
-            onClick={() => setActiveTab('ledger')} 
+            onClick={() => { setEditingLedgerId(null); setActiveTab('ledger'); }} 
             className={`flex-1 min-w-[90px] py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300 ${activeTab === 'ledger' ? (isDark ? 'bg-slate-900 text-[#42f5e9] shadow-sm border border-slate-700/50' : 'bg-white text-[#0fb5ab] shadow-sm border border-[#42f5e9]/20') : 'text-slate-400 hover:text-slate-600'}`}
           >
             ইতিহাস
@@ -414,6 +441,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                               {canManageAccounting && (
                                 <button
                                   onClick={() => {
+                                    setEditingLedgerId(entry.id);
                                     setType(entry.type as any);
                                     setAmount(entry.amount.toString());
                                     setCategory(entry.category || '');
@@ -491,11 +519,30 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
              
              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className={`text-xl sm:text-2xl font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>নতুন লেনদেন</h3>
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">পেমেন্ট এবং ফান্ড এন্ট্রি করুন</p>
+                  <h3 className={`text-xl sm:text-2xl font-black font-noto ${isDark ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                    {editingLedgerId ? 'লেনদেন আপডেট করুন' : 'নতুন লেনদেন'}
+                  </h3>
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                    {editingLedgerId ? 'পূর্বের এন্ট্রি সংশোধন করুন' : 'পেমেন্ট এবং ফান্ড এন্ট্রি করুন'}
+                  </p>
                 </div>
-                <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-[#42f5e9]' : 'bg-blue-50 text-blue-600'}`}>
-                  <Calculator size={24} className="sm:w-7 sm:h-7" />
+                <div className="flex items-center gap-2">
+                  {editingLedgerId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetLedgerForm();
+                        setActiveTab('ledger');
+                      }}
+                      className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border flex items-center gap-1.5 transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <X size={14} />
+                      বাতিল
+                    </button>
+                  )}
+                  <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-[#42f5e9]' : 'bg-blue-50 text-blue-600'}`}>
+                    <Calculator size={24} className="sm:w-7 sm:h-7" />
+                  </div>
                 </div>
              </div>
 
@@ -680,7 +727,7 @@ const CommitteeFinances: React.FC<AccountingProps> = ({ lang, madrasah, onBack, 
                disabled={isSaving} 
                className="w-full h-16 sm:h-20 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-2xl sm:rounded-[2.2rem] shadow-premium flex items-center justify-center gap-3 sm:gap-4 transition-all text-sm sm:text-base uppercase tracking-[0.15em] sm:tracking-[0.2em] disabled:opacity-50"
              >
-               {isSaving ? <Loader2 className="animate-spin" size={24} /> : <><Save size={20} className="sm:w-6 sm:h-6" /> সংরক্ষণ করুন</>}
+               {isSaving ? <Loader2 className="animate-spin" size={24} /> : <><Save size={20} className="sm:w-6 sm:h-6" /> {editingLedgerId ? 'আপডেট সংরক্ষণ করুন' : 'সংরক্ষণ করুন'}</>}
              </motion.button>
           </div>
         </motion.div>

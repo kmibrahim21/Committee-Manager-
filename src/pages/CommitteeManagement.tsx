@@ -40,9 +40,21 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    pin: '',
     designation: '',
     is_active: true
   });
+
+  const hashPinClient = async (rawPin: string): Promise<string> => {
+    const trimmed = rawPin.trim();
+    if (typeof window !== 'undefined' && window.crypto?.subtle) {
+      const msgBuffer = new TextEncoder().encode(trimmed);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    return trimmed;
+  };
 
   const [permissions, setPermissions] = useState<Partial<TeacherPermissions>>({
     can_manage_members: false,
@@ -82,21 +94,16 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
     if (!madrasah?.id) return;
     setLoading(true);
     try {
-      // 1. First attempt via Supabase query
-      const { data, error } = await supabase
-        .from('executives')
-        .select('*')
-        .eq('institution_id', madrasah.id)
-        .order('created_at', { ascending: false });
-        
-      if (!error && data && data.length > 0) {
-        setExecutives(data);
-        return;
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const authHeaders: Record<string, string> = session?.access_token
+        ? { 'Authorization': `Bearer ${session.access_token}` }
+        : {};
 
-      // 2. Fallback via API route
+      // 1. First attempt via authenticated API route (strips sensitive fields)
       try {
-        const res = await fetch(`/api/executives?action=list&institute_id=${madrasah.id}`);
+        const res = await fetch(`/api/executives?action=list&institute_id=${madrasah.id}`, {
+          headers: authHeaders
+        });
         if (res.ok) {
           const json = await res.json();
           if (json.executives && Array.isArray(json.executives)) {
@@ -105,22 +112,20 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
           }
         }
       } catch (apiErr) {
-        console.warn('API fallback fetch executives error:', apiErr);
+        console.warn('API fetch executives fallback to Supabase:', apiErr);
       }
 
+      // 2. Fallback via Supabase query
+      const { data, error } = await supabase
+        .from('executives')
+        .select('id, institution_id, user_id, name, phone, designation, photo_url, is_active, permissions, created_at, last_login_at')
+        .eq('institution_id', madrasah.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
       setExecutives(data || []);
     } catch (err: any) {
       console.error('Fetch executives error:', err);
-      try {
-        const res = await fetch(`/api/executives?action=list&institute_id=${madrasah.id}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.executives && Array.isArray(json.executives)) {
-            setExecutives(json.executives);
-            return;
-          }
-        }
-      } catch (e) {}
       setError(err.message || 'Failed to fetch executives');
     } finally {
       setLoading(false);
@@ -130,24 +135,61 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
   const handleAddExecutive = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!madrasah?.id) return;
+    if (!formData.pin || formData.pin.trim().length < 4) {
+      setError(lang === 'bn' ? 'কমপক্ষে ৪ সংখ্যার পিন (PIN) প্রদান করুন' : 'Please enter a PIN of at least 4 characters');
+      return;
+    }
     setSaving(true);
     setError(null);
 
     try {
-      const payload = {
-        ...formData,
-        pin: '1234', // Default pin as it's required in DB but removed from UI
-        institution_id: madrasah.id,
-        permissions
-      };
+      const { data: { session } } = await supabase.auth.getSession();
+      let createdViaApi = false;
 
-      const { data, error } = await supabase
-        .from('executives')
-        .insert(payload)
-        .select()
-        .single();
-        
-      if (error) throw error;
+      try {
+        const res = await fetch('/api/executives?action=create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+          },
+          body: JSON.stringify({
+            institution_id: madrasah.id,
+            name: formData.name.trim(),
+            phone: formData.phone.trim(),
+            pin: formData.pin.trim(),
+            designation: formData.designation.trim(),
+            is_active: formData.is_active,
+            permissions
+          })
+        });
+        if (res.ok) {
+          createdViaApi = true;
+        }
+      } catch (apiErr) {
+        console.warn('Create executive API fallback to direct insert:', apiErr);
+      }
+
+      if (!createdViaApi) {
+        const hashedPin = await hashPinClient(formData.pin);
+        const payload = {
+          name: formData.name.trim(),
+          phone: formData.phone.trim(),
+          designation: formData.designation.trim(),
+          is_active: formData.is_active,
+          pin: hashedPin,
+          institution_id: madrasah.id,
+          permissions
+        };
+
+        const { error } = await supabase
+          .from('executives')
+          .insert(payload)
+          .select('id')
+          .single();
+          
+        if (error) throw error;
+      }
 
       await fetchExecutives();
       setShowAddModal(false);
@@ -163,21 +205,61 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
   const handleUpdateExecutive = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExecutive) return;
+    if (formData.pin && formData.pin.trim().length > 0 && formData.pin.trim().length < 4) {
+      setError(lang === 'bn' ? 'নতুন পিন কমপক্ষে ৪ সংখ্যার হতে হবে' : 'New PIN must be at least 4 characters');
+      return;
+    }
     setSaving(true);
     setError(null);
 
     try {
-      const payload = {
-        ...formData,
-        permissions
-      };
+      const { data: { session } } = await supabase.auth.getSession();
+      let updatedViaApi = false;
 
-      const { error } = await supabase
-        .from('executives')
-        .update(payload)
-        .eq('id', selectedExecutive.id);
+      try {
+        const res = await fetch('/api/executives?action=update', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+          },
+          body: JSON.stringify({
+            id: selectedExecutive.id,
+            institution_id: madrasah?.id,
+            name: formData.name.trim(),
+            phone: formData.phone.trim(),
+            designation: formData.designation.trim(),
+            is_active: formData.is_active,
+            ...(formData.pin.trim() ? { pin: formData.pin.trim() } : {}),
+            permissions
+          })
+        });
+        if (res.ok) {
+          updatedViaApi = true;
+        }
+      } catch (apiErr) {
+        console.warn('Update executive API fallback to direct update:', apiErr);
+      }
 
-      if (error) throw error;
+      if (!updatedViaApi) {
+        const payload: any = {
+          name: formData.name.trim(),
+          phone: formData.phone.trim(),
+          designation: formData.designation.trim(),
+          is_active: formData.is_active,
+          permissions
+        };
+        if (formData.pin.trim()) {
+          payload.pin = await hashPinClient(formData.pin);
+        }
+
+        const { error } = await supabase
+          .from('executives')
+          .update(payload)
+          .eq('id', selectedExecutive.id);
+
+        if (error) throw error;
+      }
       
       await fetchExecutives();
       setShowEditModal(false);
@@ -193,12 +275,24 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
 
   const handleDeleteExecutive = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('executives')
-        .delete()
-        .eq('id', id);
+      const { data: { session } } = await supabase.auth.getSession();
+      let deletedViaApi = false;
+      try {
+        const res = await fetch(`/api/executives?action=delete&id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+        });
+        if (res.ok) deletedViaApi = true;
+      } catch {}
 
-      if (error) throw error;
+      if (!deletedViaApi) {
+        const { error } = await supabase
+          .from('executives')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+      }
       setExecutives(prev => prev.filter(e => e.id !== id));
       setDeleteConfirmId(null);
     } catch (err: any) {
@@ -212,6 +306,7 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
     setFormData({
       name: '',
       phone: '',
+      pin: '',
       designation: '',
       is_active: true
     });
@@ -235,6 +330,7 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
     setFormData({
       name: executive.name || '',
       phone: executive.phone || '',
+      pin: '',
       designation: executive.designation || '',
       is_active: executive.is_active
     });
@@ -469,6 +565,25 @@ const CommitteeManagement: React.FC<CommitteeManagementProps> = ({ lang, organiz
                           className={`w-full pl-11 pr-4 py-3 border rounded-xl outline-none text-sm font-bold transition-all focus:border-blue-500/50 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-slate-700'}`}
                           value={formData.phone || ''}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                        {showAddModal
+                          ? (lang === 'bn' ? 'লগইন পিন (PIN)' : 'Login PIN')
+                          : (lang === 'bn' ? 'নতুন পিন (পরিবর্তন করতে চাইলে দিন)' : 'New PIN (Leave blank to keep current)')}
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                          type="password"
+                          required={showAddModal}
+                          minLength={4}
+                          placeholder={showAddModal ? (lang === 'bn' ? 'কমপক্ষে ৪ সংখ্যার পিন দিন' : 'Enter 4+ digit PIN') : (lang === 'bn' ? 'পিন রিসেট করতে নতুন পিন লিখুন' : 'Enter new PIN to reset')}
+                          className={`w-full pl-11 pr-4 py-3 border rounded-xl outline-none text-sm font-bold transition-all focus:border-blue-500/50 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-slate-700'}`}
+                          value={formData.pin || ''}
+                          onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
                         />
                       </div>
                     </div>

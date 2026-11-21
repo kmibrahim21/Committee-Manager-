@@ -49,12 +49,12 @@ export const useAuth = () => {
     }
     
     const userEmail = email?.trim().toLowerCase();
-    const isSuperAdminEmail = userEmail === 'kmibrahim@gmail.com' || userEmail === 'thedevomix@gmail.com' || userEmail === 'ibrahimkhan269596@gmail.com';
 
     try {
       // First, get the profile
       console.log("Fetching profile for user:", userId);
-      const { data: profileData, error: profileError } = await supabase
+      let profileData: any = null;
+      const { data: pData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -62,7 +62,84 @@ export const useAuth = () => {
       
       if (profileError) {
         console.warn("Profile fetch error detailed:", JSON.stringify(profileError, null, 2));
-        throw new Error(profileError.message || "Failed to fetch user profile from database");
+      }
+
+      profileData = pData;
+
+      // Fallback 1: Search profiles table by email
+      if (!profileData && userEmail) {
+        const { data: pByEmail } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('email', userEmail)
+          .maybeSingle();
+
+        if (pByEmail) {
+          profileData = pByEmail;
+          try {
+            await supabase.from('profiles').update({ id: userId }).eq('id', pByEmail.id);
+          } catch {
+            // ignore heal errors
+          }
+        }
+      }
+
+      // Fallback 2: Check localStorage super_admin_managers_list
+      if (!profileData && userEmail) {
+        try {
+          const rawLocal = localStorage.getItem('super_admin_managers_list');
+          if (rawLocal) {
+            const list = JSON.parse(rawLocal);
+            const match = list.find((m: any) => m.email?.toLowerCase() === userEmail);
+            if (match) {
+              profileData = {
+                id: userId,
+                institution_id: 'super_admin',
+                full_name: match.full_name || 'System Manager',
+                email: userEmail,
+                role: 'manager',
+                is_active: true,
+                permissions: match.permissions || {}
+              };
+              supabase.from('profiles').upsert(profileData).then();
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // Fallback 3: Check auth session metadata or email for manager role
+      if (!profileData) {
+        try {
+          const currSession = (await supabase.auth.getSession()).data.session;
+          if (currSession?.user) {
+            const meta = currSession.user.user_metadata || {};
+            if (meta.role === 'manager' || meta.institution_id === 'super_admin' || (userEmail && (userEmail.includes('manager') || userEmail.includes('mgr')))) {
+              profileData = {
+                id: userId,
+                institution_id: 'super_admin',
+                full_name: meta.full_name || (userEmail ? userEmail.split('@')[0] : 'System Manager'),
+                email: userEmail || currSession.user.email,
+                role: 'manager',
+                is_active: true,
+                permissions: meta.permissions || {
+                  can_view_dashboard: true,
+                  can_manage_committees: true,
+                  can_approve_payments: true,
+                  can_send_sms: true,
+                  can_access_voice_service: false,
+                  can_manage_rates: false,
+                  can_manage_tutorials: true,
+                  can_manage_managers: false
+                }
+              };
+              supabase.from('profiles').upsert(profileData).then();
+            }
+          }
+        } catch (e) {
+          console.warn("Session metadata fallback check warning:", e);
+        }
       }
 
       console.log("Profile data response:", profileData);
@@ -76,10 +153,7 @@ export const useAuth = () => {
           supabase.from('profiles').update({ role: 'org_admin' }).eq('id', userId).then();
         }
 
-        // Force super_admin role for the designated email
-        const finalProfile = isSuperAdminEmail 
-          ? { ...profileData, role: 'super_admin' as const } 
-          : profileData;
+        const finalProfile = profileData;
           
         setProfile(finalProfile);
         OfflineService.setCache('user_profile', finalProfile);
@@ -156,10 +230,6 @@ export const useAuth = () => {
              created_at: directInstitution.created_at || new Date().toISOString()
            } as Profile;
            
-           if (isSuperAdminEmail) {
-             mockProfile.role = 'super_admin';
-           }
-           
            setProfile(mockProfile);
            OfflineService.setCache('user_profile', mockProfile);
            setMadrasah(directInstitution);
@@ -178,54 +248,6 @@ export const useAuth = () => {
            return;
         }
 
-        // If profile doesn't exist yet, it might be the trigger lagging or 
-        // a manual auth user without SQL data.
-        if (isSuperAdminEmail) {
-          console.log("Super admin profile missing, bootstrapping...");
-          await supabase.rpc('bootstrap_super_admin', { 
-            p_uid: userId, 
-            p_email: userEmail 
-          });
-          // Retry fetch once
-          const { data: retryProfile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-          if (retryProfile) {
-            const finalSuperProfile = { ...retryProfile, role: 'super_admin' as const };
-            setProfile(finalSuperProfile);
-            OfflineService.setCache('user_profile', finalSuperProfile);
-            const localTheme = localStorage.getItem('super_admin_theme') || 'default';
-            const superInst = {
-              id: 'super_admin',
-              name: 'Super Admin',
-              institution_type: 'system',
-              theme: localTheme,
-              config_json: { 
-                modules: {
-                  departments: true,
-                  attendance: true,
-                  meetings: true,
-                  minutes: true,
-                  events: true,
-                  accounting: true,
-                  sms: true,
-                  voice_broadcast: true
-                },
-                org_type: 'committee',
-                attendance_type: 'daily',
-                ui_mode: 'committee'
-              },
-              is_active: true,
-              status: 'active',
-              balance: 0,
-              sms_balance: 0,
-              is_super_admin: true,
-              created_at: new Date().toISOString()
-            } as Institution;
-            setMadrasah(superInst);
-            OfflineService.setCache('profile', superInst);
-            return;
-          }
-        }
-        
         setAuthError("Profile not found in database. Please check if SQL triggers are running.");
       }
     } catch (err: any) {
@@ -251,7 +273,7 @@ export const useAuth = () => {
         id: userId,
         institution_id: 'demo_institution',
         full_name: email ? email.split('@')[0] : 'Demo User',
-        role: isSuperAdminEmail ? 'super_admin' : 'org_admin',
+        role: 'org_admin',
         is_active: true,
         created_at: new Date().toISOString()
       };

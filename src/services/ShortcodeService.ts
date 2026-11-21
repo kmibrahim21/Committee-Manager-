@@ -47,6 +47,7 @@ export const ShortcodeService = {
         id,
         name,
         roll,
+        department_id,
         member_id_number,
         member_type,
         departments (name),
@@ -59,17 +60,44 @@ export const ShortcodeService = {
       return [];
     }
 
-    // 2. Fetch Subscriptions (Current Month)
-    const { data: fees } = await supabase
-      .from('subscriptions')
-      .select('member_id, amount_due, amount_paid')
-      .eq('period', currentMonth)
+    // 2. Fetch Fees & Fee Structures (with fallback to subscriptions & subscription_structures)
+    let feeStructures: any[] = [];
+    const { data: fsData } = await supabase
+      .from('fee_structures')
+      .select('department_id, amount')
+      .eq('institution_id', institutionId);
+    if (fsData && fsData.length > 0) {
+      feeStructures = fsData;
+    } else {
+      const { data: ssData } = await supabase
+        .from('subscription_structures')
+        .select('department_id, amount')
+        .eq('institution_id', institutionId);
+      if (ssData) feeStructures = ssData;
+    }
+
+    let fees: any[] = [];
+    const { data: feesTableData } = await supabase
+      .from('fees')
+      .select('member_id, amount_paid, discount')
+      .eq('month', currentMonth)
       .in('member_id', studentIds);
+
+    if (feesTableData && feesTableData.length > 0) {
+      fees = feesTableData;
+    } else {
+      const { data: subsData } = await supabase
+        .from('subscriptions')
+        .select('member_id, amount_due, amount_paid, discount')
+        .eq('period', currentMonth)
+        .in('member_id', studentIds);
+      if (subsData) fees = subsData;
+    }
 
     // 3. Fetch Latest Meeting
     const { data: latestMeeting } = await supabase
       .from('meetings')
-      .select('title, date, time, location')
+      .select('title, date, time, venue')
       .eq('institution_id', institutionId)
       .order('date', { ascending: false })
       .limit(1)
@@ -78,9 +106,9 @@ export const ShortcodeService = {
     // 4. Fetch Latest Event
     const { data: latestEvent } = await supabase
       .from('events')
-      .select('title, date')
+      .select('title, start_date')
       .eq('institution_id', institutionId)
-      .order('date', { ascending: false })
+      .order('start_date', { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -99,9 +127,21 @@ export const ShortcodeService = {
     };
 
     // Combine all data
-    return students.map(s => {
-      const studentFees = fees?.find(f => f.member_id === s.id);
-      
+    return students.map((s: any) => {
+      const studentFeeRows = fees?.filter(f => f.member_id === s.id) || [];
+      const paidAmount = studentFeeRows.reduce((sum, f) => sum + (Number(f.amount_paid) || 0), 0);
+      const discountAmount = studentFeeRows.reduce((sum, f) => sum + (Number(f.discount) || 0), 0);
+
+      const applicableStructures = feeStructures.filter(
+        fs => fs.department_id === s.department_id || fs.department_id === null
+      );
+      const totalPayable = applicableStructures.reduce((sum, fs) => sum + (Number(fs.amount) || 0), 0);
+
+      const explicitDue = studentFeeRows.find(f => f.amount_due !== undefined)?.amount_due;
+      const dueAmount = explicitDue !== undefined
+        ? Number(explicitDue)
+        : Math.max(0, totalPayable - (paidAmount + discountAmount));
+
       const mType = s.member_type || 'general';
       const mTypeLabel = memberTypeLabels[mType.toLowerCase()] || mType;
 
@@ -114,14 +154,14 @@ export const ShortcodeService = {
         member_type_label: mTypeLabel,
         department_name: (s.departments as any)?.name,
         institution_name: (s.institutions as any)?.name,
-        due_amount: studentFees?.amount_due,
-        paid_amount: studentFees?.amount_paid,
+        due_amount: dueAmount,
+        paid_amount: paidAmount,
         meeting_title: latestMeeting?.title || '-',
         meeting_date: latestMeeting?.date || '-',
         meeting_time: latestMeeting?.time || '-',
-        meeting_location: latestMeeting?.location || '-',
+        meeting_location: latestMeeting?.venue || '-',
         event_title: latestEvent?.title || '-',
-        event_date: latestEvent?.date || '-',
+        event_date: latestEvent?.start_date ? new Date(latestEvent.start_date).toLocaleDateString('bn-BD') : '-',
         month: currentMonth
       };
     });

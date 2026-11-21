@@ -10,7 +10,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: true,
     polls: true,
     notices: true,
   },
@@ -23,7 +22,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: false,
     polls: true,
     notices: true,
     savings: true,
@@ -40,7 +38,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: true,
     polls: true,
     notices: true,
     employees: true,
@@ -58,7 +55,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: false,
     polls: true,
     notices: true,
     tournaments: true,
@@ -74,7 +70,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: false,
     polls: true,
     notices: true,
     donations: true,
@@ -92,7 +87,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: false,
     polls: false,
     notices: true,
     trustees: true,
@@ -109,7 +103,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: true,
     polls: true,
     notices: true,
     regional_mgmt: true,
@@ -124,7 +117,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: false,
     polls: true,
     notices: true,
     wards: true,
@@ -141,7 +133,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: true,
     polls: true,
     notices: true,
     social_activities: true,
@@ -157,7 +148,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: false,
     polls: true,
     notices: true,
     savings: true,
@@ -174,7 +164,6 @@ const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
     accounting: true,
     voice_broadcast: true,
     sms: true,
-    results: true,
     polls: true,
     notices: true,
   }
@@ -203,29 +192,37 @@ export default async function handler(req: any, res: any) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Verify requester is super admin if auth_token provided
-    if (auth_token) {
-      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(auth_token);
-      if (authError || !user) {
-        return res.status(401).json({ error: 'Unauthorized: Invalid authentication session' });
-      }
+    // 1. Unconditionally require and verify super_admin token
+    const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
+    const token = (typeof authHeader === 'string' && authHeader.startsWith('Bearer '))
+      ? authHeader.slice(7).trim()
+      : (auth_token ? String(auth_token).trim() : '');
 
-      const { data: profile } = await supabaseAdmin
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized: Missing authentication token' });
+    }
+
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid authentication session' });
+    }
+
+    const [{ data: profile }, { data: inst }] = await Promise.all([
+      supabaseAdmin
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .maybeSingle();
-
-      const { data: inst } = await supabaseAdmin
+        .maybeSingle(),
+      supabaseAdmin
         .from('institutions')
         .select('is_super_admin')
         .eq('id', user.id)
-        .maybeSingle();
+        .maybeSingle()
+    ]);
 
-      const isSuper = profile?.role === 'super_admin' || inst?.is_super_admin === true;
-      if (!isSuper) {
-        return res.status(403).json({ error: 'Forbidden: Super Admin access required' });
-      }
+    const isSuper = profile?.role === 'super_admin' || inst?.is_super_admin === true;
+    if (!isSuper) {
+      return res.status(403).json({ error: 'Forbidden: Super Admin access required' });
     }
 
     // 2. Create User in Supabase Auth

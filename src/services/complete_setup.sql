@@ -4,6 +4,7 @@
 
 -- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 2. TABLES
 -- Institutions (Main Account Record)
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS public.executives (
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
+    login_id TEXT,
     pin TEXT,
     designation TEXT,
     is_active BOOLEAN DEFAULT true,
@@ -267,6 +269,40 @@ CREATE TABLE IF NOT EXISTS public.calendar_events (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Notices
+CREATE TABLE IF NOT EXISTS public.notices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institution_id UUID NOT NULL REFERENCES public.institutions(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    is_pinned BOOLEAN DEFAULT false,
+    is_urgent BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Polls
+CREATE TABLE IF NOT EXISTS public.polls (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    institution_id UUID NOT NULL REFERENCES public.institutions(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    options JSONB NOT NULL DEFAULT '[]'::jsonb,
+    is_active BOOLEAN DEFAULT true,
+    end_date TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Poll Votes
+CREATE TABLE IF NOT EXISTS public.poll_votes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    poll_id UUID NOT NULL REFERENCES public.polls(id) ON DELETE CASCADE,
+    member_id UUID NOT NULL,
+    option_index INTEGER NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(poll_id, member_id)
+);
+
 -- 3. UPDATING MISSING COLUMNS (In case tables existed)
 DO $$ 
 BEGIN 
@@ -287,6 +323,11 @@ BEGIN
     -- Members missing columns
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='members' AND column_name='guardian_phone_2') THEN
         ALTER TABLE public.members ADD COLUMN guardian_phone_2 TEXT;
+    END IF;
+
+    -- Executives missing columns
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='executives' AND column_name='login_id') THEN
+        ALTER TABLE public.executives ADD COLUMN login_id TEXT;
     END IF;
 END $$;
 
@@ -378,35 +419,124 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Check Teacher (Executive) Login
-CREATE OR REPLACE FUNCTION check_teacher_login(p_phone TEXT, p_pin TEXT)
+-- Check Teacher / Executive Login (Verifies hashed PINs via crypt or SHA-256; never returns pin)
+DROP FUNCTION IF EXISTS public.check_teacher_login(TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.check_teacher_login(
+    p_phone TEXT,
+    p_pin TEXT
+)
 RETURNS TABLE (
     id UUID,
     institution_id UUID,
     name TEXT,
     phone TEXT,
-    pin TEXT,
-    designation TEXT,
+    login_id TEXT,
+    is_active BOOLEAN,
     permissions JSONB,
-    supabase_email TEXT
-) AS $$
+    designation TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_sha256 TEXT;
 BEGIN
+    IF p_phone IS NULL OR p_pin IS NULL OR length(trim(p_phone)) = 0 OR length(trim(p_pin)) = 0 THEN
+        RETURN;
+    END IF;
+
+    v_sha256 := encode(extensions.digest(p_pin, 'sha256'), 'hex');
+
     RETURN QUERY
-    SELECT 
+    SELECT
         e.id,
         e.institution_id,
         e.name,
         e.phone,
-        e.pin,
-        e.designation,
-        e.permissions,
-        (e.phone || '@committee.com') as supabase_email
-    FROM executives e
-    WHERE e.phone = p_phone AND e.pin = p_pin AND e.is_active = true;
+        e.login_id,
+        e.is_active,
+        COALESCE(e.permissions, '{}'::jsonb) AS permissions,
+        e.designation
+    FROM public.executives e
+    WHERE (e.phone = p_phone OR e.login_id = p_phone)
+      AND e.is_active = true
+      AND e.pin IS NOT NULL
+      AND (
+        (e.pin LIKE '$2%' AND e.pin = extensions.crypt(p_pin, e.pin))
+        OR e.pin = v_sha256
+        OR e.pin = p_pin
+      )
+    LIMIT 1;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+DROP FUNCTION IF EXISTS public.check_executive_login(TEXT, TEXT);
+CREATE OR REPLACE FUNCTION public.check_executive_login(
+    p_phone TEXT,
+    p_pin TEXT
+)
+RETURNS TABLE (
+    id UUID,
+    institution_id UUID,
+    name TEXT,
+    phone TEXT,
+    login_id TEXT,
+    is_active BOOLEAN,
+    permissions JSONB,
+    designation TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM public.check_teacher_login(p_phone, p_pin);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.check_teacher_login(TEXT, TEXT) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.check_executive_login(TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- Monthly Dues Report Function
+DROP FUNCTION IF EXISTS public.get_monthly_dues_report(UUID, UUID, TEXT);
+CREATE OR REPLACE FUNCTION public.get_monthly_dues_report(
+    p_institution_id UUID,
+    p_class_id UUID DEFAULT NULL,
+    p_month TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+    student_id UUID,
+    student_name TEXT,
+    student_roll TEXT,
+    member_id_number TEXT,
+    department_id UUID,
+    department_name TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        m.id::UUID AS student_id,
+        m.name::TEXT AS student_name,
+        COALESCE(m.member_id_number, m.roll, '-')::TEXT AS student_roll,
+        m.member_id_number::TEXT AS member_id_number,
+        m.department_id::UUID AS department_id,
+        d.name::TEXT AS department_name
+    FROM public.members m
+    LEFT JOIN public.departments d ON m.department_id = d.id
+    WHERE m.institution_id = p_institution_id
+      AND (p_class_id IS NULL OR m.department_id = p_class_id)
+    ORDER BY d.sort_order ASC, COALESCE(m.member_id_number, m.roll) ASC, m.name ASC;
+END;
+$$;
 
 -- Attendance Report Function
+DROP FUNCTION IF EXISTS public.get_attendance_report(UUID, DATE, DATE);
 CREATE OR REPLACE FUNCTION public.get_attendance_report(
   p_class_id UUID,
   p_start_date DATE,
@@ -416,6 +546,7 @@ RETURNS TABLE (
   student_id UUID,
   name TEXT,
   roll TEXT,
+  member_id_number TEXT,
   total_days BIGINT,
   present_days BIGINT,
   absent_days BIGINT,
@@ -424,18 +555,20 @@ RETURNS TABLE (
 ) 
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 BEGIN
   RETURN QUERY
   SELECT 
     m.id AS student_id,
     m.name::TEXT,
-    m.roll::TEXT,
+    COALESCE(m.member_id_number, m.roll)::TEXT AS roll,
+    m.member_id_number::TEXT AS member_id_number,
     COUNT(a.id)::BIGINT AS total_days,
-    COUNT(a.id) FILTER (WHERE a.status = 'present')::INT AS present_days,
-    COUNT(a.id) FILTER (WHERE a.status = 'absent')::INT AS absent_days,
-    COUNT(a.id) FILTER (WHERE a.status = 'late')::INT AS late_days,
-    COUNT(a.id) FILTER (WHERE a.status = 'half_day')::INT AS half_days
+    COUNT(a.id) FILTER (WHERE a.status = 'present')::BIGINT AS present_days,
+    COUNT(a.id) FILTER (WHERE a.status = 'absent')::BIGINT AS absent_days,
+    COUNT(a.id) FILTER (WHERE a.status = 'late')::BIGINT AS late_days,
+    COUNT(a.id) FILTER (WHERE a.status = 'half_day')::BIGINT AS half_days
   FROM 
     public.members m
   LEFT JOIN 
@@ -445,9 +578,9 @@ BEGIN
   WHERE 
     m.department_id = p_class_id
   GROUP BY 
-    m.id, m.name, m.roll
+    m.id, m.name, m.roll, m.member_id_number
   ORDER BY 
-    m.roll ASC;
+    COALESCE(m.member_id_number, m.roll) ASC, m.name ASC;
 END;
 $$;
 
@@ -461,6 +594,8 @@ ALTER TABLE ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription_structures ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fee_structures ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sms_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE voice_templates ENABLE ROW LEVEL SECURITY;
@@ -470,6 +605,9 @@ ALTER TABLE admin_sms_stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tutorials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE poll_votes ENABLE ROW LEVEL SECURITY;
 
 -- 7. CLEAN POLICIES (Idempotent approach)
 -- Helper to drop policy if exists
@@ -524,6 +662,46 @@ CREATE POLICY "Institutions can view their own transactions" ON transactions FOR
 
 SELECT drop_policy_if_exists('transactions', 'Institutions can insert their own transactions');
 CREATE POLICY "Institutions can insert their own transactions" ON transactions FOR INSERT WITH CHECK (institution_id = auth.uid());
+
+-- Fees & Fee Structures
+SELECT drop_policy_if_exists('fees', 'Institutions can manage their own fees');
+CREATE POLICY "Institutions can manage their own fees" ON fees FOR ALL USING (
+    institution_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.institution_id = fees.institution_id)
+);
+
+SELECT drop_policy_if_exists('fee_structures', 'Institutions can manage their own fee_structures');
+CREATE POLICY "Institutions can manage their own fee_structures" ON fee_structures FOR ALL USING (
+    institution_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.institution_id = fee_structures.institution_id)
+);
+
+-- Notices
+SELECT drop_policy_if_exists('notices', 'Institutions can manage their own notices');
+CREATE POLICY "Institutions can manage their own notices" ON notices FOR ALL USING (
+    institution_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.institution_id = notices.institution_id)
+);
+
+-- Polls
+SELECT drop_policy_if_exists('polls', 'Institutions can manage their own polls');
+CREATE POLICY "Institutions can manage their own polls" ON polls FOR ALL USING (
+    institution_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.institution_id = polls.institution_id)
+);
+
+-- Poll Votes
+SELECT drop_policy_if_exists('poll_votes', 'Institutions can manage their own poll_votes');
+CREATE POLICY "Institutions can manage their own poll_votes" ON poll_votes FOR ALL USING (
+    EXISTS (
+        SELECT 1 FROM public.polls pl
+        WHERE pl.id = poll_votes.poll_id
+          AND (
+              pl.institution_id = auth.uid()
+              OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.institution_id = pl.institution_id)
+          )
+    )
+);
 
 -- 8. INITIAL DATA
 INSERT INTO admin_sms_stock (id, remaining_sms) VALUES (1, 100000) ON CONFLICT (id) DO NOTHING;

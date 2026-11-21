@@ -268,7 +268,7 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
 
   const getSelectedClassName = () => {
     const cls = departments.find(c => c.id === selectedClassId);
-    return cls ? cls.name : (lang === 'bn' ? 'ক্লাস নির্বাচন করুন' : 'Select Department');
+    return cls ? cls.name : (lang === 'bn' ? 'কমিটি নির্বাচন করুন' : 'Select Committee');
   };
 
   const modules = useMemo(() => ({

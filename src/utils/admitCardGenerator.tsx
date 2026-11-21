@@ -32,8 +32,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
           </div>
           <div className="text-right">
             <div className="px-4 py-2 rounded-xl backdrop-blur-sm border" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', borderColor: 'rgba(255, 255, 255, 0.3)' }}>
-              <h2 className="text-xl font-black tracking-widest uppercase">Entry Pass</h2>
-              <p className="text-xs mt-1" style={{ color: '#dbeafe' }}>{isBangla ? 'প্রবেশপত্র' : 'Entry Card'}</p>
+              <h2 className="text-xl font-black tracking-widest uppercase">Delegate Pass</h2>
+              <p className="text-xs mt-1" style={{ color: '#dbeafe' }}>{isBangla ? 'সভার প্রবেশপত্র / ডেলিগেট কার্ড' : 'Meeting Delegate Pass'}</p>
             </div>
           </div>
         </div>
@@ -52,7 +52,7 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'সদস্য নং' : 'Member ID'}</p>
-                <p className="text-xl font-black border-b-2 pb-2" style={{ color: '#1e293b', borderColor: '#f1f5f9' }}>{student.roll || '-'}</p>
+                <p className="text-xl font-black border-b-2 pb-2" style={{ color: '#1e293b', borderColor: '#f1f5f9' }}>{student.member_id_number || student.roll || '-'}</p>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>{isBangla ? 'সভার তারিখ' : 'Meeting Date'}</p>
@@ -72,8 +72,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
         <div className="p-4 border-t flex justify-between items-end px-8" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
           <div className="text-xs font-bold max-w-md" style={{ color: '#64748b' }}>
             <p className="mb-1" style={{ color: '#ef4444' }}>{isBangla ? 'নির্দেশনা:' : 'Instructions:'}</p>
-            <p>{isBangla ? '১. সভার হলে অবশ্যই প্রবেশপত্র সাথে আনতে হবে।' : '1. Must bring this entry pass to the meeting hall.'}</p>
-            <p>{isBangla ? '২. সভার শিষ্টাচার বজায় রাখুন।' : '2. Please maintain meeting decorum.'}</p>
+            <p>{isBangla ? '১. সভাকক্ষে অবশ্যই ডেলিগেট কার্ড সাথে আনতে হবে।' : '1. Must bring this delegate card to the meeting hall.'}</p>
+            <p>{isBangla ? '২. সভার শৃঙ্খলা ও নিয়মাবলি মেনে চলতে হবে।' : '2. Must follow meeting discipline and rules.'}</p>
           </div>
           <div className="text-center">
             <div className="w-32 border-b-2 mb-2" style={{ borderColor: '#1e293b' }}></div>
@@ -101,7 +101,7 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
 
         <div className="flex justify-between items-start mb-8">
           <div className="px-6 py-2" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
-            <h2 className="text-lg font-black tracking-widest uppercase">Entry Pass</h2>
+            <h2 className="text-lg font-black tracking-widest uppercase">Delegate Pass</h2>
           </div>
           <div className="text-right">
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>{isBangla ? 'তারিখ' : 'Date'}</p>
@@ -121,7 +121,7 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
             </div>
             <div className="flex border-b pb-2" style={{ borderColor: '#e2e8f0' }}>
               <span className="w-32 text-xs font-bold uppercase tracking-widest" style={{ color: '#94a3b8' }}>{isBangla ? 'সদস্য নং' : 'Member ID'}</span>
-              <span className="font-black" style={{ color: '#1e293b' }}>{student.roll || '-'}</span>
+              <span className="font-black" style={{ color: '#1e293b' }}>{student.member_id_number || student.roll || '-'}</span>
             </div>
           </div>
 
@@ -132,8 +132,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
 
         <div className="mt-auto flex justify-between items-end pt-8">
           <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#94a3b8' }}>
-            <p>• {isBangla ? 'প্রবেশপত্র ছাড়া পরীক্ষা দেওয়া নিষেধ।' : 'Entry without admit card is prohibited.'}</p>
-            <p>• {isBangla ? 'মোবাইল ফোন নিষিদ্ধ।' : 'Mobile phones prohibited.'}</p>
+            <p>• {isBangla ? 'কার্ড ছাড়া সভাকক্ষে প্রবেশ নিষিদ্ধ।' : 'Entry without delegate card is prohibited.'}</p>
+            <p>• {isBangla ? 'সভার শৃঙ্খলা ও নিয়মাবলি মেনে চলতে হবে।' : 'Must follow meeting discipline and rules.'}</p>
           </div>
           <div className="text-center">
             <div className="w-32 border-b mb-2" style={{ borderColor: '#0f172a' }}></div>
@@ -169,8 +169,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
           </div>
           <div className="text-right">
             <div className="px-6 py-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-inner">
-              <h2 className="text-2xl font-black tracking-widest uppercase leading-none">Entry Pass</h2>
-              <p className="text-xs mt-1 font-bold text-blue-200 tracking-widest">{isBangla ? 'প্রবেশপত্র' : 'Entry Card'}</p>
+              <h2 className="text-2xl font-black tracking-widest uppercase leading-none">Delegate Pass</h2>
+              <p className="text-xs mt-1 font-bold text-blue-200 tracking-widest">{isBangla ? 'সভার প্রবেশপত্র / ডেলিগেট কার্ড' : 'Meeting Delegate Pass'}</p>
             </div>
           </div>
         </div>
@@ -188,7 +188,7 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
             </div>
             <div className="relative group">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'সদস্য নং' : 'Member ID'}</p>
-              <p className="text-2xl font-black text-slate-800 border-b-2 border-slate-100 pb-2 group-hover:border-blue-200 transition-colors">{student.roll || '-'}</p>
+              <p className="text-2xl font-black text-slate-800 border-b-2 border-slate-100 pb-2 group-hover:border-blue-200 transition-colors">{student.member_id_number || student.roll || '-'}</p>
             </div>
             <div className="relative group">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">{isBangla ? 'সভার তারিখ' : 'Meeting Date'}</p>
@@ -212,8 +212,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
               <p className="uppercase tracking-widest text-red-500 font-black">{isBangla ? 'নির্দেশনা:' : 'Instructions:'}</p>
             </div>
             <div className="space-y-1 pl-4 border-l-2 border-slate-200">
-              <p>• {isBangla ? 'পরীক্ষার হলে অবশ্যই প্রবেশপত্র সাথে আনতে হবে।' : 'Must bring this admit card to the exam hall.'}</p>
-              <p>• {isBangla ? 'মোবাইল ফোন বা কোনো ইলেকট্রনিক ডিভাইস আনা সম্পূর্ণ নিষেধ।' : 'Mobile phones or electronic devices are strictly prohibited.'}</p>
+              <p>• {isBangla ? 'সভাকক্ষে অবশ্যই ডেলিগেট কার্ড সাথে আনতে হবে।' : 'Must bring this delegate card to the meeting hall.'}</p>
+              <p>• {isBangla ? 'সভার শৃঙ্খলা ও নিয়মাবলি মেনে চলতে হবে।' : 'Must follow meeting discipline and rules.'}</p>
             </div>
           </div>
           <div className="text-center">
@@ -241,8 +241,8 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
           </div>
         </div>
         <div className="text-center border-4 p-4 bg-slate-50" style={{ borderColor: '#1e293b' }}>
-          <h2 className="text-2xl font-black uppercase tracking-[0.2em]">Entry Pass</h2>
-          <p className="text-sm font-bold mt-1 tracking-widest">{isBangla ? 'প্রবেশপত্র' : 'Entry Card'}</p>
+          <h2 className="text-2xl font-black uppercase tracking-[0.2em]">Delegate Pass</h2>
+          <p className="text-sm font-bold mt-1 tracking-widest">{isBangla ? 'সভার প্রবেশপত্র / ডেলিগেট কার্ড' : 'Meeting Delegate Pass'}</p>
         </div>
       </div>
 
@@ -259,7 +259,7 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
             </div>
             <div className="flex items-end gap-4 flex-1">
               <span className="text-sm font-black uppercase tracking-widest whitespace-nowrap text-slate-500">{isBangla ? 'সদস্য নম্বর :' : 'Member ID :'}</span>
-              <span className="flex-1 border-b-4 border-dotted text-2xl font-black px-4 pb-1 uppercase" style={{ borderColor: '#cbd5e1', color: '#1e293b' }}>{student.roll || '-'}</span>
+              <span className="flex-1 border-b-4 border-dotted text-2xl font-black px-4 pb-1 uppercase" style={{ borderColor: '#cbd5e1', color: '#1e293b' }}>{student.member_id_number || student.roll || '-'}</span>
             </div>
           </div>
           <div className="flex gap-12">
@@ -282,8 +282,9 @@ const AdmitCardTemplate: React.FC<AdmitCardProps> = ({ exam, student, madrasah, 
       <div className="mt-auto flex justify-between items-end pt-8">
         <div className="text-[10px] font-black uppercase tracking-widest leading-relaxed" style={{ color: '#475569' }}>
           <p className="underline mb-2 text-red-600">{isBangla ? 'নিয়মাবলী:' : 'Rules:'}</p>
-          <p>১. {isBangla ? 'পরীক্ষার হলে প্রবেশপত্র আনা বাধ্যতামূলক।' : 'Admit card is mandatory in the exam hall.'}</p>
-          <p>২. {isBangla ? 'অসদুপায় অবলম্বন করলে পরীক্ষা বাতিল হবে।' : 'Adopting unfair means will cancel the exam.'}</p>
+          <p>১. {isBangla ? 'সভাকক্ষে অবশ্যই ডেলিগেট কার্ড সাথে আনতে হবে।' : 'Must bring delegate card to the meeting hall.'}</p>
+          <p>২. {isBangla ? 'কার্ড ছাড়া সভাকক্ষে প্রবেশ নিষিদ্ধ।' : 'Entry without delegate card is prohibited.'}</p>
+          <p>৩. {isBangla ? 'সভার শৃঙ্খলা ও নিয়মাবলি মেনে চলতে হবে।' : 'Must follow meeting discipline and rules.'}</p>
         </div>
         <div className="text-center">
           <div className="w-56 border-b-4 mb-3" style={{ borderColor: '#1e293b' }}></div>
@@ -407,6 +408,6 @@ export const generateAdmitCardPDF = async (
   root.unmount();
   document.body.removeChild(container);
 
-  pdf.save(`Admit_Cards_${exam.title.replace(/\s+/g, '_')}.pdf`);
+  pdf.save(`Delegate_Pass_${exam.title.replace(/\s+/g, '_')}.pdf`);
   console.log('PDF saved successfully');
 };

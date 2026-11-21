@@ -80,7 +80,7 @@ const AttendanceAnalyticsDashboard: React.FC<Props> = ({ institutionId, lang, ma
       <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-4 rounded-[1.8rem] border shadow-bubble space-y-4`}>
         <div className="relative">
           <button onClick={() => setShowClassDropdown(!showClassDropdown)} className={`w-full h-12 px-4 rounded-xl border-2 ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} flex items-center justify-between group active:scale-[0.99] transition-all`}>
-            <span className="font-black font-noto truncate text-sm">{selectedClass?.name || (lang === 'bn' ? 'ক্লাস নির্বাচন করুন' : 'Select Department')}</span>
+            <span className="font-black font-noto truncate text-sm">{selectedClass?.name || (lang === 'bn' ? 'কমিটি নির্বাচন করুন' : 'Select Committee')}</span>
             <ChevronDown size={18} className="text-slate-400 transition-transform duration-300 group-focus:rotate-180" />
           </button>
           {showClassDropdown && (
@@ -155,7 +155,7 @@ const AttendanceAnalyticsDashboard: React.FC<Props> = ({ institutionId, lang, ma
           <div className={`${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} p-5 rounded-[2rem] border shadow-bubble`}>
             <h3 className={`text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2 ${madrasah?.theme === 'dark' ? 'text-slate-300' : 'text-slate-800'}`}>
               <TrendingDown className="text-red-500" size={16} />
-              {lang === 'bn' ? 'সর্বোচ্চ অনুপস্থিত শিক্ষার্থী' : 'Most Absent Students'}
+              {lang === 'bn' ? 'সর্বোচ্চ অনুপস্থিত সদস্য' : 'Most Absent Members'}
             </h3>
             <div className="space-y-2">
               {[...reportData].sort((a, b) => b.absent_days - a.absent_days).slice(0, 5).map((student, idx) => (
@@ -166,7 +166,7 @@ const AttendanceAnalyticsDashboard: React.FC<Props> = ({ institutionId, lang, ma
                     </div>
                     <div>
                       <p className={`font-black text-xs ${madrasah?.theme === 'dark' ? 'text-slate-200' : 'text-slate-800'}`}>{student.name}</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Roll: {student.roll || '-'}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">ID: {student.member_id_number || student.roll || '-'}</p>
                     </div>
                   </div>
                   <div className="text-right">

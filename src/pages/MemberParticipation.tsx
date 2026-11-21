@@ -65,7 +65,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
   const [showShortcodes, setShowShortcodes] = useState(false);
 
   const availableShortcodes = [
-    { code: '{name}', label: lang === 'bn' ? 'ছাত্রের নাম' : 'Member Name' },
+    { code: '{name}', label: lang === 'bn' ? 'সদস্যের নাম' : 'Member Name' },
     { code: '{institution_name}', label: lang === 'bn' ? 'প্রতিষ্ঠানের নাম' : 'Institution Name' },
   ];
 
@@ -203,16 +203,16 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
     if (!madrasah || !selectedClass) return;
     const absents = students.filter(s => attendance[s.id] === 'absent');
     if (absents.length === 0) {
-        alert(lang === 'bn' ? 'কোনো অনুপস্থিত ছাত্র নেই!' : 'No absent students found!');
+        alert(lang === 'bn' ? 'কোনো অনুপস্থিত সদস্য নেই!' : 'No absent members found!');
         return;
     }
 
-    if (!confirm(lang === 'bn' ? `${absents.length} জন অভিভাবককে অনুপস্থিতি SMS পাঠাতে চান?` : `Send absence alerts to ${absents.length} guardians?`)) return;
+    if (!confirm(lang === 'bn' ? `${absents.length} জন অনুপস্থিত সদস্যকে SMS পাঠাতে চান?` : `Send absence alerts to ${absents.length} members?`)) return;
 
     setSendingAlerts(true);
     try {
       const message = lang === 'bn' 
-        ? `আস-সালামু আলাইকুম, {name} আজ মাদরাসায় অনুপস্থিত। অনুগ্রহ করে অনুপস্থিতির কারণ জানান।`
+        ? `আস-সালামু আলাইকুম, {name} আজকের সভায়/কার্যক্রমে অনুপস্থিত। অনুগ্রহ করে অনুপস্থিতির কারণ জানান।`
         : `As-Salamu Alaikum, {name} is absent today. Please inform us of the reason.`;
 
       await smsApi.sendBulk(madrasah.id, absents, message);
@@ -360,7 +360,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
               ) : students.length > 0 ? (
                 <div className="space-y-3 animate-in slide-in-from-bottom-5">
                    <div className="flex items-center justify-between px-6">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">ছাত্র তালিকা</h4>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">সদস্য তালিকা</h4>
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">উপস্থিতি</h4>
                    </div>
                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -368,8 +368,8 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                      <div key={s.id} className={`p-4 rounded-[1.8rem] border shadow-bubble flex items-center justify-between group active:scale-[0.98] transition-all ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
                         <div className="flex items-center gap-4 min-w-0">
                           <div className={`w-11 h-11 rounded-[1.1rem] flex flex-col items-center justify-center border shrink-0 shadow-inner ${isDark ? 'bg-slate-900 text-[#42f5e9] border-slate-700' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}>
-                            <span className="text-[8px] font-black opacity-40 leading-none">ROLL</span>
-                            <span className="text-base font-black leading-none mt-1">{s.roll || '-'}</span>
+                            <span className="text-[8px] font-black opacity-40 leading-none">ID</span>
+                            <span className="text-base font-black leading-none mt-1">{s.member_id_number || s.roll || '-'}</span>
                           </div>
                           <h5 className={`font-black font-noto truncate text-base ${isDark ? 'text-slate-100' : 'text-[#0fb5ab]'}`}>{s.name}</h5>
                         </div>
@@ -415,7 +415,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                 </div>
               ) : <div className={`text-center py-20 rounded-[3rem] border-2 border-dashed mx-2 flex flex-col items-center ${isDark ? 'bg-slate-800/20 border-slate-700' : 'bg-white/10 border-white/20'}`}>
                     <Users size={40} className="text-slate-400/20 mb-4" />
-                    <p className="text-slate-400/40 uppercase text-xs font-black tracking-[0.2em]">{selectedClass ? 'No Students Found' : 'Please select a class'}</p>
+                    <p className="text-slate-400/40 uppercase text-xs font-black tracking-[0.2em]">{selectedClass ? 'No Members Found' : 'Please select a committee'}</p>
                   </div>
             ) : (
               <div>
@@ -453,7 +453,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                       <div className={`p-6 rounded-[2rem] border shadow-sm ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
                         <h3 className={`text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
                           <TrendingDown className="text-red-500" size={18} />
-                          {lang === 'bn' ? 'সবচেয়ে অনুপস্থিত সদস্য' : 'Most Absent Students'}
+                          {lang === 'bn' ? 'সবচেয়ে অনুপস্থিত সদস্য' : 'Most Absent Members'}
                         </h3>
                         <div className="space-y-3">
                           {[...reportData].sort((a, b) => b.absent_days - a.absent_days).slice(0, 5).map((student, idx) => (
@@ -464,7 +464,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                                 </div>
                                 <div>
                                   <p className={`font-black text-sm ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{student.name}</p>
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase">Roll: {student.roll || '-'}</p>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase">ID: {student.member_id_number || student.roll || '-'}</p>
                                 </div>
                               </div>
                               <div className="text-right">
@@ -553,7 +553,7 @@ const MemberParticipation: React.FC<AttendanceProps> = ({ lang, madrasah, onBack
                   onChange={(e) => setHalfDayTime(e.target.value)}
                   className={`w-full h-14 px-5 border-2 rounded-2xl font-bold outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 focus:border-[#42f5e9]/30' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#42f5e9]/30 focus:bg-white'}`}
                 />
-                <p className="text-[10px] text-slate-400 font-bold">{lang === 'bn' ? 'এই সময়ের পর আগত সদস্যদের হাফ ডে হিসেবে ধরা হবে।' : 'Students arriving after this time will be marked as Half Day.'}</p>
+                <p className="text-[10px] text-slate-400 font-bold">{lang === 'bn' ? 'এই সময়ের পর আগত সদস্যদের হাফ ডে হিসেবে ধরা হবে।' : 'Members arriving after this time will be marked as Half Day.'}</p>
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-black text-slate-500 uppercase tracking-widest">{lang === 'bn' ? 'ফুল ডের সময়' : 'Full Day Time'}</label>

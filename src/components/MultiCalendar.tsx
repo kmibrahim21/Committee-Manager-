@@ -348,7 +348,7 @@ const MultiCalendar: React.FC<MultiCalendarProps> = ({ lang, institutionId, isAd
                     eventType === 'closed' ? (isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-700') :
                     (isDark ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-700')
                   }`}>
-                    {eventType}
+                    {eventType === 'madrasah' || eventType === 'committee' ? (lang === 'bn' ? 'সাংগঠনিক ইভেন্ট' : 'Committee Event') : eventType}
                   </div>
                   {isAdmin && (
                     <div className="flex items-center gap-1">
@@ -426,8 +426,8 @@ const EventModal: React.FC<{
   eventToEdit?: CalendarEvent | null;
 }> = ({ date, onClose, onSuccess, institutionId, lang, madrasah, eventToEdit }) => {
   const [title, setTitle] = useState(eventToEdit?.title || '');
-  const [type, setType] = useState<'madrasah' | 'holiday' | 'closed'>(
-    (eventToEdit?.event_type as 'madrasah' | 'holiday' | 'closed') || ((eventToEdit as any)?.type as 'madrasah' | 'holiday' | 'closed') || 'madrasah'
+  const [type, setType] = useState<'committee' | 'madrasah' | 'holiday' | 'closed'>(
+    (eventToEdit?.event_type as 'committee' | 'madrasah' | 'holiday' | 'closed') || ((eventToEdit as any)?.type as 'committee' | 'madrasah' | 'holiday' | 'closed') || 'committee'
   );
   const [loading, setLoading] = useState(false);
   const isDark = madrasah?.theme === 'dark';
@@ -513,10 +513,10 @@ const EventModal: React.FC<{
               <div className="grid grid-cols-3 gap-2">
                 <button 
                   type="button"
-                  onClick={() => setType('madrasah')}
-                  className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${type === 'madrasah' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : (isDark ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-slate-50 text-slate-400 border border-slate-100')}`}
+                  onClick={() => setType('committee')}
+                  className={`py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${type === 'committee' || type === 'madrasah' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : (isDark ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-slate-50 text-slate-400 border border-slate-100')}`}
                 >
-                  Event
+                  {lang === 'bn' ? 'সাংগঠনিক ইভেন্ট' : 'Committee Event'}
                 </button>
                 <button 
                   type="button"

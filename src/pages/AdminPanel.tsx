@@ -177,8 +177,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editStatus, setEditStatus] = useState<'active' | 'suspended' | 'trial'>('active');
   const [editAttendanceType, setEditAttendanceType] = useState<'daily' | 'period'>('daily');
   const [editFeeStructure, setEditFeeStructure] = useState<'monthly' | 'session'>('monthly');
-  const [editInstitutionType, setEditInstitutionType] = useState<any>('madrasah');
-  const [editFeeEngine, setEditFeeEngine] = useState<'school' | 'qawmi' | 'kindergarten' | 'simple'>('school');
+  const [editInstitutionType, setEditInstitutionType] = useState<any>('committee');
+  const [editFeeEngine, setEditFeeEngine] = useState<'standard' | 'school' | 'qawmi' | 'kindergarten' | 'simple'>('standard');
   const [editAccountingMode, setEditAccountingMode] = useState<'qawmi_flexible' | 'school_system'>('school_system');
   const [editSonghoActivities, setEditSonghoActivities] = useState<string[]>(getDefaultSonghoActivityIds());
 
@@ -205,7 +205,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [newInstPhone, setNewInstPhone] = useState('');
   const [newInstEmail, setNewInstEmail] = useState('');
   const [newInstPassword, setNewInstPassword] = useState('');
-  const [newInstType, setNewInstType] = useState<any>('madrasah');
+  const [newInstType, setNewInstType] = useState<any>('committee');
   const [newInstSonghoActivities, setNewInstSonghoActivities] = useState<string[]>(getDefaultSonghoActivityIds());
   const [newInstLoginCode, setNewInstLoginCode] = useState('');
   const [isCreatingInst, setIsCreatingInst] = useState(false);
@@ -409,8 +409,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     setEditStatus(user.status || 'active');
     setEditAttendanceType(userConfig?.attendance_type || 'daily');
     setEditFeeStructure(userConfig?.fee_structure || 'monthly');
-    setEditInstitutionType(user.institution_type || 'madrasah');
-    setEditFeeEngine(userConfig?.fee_engine || 'school');
+    setEditInstitutionType(user.institution_type || 'committee');
+    setEditFeeEngine(userConfig?.fee_engine || 'standard');
     setEditAccountingMode(userConfig?.accounting_mode || 'school_system');
     setEditSonghoActivities(
       Array.isArray(userConfig?.songho_activities) && userConfig.songho_activities.length > 0
@@ -867,7 +867,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const filtered = useMemo(() => madrasahs.filter(m => {
     const query = searchQuery.toLowerCase();
     const matchesSearch = (m.name || '').toLowerCase().includes(query) || (m.login_code && m.login_code.toLowerCase().includes(query));
-    const matchesType = filterType === 'all' || (m.institution_type || 'madrasah') === filterType;
+    const matchesType = filterType === 'all' || (m.institution_type || 'committee') === filterType;
     return matchesSearch && matchesType;
   }), [madrasahs, searchQuery, filterType]);
 
@@ -1163,7 +1163,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                               {m.is_active ? (lang === 'bn' ? 'সচল' : 'Active') : (lang === 'bn' ? 'বন্ধ' : 'Blocked')}
                             </p>
                             <p className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-[#42f5e9]/10 text-[#0fb5ab]">
-                              {m.institution_type || 'madrasah'}
+                              {m.institution_type || 'committee'}
                             </p>
                             <p className="text-[8px] font-black px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-800/50 flex items-center gap-1">
                               <MessageSquare size={10} /> {m.sms_balance || 0} SMS
@@ -2033,7 +2033,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                   className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl px-6 font-black text-[#0fb5ab] outline-none focus:border-[#42f5e9]/30" 
                   value={newInstEmail} 
                   onChange={(e) => setNewInstEmail(e.target.value)} 
-                  placeholder="admin@madrasah.com"
+                  placeholder="admin@committee.com"
                 />
               </div>
 

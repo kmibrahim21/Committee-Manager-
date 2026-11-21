@@ -79,7 +79,7 @@ export interface Institution {
     template_set?: string;
     finance_mode?: 'flexible' | 'standard';
     attendance_settings?: any;
-    fee_engine?: 'school' | 'qawmi' | 'kindergarten' | 'simple';
+    fee_engine?: 'standard' | 'school' | 'qawmi' | 'kindergarten' | 'simple';
     meeting_engine?: string;
     accounting_mode?: 'qawmi_flexible' | 'school_system';
     subscription_type?: 'monthly' | 'yearly' | 'lifetime';
@@ -557,7 +557,7 @@ export interface CalendarEvent {
   title: string;
   description?: string;
   event_date: string; // YYYY-MM-DD
-  event_type: 'islamic' | 'madrasah' | 'holiday' | 'closed';
+  event_type: 'islamic' | 'committee' | 'madrasah' | 'holiday' | 'closed';
   created_at: string;
 }
 

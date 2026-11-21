@@ -398,7 +398,7 @@ const Members: React.FC<StudentsProps> = ({ selectedClass, onStudentClick, onAdd
            >
               {loadingMore ? <Loader2 className="animate-spin" size={20} /> : (
                 <>
-                  <span>{lang === 'bn' ? 'আরও লোড করুন' : 'Load More Students'}</span>
+                  <span>{lang === 'bn' ? 'আরও লোড করুন' : 'Load More Members'}</span>
                   <ChevronDown size={18} className="group-hover:translate-y-1 transition-transform" strokeWidth={3} />
                 </>
               )}

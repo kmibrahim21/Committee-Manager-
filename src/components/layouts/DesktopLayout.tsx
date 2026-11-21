@@ -51,7 +51,7 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
       result_system: configObj.result_system || 'grading',
       attendance_type: configObj.attendance_type || 'daily',
       fee_structure: configObj.fee_structure || 'monthly',
-      ui_mode: configObj.ui_mode || 'madrasah'
+      ui_mode: configObj.ui_mode || 'committee'
     } as any;
   }, [madrasah]);
 
@@ -110,14 +110,14 @@ const DesktopLayout: React.FC<LayoutProps> = ({ children, currentView, setView, 
       'data-management': 'Data Management',
       'accounting': t('accounting', lang, madrasah?.institution_type) || 'Accounting',
       'attendance': t('attendance', lang, madrasah?.institution_type) || 'Attendance',
-      'meetings': t('meetings', lang, madrasah?.institution_type) || 'Exams',
+      'meetings': t('meetings', lang, madrasah?.institution_type) || 'Meetings',
       'voice-broadcast': 'Voice Broadcast',
       'sms-voice-menu': 'Communication',
-      'academic-calendar': 'Academic Calendar',
+      'academic-calendar': lang === 'bn' ? 'সাংগঠনিক ক্যালেন্ডার' : 'Organizational Calendar',
       'tutorials': 'Tutorials',
       'member-details': t('student_info', lang, madrasah?.institution_type) || 'Member Details',
       'member-form': t('add_student', lang, madrasah?.institution_type) || 'Add Member',
-      'executives': lang === 'bn' ? 'শিক্ষক/স্টাফ' : 'Teachers & Staff',
+      'executives': lang === 'bn' ? 'কার্যনির্বাহী কমিটি' : 'Executive Committee',
     };
     return titles[view] || view.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };

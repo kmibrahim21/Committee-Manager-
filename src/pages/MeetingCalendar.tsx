@@ -22,7 +22,7 @@ const AcademicCalendarPage: React.FC<AcademicCalendarPageProps> = ({ lang, onBac
         </button>
         <div>
           <h1 className={`text-lg font-black font-noto ${isDark ? 'text-white' : 'text-[#1E3A8A]'}`}>
-            {lang === 'bn' ? 'একাডেমিক ক্যালেন্ডার' : 'Academic Calendar'}
+            {lang === 'bn' ? 'সাংগঠনিক ক্যালেন্ডার' : 'Organizational Calendar'}
           </h1>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             {madrasah?.name}

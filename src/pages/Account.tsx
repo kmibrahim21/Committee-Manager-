@@ -328,7 +328,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           </div>
           <div>
             <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#1E3A8A]'}`}>
-              {lang === 'bn' ? 'একাডেমিক ক্যালেন্ডার' : 'Academic Calendar'}
+              {lang === 'bn' ? 'সাংগঠনিক ক্যালেন্ডার' : 'Organizational Calendar'}
             </h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
               {lang === 'bn' ? 'ছুটি ও ইভেন্ট' : 'Holidays'}

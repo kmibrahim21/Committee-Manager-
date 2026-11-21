@@ -179,8 +179,8 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
           // Check for foreign key constraint violation (PostgreSQL error code 23503)
           if (error.code === '23503' || error.message?.includes('foreign key constraint')) {
              throw new Error(lang === 'bn' 
-               ? 'এই ক্লাসটি ডিলিট করা যাবে না কারণ এটি অন্যান্য তথ্যের (যেমন: ছাত্র, ফি, পরীক্ষা) সাথে যুক্ত। প্রথমে যুক্ত তথ্যগুলো ডিলিট করুন।' 
-               : 'This class cannot be deleted because it is linked to other records (e.g. students, fees, exams). Please delete the linked records first.');
+               ? 'এই কমিটি/শাখাটি ডিলিট করা যাবে না কারণ এটি অন্যান্য তথ্যের (যেমন: সদস্য, চাঁদা, মিটিং) সাথে যুক্ত। প্রথমে যুক্ত তথ্যগুলো ডিলিট করুন।' 
+               : 'This committee cannot be deleted because it is linked to other records (e.g. members, subscriptions, meetings). Please delete the linked records first.');
           }
           throw error;
         }
@@ -272,7 +272,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
                   className={`w-full px-6 py-5 ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-100 text-[#0fb5ab]'} border-2 rounded-[1.8rem] font-black text-lg outline-none focus:border-[#42f5e9]/30 focus:bg-white transition-all shadow-inner`} 
                   value={newClassName} 
                   onChange={(e) => setNewClassName(e.target.value)}
-                  placeholder="যেমন: হিফয বিভাগ"
+                  placeholder="যেমন: কেন্দ্রীয় কমিটি / কার্যকরী পরিষদ"
                 />
               </div>
 
@@ -330,7 +330,7 @@ const Departments: React.FC<ClassesProps> = ({ onClassClick, lang, madrasah, dat
              </div>
              <div>
                 <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-800'} font-noto`}>{t('confirm_delete', lang)}</h3>
-                <p className="text-[11px] font-bold text-slate-400 mt-2 uppercase tracking-wider px-4">"{showDeleteConfirm.name}" শ্রেণির সকল ছাত্রের তথ্য মুছে যাবে।</p>
+                <p className="text-[11px] font-bold text-slate-400 mt-2 uppercase tracking-wider px-4">"{showDeleteConfirm.name}" কমিটির সকল সদস্যের তথ্য মুছে যাবে।</p>
              </div>
              <div className="flex flex-col gap-3 pt-2">
                 <button onClick={handleDeleteClass} disabled={modalLoading} className="w-full py-5 bg-red-500 text-white font-black rounded-full shadow-xl shadow-red-100 active:scale-95 transition-all flex items-center justify-center text-md">

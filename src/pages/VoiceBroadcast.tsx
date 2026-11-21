@@ -609,19 +609,19 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
         show: true,
         type: 'error',
         title: lang === 'bn' ? 'তথ্য অসম্পূর্ণ' : 'Incomplete Info',
-        message: lang === 'bn' ? 'অনুগ্রহ করে ভয়েস, সেন্ডার আইডি এবং ক্লাস নির্বাচন করুন।' : 'Please select a voice, sender ID, and class.'
+        message: lang === 'bn' ? 'অনুগ্রহ করে ভয়েস, সেন্ডার আইডি এবং কমিটি নির্বাচন করুন।' : 'Please select a voice, sender ID, and committee.'
       });
       return;
     }
     
-    // Get student count for selected class
+    // Get member count for selected committee
     const { count } = await supabase.from('members').select('*', { count: 'exact', head: true }).eq('department_id', selectedClassId);
     if (!count || count === 0) {
       setStatusModal({
         show: true,
         type: 'error',
-        title: lang === 'bn' ? 'ছাত্রছাত্রী পাওয়া যায়নি' : 'No Students',
-        message: lang === 'bn' ? 'এই ক্লাসে কোনো ছাত্রছাত্রী পাওয়া যায়নি।' : 'No students found in this class.'
+        title: lang === 'bn' ? 'সদস্য পাওয়া যায়নি' : 'No Members',
+        message: lang === 'bn' ? 'এই কমিটিতে কোনো সদস্য পাওয়া যায়নি।' : 'No members found in this committee.'
       });
       return;
     }
@@ -905,7 +905,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
 
   const getSelectedClassName = () => {
     const cls = departments.find(c => c.id === selectedClassId);
-    return cls ? cls.name : (lang === 'bn' ? 'ক্লাস নির্বাচন করুন' : 'Select Department');
+    return cls ? cls.name : (lang === 'bn' ? 'কমিটি নির্বাচন করুন' : 'Select Committee');
   };
 
   const [showClassDropdown, setShowClassDropdown] = useState(false);
@@ -1247,7 +1247,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                                                   {studentName ? (
                                                     <>
                                                       {studentName}
-                                                      {rollNo && <span className="ml-2 text-[10px] text-slate-400 font-bold">(রোল: {rollNo})</span>}
+                                                      {rollNo && <span className="ml-2 text-[10px] text-slate-400 font-bold">(আইডি: {rollNo})</span>}
                                                     </>
                                                   ) : phone}
                                                 </p>

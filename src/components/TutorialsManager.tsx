@@ -167,7 +167,7 @@ export const TutorialsManager: React.FC<TutorialsManagerProps> = ({ onBack, madr
                   type="text"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. How to add students"
+                  placeholder="e.g. How to add members"
                   className={`w-full px-6 py-4 rounded-2xl border transition-all focus:ring-4 focus:ring-[#42f5e9]/10 outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-600' : 'bg-slate-50 border-slate-100 text-[#1E293B] placeholder:text-slate-300'}`}
                 />
               </div>

@@ -170,7 +170,7 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
     return matchesSearch && matchesFilter;
   });
 
-  const eventTypes = ['General', 'Meeting', 'Seminar', 'Cultural', 'Religious', 'Exam', 'Holiday', 'Other'];
+  const eventTypes = ['General', 'Meeting', 'Seminar', 'Cultural', 'Religious', 'Conference / Workshop', 'Holiday', 'Other'];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -262,9 +262,9 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                   t === 'Seminar' ? 'সেমিনার' : 
                   t === 'Cultural' ? 'সাংস্কৃতিক' : 
                   t === 'Religious' ? 'ধর্মীয়' : 
-                  t === 'Exam' ? 'পরীক্ষা' : 
+                  t === 'Exam' || t === 'Conference / Workshop' ? 'সম্মেলন / কর্মশালা' : 
                   t === 'Holiday' ? 'ছুটি' : 'অন্যান্য'
-                ) : t}</option>)}
+                ) : (t === 'Exam' ? 'Conference / Workshop' : t)}</option>)}
              </select>
 
              <div className={`flex p-1 rounded-2xl ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
@@ -338,9 +338,9 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                            event.event_type === 'Seminar' ? 'সেমিনার' : 
                            event.event_type === 'Cultural' ? 'সাংস্কৃতিক' : 
                            event.event_type === 'Religious' ? 'ধর্মীয়' : 
-                           event.event_type === 'Exam' ? 'পরীক্ষা' : 
+                           event.event_type === 'Exam' || event.event_type === 'Conference / Workshop' ? 'সম্মেলন / কর্মশালা' : 
                            event.event_type === 'Holiday' ? 'ছুটি' : event.event_type
-                         ) : event.event_type}
+                         ) : (event.event_type === 'Exam' ? 'Conference / Workshop' : event.event_type)}
                        </p>
                        <h3 className="text-xl font-black leading-tight line-clamp-2">{event.title}</h3>
                     </div>
@@ -449,9 +449,9 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                           t === 'Seminar' ? 'সেমিনার' : 
                           t === 'Cultural' ? 'সাংস্কৃতিক' : 
                           t === 'Religious' ? 'ধর্মীয়' : 
-                          t === 'Exam' ? 'পরীক্ষা' : 
+                          t === 'Exam' || t === 'Conference / Workshop' ? 'সম্মেলন / কর্মশালা' : 
                           t === 'Holiday' ? 'ছুটি' : 'অন্যান্য'
-                        ) : t}</option>)}
+                        ) : (t === 'Exam' ? 'Conference / Workshop' : t)}</option>)}
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -586,9 +586,9 @@ const EventsPage: React.FC<EventsPageProps> = ({ lang, onBack, madrasah, role })
                           t === 'Seminar' ? 'সেমিনার' : 
                           t === 'Cultural' ? 'সাংস্কৃতিক' : 
                           t === 'Religious' ? 'ধর্মীয়' : 
-                          t === 'Exam' ? 'পরীক্ষা' : 
+                          t === 'Exam' || t === 'Conference / Workshop' ? 'সম্মেলন / কর্মশালা' : 
                           t === 'Holiday' ? 'ছুটি' : 'অন্যান্য'
-                        ) : t}</option>)}
+                        ) : (t === 'Exam' ? 'Conference / Workshop' : t)}</option>)}
                       </select>
                     </div>
                     <div className="space-y-2">

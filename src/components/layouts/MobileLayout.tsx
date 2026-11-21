@@ -50,7 +50,7 @@ const MobileLayout: React.FC<LayoutProps> = ({ children, currentView, setView, l
       result_system: configObj.result_system || 'grading',
       attendance_type: configObj.attendance_type || 'daily',
       fee_structure: configObj.fee_structure || 'monthly',
-      ui_mode: configObj.ui_mode || 'madrasah'
+      ui_mode: configObj.ui_mode || 'committee'
     } as any;
   }, [madrasah]);
 

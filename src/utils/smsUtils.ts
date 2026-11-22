@@ -136,3 +136,64 @@ export const resolveInstitutionVoiceRate = (
   return DEFAULT_VOICE_RATE;
 };
 
+export const extractInstitutionShortCode = (
+  inst?: { login_code?: string | null; config_json?: any } | null
+): string => {
+  if (!inst) return '';
+  const configObj = parseConfigJson(inst.config_json);
+  const raw = String(configObj?.institute_code || inst.login_code || '').trim();
+  if (!raw || raw.includes('@')) return '';
+  const cleaned = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (cleaned.length < 2 || cleaned.length > 16) return '';
+  return cleaned;
+};
+
+export const isCmVoiceName = (name?: string | null): boolean => {
+  return /^CM[_-]/i.test(String(name || '').trim());
+};
+
+export const buildCmVoiceName = (rawName: string, shortCode?: string): string => {
+  const trimmed = String(rawName || '').trim();
+  if (!trimmed) return '';
+  if (isCmVoiceName(trimmed)) {
+    return trimmed;
+  }
+  const cleanCode = String(shortCode || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (cleanCode) {
+    return `CM_${cleanCode}_${trimmed}`;
+  }
+  return `CM_${trimmed}`;
+};
+
+export const stripCmVoicePrefix = (
+  name?: string | null,
+  knownCodes?: string[]
+): string => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '';
+  if (!isCmVoiceName(trimmed)) return trimmed;
+
+  let rest = trimmed.replace(/^CM[_-]+/i, '').trim();
+  if (!rest) return trimmed;
+
+  const normalizedCodes = (knownCodes || [])
+    .map((c) => String(c || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase())
+    .filter(Boolean);
+
+  for (const code of normalizedCodes) {
+    const escaped = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const codeRegex = new RegExp(`^${escaped}[_-]+(.+)$`, 'i');
+    const match = rest.match(codeRegex);
+    if (match && match[1]?.trim()) {
+      return match[1].trim();
+    }
+  }
+
+  // Fallback: strip leading alphanumeric institution code token containing at least one digit (e.g., 0012_, INST01_, CM12_)
+  const digitCodeMatch = rest.match(/^(?:[A-Z0-9]*\d[A-Z0-9]{0,15})[_-]+(.+)$/i);
+  if (digitCodeMatch && digitCodeMatch[1]?.trim()) {
+    return digitCodeMatch[1].trim();
+  }
+
+  return rest;
+};

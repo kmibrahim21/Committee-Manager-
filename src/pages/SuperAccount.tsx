@@ -572,7 +572,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
               {lang === 'bn' ? 'ভয়েস সার্ভিস' : 'Voice Service'}
             </h5>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {lang === 'bn' ? 'আপলোড ও ডিরেক্ট কল' : 'Upload & Direct Call'}
+              {lang === 'bn' ? 'আপলোড ও বরাদ্দ' : 'Upload & Assign'}
             </p>
           </div>
         </button>

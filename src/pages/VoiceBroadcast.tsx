@@ -17,13 +17,23 @@ import {
   Smartphone,
   Zap,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Department, Member, Profile, UserRole } from 'types';
 import { t } from 'translations';
 import { sortMadrasahClasses } from 'pages/Departments';
-import { DEFAULT_VOICE_RATE, normalizePhone, resolveInstitutionVoiceRate } from 'utils/smsUtils';
+import {
+  DEFAULT_VOICE_RATE,
+  normalizePhone,
+  resolveInstitutionVoiceRate,
+  buildCmVoiceName,
+  extractInstitutionShortCode,
+  stripCmVoicePrefix
+} from 'utils/smsUtils';
 import PaymentCheckout from 'components/PaymentCheckout';
 
 interface VoiceBroadcastProps {
@@ -105,9 +115,14 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
 
   // Upload state
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadName, setUploadName] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  const instShortCode = useMemo(() => extractInstitutionShortCode(madrasah), [madrasah]);
+  const knownInstCodes = useMemo(() => (instShortCode ? [instShortCode] : []), [instShortCode]);
+  const awajUploadPreviewName = useMemo(() => buildCmVoiceName(uploadName, instShortCode), [uploadName, instShortCode]);
 
   const parsedInstConfig: any = useMemo(() => {
     const raw = madrasah?.config_json as any;
@@ -187,11 +202,20 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
         // Sync statuses and IDs from Awaj API
         const syncedVoices = [];
         for (const localVoice of localVoices) {
-          // Try to find matching voice in API by ID or Name
-          const awajVoice = apiVoices.find(v => 
-            (localVoice.provider_voice_id && v.id && v.id.toString() === localVoice.provider_voice_id.toString()) || 
-            (v.name && v.name.toLowerCase() === localVoice.title.toLowerCase())
-          );
+          // Try to find matching voice in API by ID, provider_voice_name, or clean/exact title
+          const localTitleLower = String(localVoice.title || '').trim().toLowerCase();
+          const localProviderNameLower = String(localVoice.provider_voice_name || '').trim().toLowerCase();
+          const awajVoice = apiVoices.find(v => {
+            if (localVoice.provider_voice_id && v.id && v.id.toString() === localVoice.provider_voice_id.toString()) {
+              return true;
+            }
+            if (!v.name) return false;
+            const apiNameLower = String(v.name).trim().toLowerCase();
+            if (localProviderNameLower && apiNameLower === localProviderNameLower) return true;
+            if (localTitleLower && apiNameLower === localTitleLower) return true;
+            const strippedApiLower = stripCmVoicePrefix(v.name, knownInstCodes).toLowerCase();
+            return Boolean(localTitleLower && strippedApiLower === localTitleLower);
+          });
 
           if (awajVoice) {
             const newStatus = awajVoice.status || 'approved';
@@ -465,7 +489,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
         return;
       }
 
-      const requestId = 'retry_' + Math.random().toString(36).slice(2, 11);
+      const requestId = 'cm_retry_' + Math.random().toString(36).slice(2, 11);
       const payload = {
         request_id: requestId,
         voice: voiceName,
@@ -720,7 +744,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
       }
 
       // 1. Send to Awaj Digital API
-      const requestId = crypto.randomUUID();
+      const requestId = `cm_broadcast_${crypto.randomUUID().slice(0, 8)}_${Date.now()}`;
       
       // Find the actual sender object to get the calling number
       const senderObj = senders.find(s => 
@@ -826,28 +850,72 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   };
 
   const handleVoiceUpload = async () => {
-    if (!madrasah || !uploadName || !uploadFile) return;
+    if (!madrasah || !uploadName.trim() || !uploadFile) return;
     setIsUploading(true);
     try {
-      const fileExt = uploadFile.name.split('.').pop();
-      const fileName = `${madrasah.id}_${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('voice-templates')
-        .upload(`voices/${fileName}`, uploadFile);
+      const awajVoiceName = buildCmVoiceName(uploadName, instShortCode);
+      const cleanTitle = stripCmVoicePrefix(uploadName, knownInstCodes) || uploadName.trim();
 
-      if (uploadError) throw uploadError;
+      let publicUrl = '';
+      try {
+        const fileExt = uploadFile.name.split('.').pop();
+        const fileName = `${madrasah.id}_${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('voice-templates')
+          .upload(`voices/${fileName}`, uploadFile);
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('voice-templates')
+            .getPublicUrl(`voices/${fileName}`);
+          publicUrl = urlData?.publicUrl || '';
+        }
+      } catch (storageErr) {
+        console.warn('Supabase storage upload skipped/fallback:', storageErr);
+      }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('voice-templates')
-        .getPublicUrl(`voices/${fileName}`);
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1] || '');
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(uploadFile);
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const awajRes = await fetch('/api/awaj/voices/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          name: awajVoiceName,
+          file_base64: base64Data,
+          filename: uploadFile.name,
+          content_type: uploadFile.type || 'audio/mpeg'
+        })
+      });
+
+      const awajData = await awajRes.json().catch(() => ({}));
+      if (!awajRes.ok) {
+        throw new Error(awajData.error || awajData.message || 'Awaj ভয়েস আপলোড ব্যর্থ হয়েছে');
+      }
+
+      const providerVoiceId = (awajData.id || awajData.voice_id || awajData.voice?.id || '').toString();
+      const providerVoiceName = awajData.name || awajData.voice?.name || awajVoiceName;
+      const providerStatus = (awajData.status || awajData.voice?.status || 'pending').toLowerCase();
+      const finalFileUrl = publicUrl || awajData.url || awajData.previewUrl || awajData.audioUrl || awajData.voice?.previewUrl || '';
 
       const { error: dbError } = await supabase.from('voice_templates').insert({
         institution_id: madrasah.id,
-        title: uploadName,
-        file_url: publicUrl,
-        admin_status: 'draft',
-        provider_status: 'draft'
+        title: cleanTitle,
+        provider_voice_name: providerVoiceName,
+        provider_voice_id: providerVoiceId || null,
+        file_url: finalFileUrl,
+        admin_status: 'approved',
+        provider_status: providerStatus
       });
 
       if (dbError) throw dbError;
@@ -856,8 +924,11 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
         show: true,
         type: 'success',
         title: lang === 'bn' ? 'সফল' : 'Success',
-        message: lang === 'bn' ? 'ভয়েস সফলভাবে আপলোড হয়েছে! এখন অনুমোদনের অনুরোধ করতে পারেন।' : 'Voice uploaded successfully! You can now request approval.'
+        message: lang === 'bn'
+          ? `ভয়েস সফলভাবে আপলোড হয়েছে (${awajVoiceName})! Awaj অনুমোদন পেলে ব্রডকাস্টে ব্যবহার করা যাবে।`
+          : `Voice uploaded successfully (${awajVoiceName})!`
       });
+      setShowUploadModal(false);
       setUploadName('');
       setUploadFile(null);
       fetchVoices();
@@ -981,7 +1052,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                     <div className="relative">
                       <button onClick={() => setShowVoiceDropdown(!showVoiceDropdown)} className="w-full h-[60px] px-6 rounded-[1.5rem] border-2 bg-slate-50 border-slate-100 flex items-center justify-between">
                         <span className="text-base font-black font-noto text-[#0fb5ab]">
-                          {selectedVoiceId ? voices.find(v => v.id === selectedVoiceId)?.title : t('select_voice', lang)}
+                          {selectedVoiceId ? stripCmVoicePrefix(voices.find(v => v.id === selectedVoiceId)?.title, knownInstCodes) : t('select_voice', lang)}
                         </span>
                         <ChevronDown className={`text-slate-300 transition-all ${showVoiceDropdown ? 'rotate-180' : ''}`} size={20} />
                       </button>
@@ -989,7 +1060,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                         <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[2rem] shadow-bubble border border-slate-100 z-[100] p-2 max-h-60 overflow-y-auto">
                           {voices.filter(v => v.admin_status === 'approved' && v.provider_status === 'approved').map(v => (
                             <button key={v.id} onClick={() => { setSelectedVoiceId(v.id); setShowVoiceDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${selectedVoiceId === v.id ? 'bg-[#42f5e9] text-[#0e8a84]' : 'hover:bg-slate-50 text-[#0fb5ab]'}`}>
-                              <span className="font-black font-noto">{v.title}</span>
+                              <span className="font-black font-noto">{stripCmVoicePrefix(v.title, knownInstCodes)}</span>
                             </button>
                           ))}
                         </div>
@@ -1035,11 +1106,21 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
 
         {activeTab === 'templates' && (
           <div className="space-y-5 animate-in slide-in-from-bottom-5">
-            <div className="flex items-center justify-between px-2">
+            <div className="flex items-center justify-between px-2 gap-2 flex-wrap">
               <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('your_voices', lang)}</h2>
-              <button onClick={fetchVoices} disabled={loading} className="bg-[#42f5e9]/10 text-[#0fb5ab] px-4 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 active:scale-95 transition-all border border-[#42f5e9]/20">
-                 {loading ? <Loader2 className="animate-spin" size={14} /> : <History size={14} />} {t('sync_voices', lang)}
-              </button>
+              <div className="flex items-center gap-2">
+                {!isTeacher && (
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="bg-[#42f5e9] text-[#0e8a84] px-4 py-2 rounded-2xl text-[10px] font-black flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                  >
+                    <Plus size={14} /> {lang === 'bn' ? 'নতুন ভয়েস' : 'Upload Voice'}
+                  </button>
+                )}
+                <button onClick={fetchVoices} disabled={loading} className="bg-[#42f5e9]/10 text-[#0fb5ab] px-4 py-2 rounded-2xl text-[10px] font-black flex items-center gap-2 active:scale-95 transition-all border border-[#42f5e9]/20">
+                   {loading ? <Loader2 className="animate-spin" size={14} /> : <History size={14} />} {t('sync_voices', lang)}
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -1049,15 +1130,17 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                   voices.map(v => (
                     <div key={v.id} className="bg-white p-5 rounded-[2.2rem] border border-slate-100 shadow-bubble">
                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 border border-emerald-100">
+                          <div className="flex items-center gap-3 min-w-0">
+                             <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 border border-emerald-100 shrink-0">
                                 <Mic size={18} />
                              </div>
-                             <div>
-                               <h4 className="font-black text-[#0fb5ab] text-[15px] font-noto">{v.title}</h4>
-                               <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${v.admin_status === 'approved' && v.provider_status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                 {v.provider_status === 'approved' ? t('approved', lang) : t('pending', lang)}
-                               </span>
+                             <div className="min-w-0">
+                               <h4 className="font-black text-[#0fb5ab] text-[15px] font-noto truncate">{stripCmVoicePrefix(v.title, knownInstCodes)}</h4>
+                               <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${v.admin_status === 'approved' && v.provider_status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                   {v.provider_status === 'approved' ? t('approved', lang) : t('pending', lang)}
+                                 </span>
+                               </div>
                              </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1102,7 +1185,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                           </div>
                           <div>
                             <h3 className="font-black text-[#0fb5ab] text-[15px] font-noto">
-                              {h.voice_templates?.title || voices.find(v => v.id === (h.voice_template_id || h.template_id))?.title || 'Voice Broadcast'}
+                              {stripCmVoicePrefix(h.voice_templates?.title || voices.find(v => v.id === (h.voice_template_id || h.template_id))?.title || 'Voice Broadcast', knownInstCodes)}
                             </h3>
                             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{new Date(h.created_at).toLocaleString()}</p>
                           </div>
@@ -1392,6 +1475,87 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                   {t('cancel', lang)}
                 </button>
              </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showUploadModal && createPortal(
+        <div className="modal-overlay bg-[#080A12]/40 backdrop-blur-2xl animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-8 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300 space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#42f5e9]/20 text-[#0e8a84] flex items-center justify-center">
+                  <Upload size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 font-noto">
+                    {lang === 'bn' ? 'নতুন ভয়েস আপলোড' : 'Upload New Voice'}
+                  </h3>
+                  <p className="text-[11px] font-bold text-slate-400">MP3 / WAV / M4A Audio</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="w-9 h-9 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider px-1">
+                {lang === 'bn' ? 'ভয়েসের নাম *' : 'Voice Name *'}
+              </label>
+              <input
+                type="text"
+                value={uploadName}
+                onChange={(e) => setUploadName(e.target.value)}
+                placeholder="যেমন: মাসিক চাঁদা নোটিশ"
+                className="w-full h-12 mt-1.5 rounded-2xl px-4 text-sm font-black bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#42f5e9] outline-none"
+              />
+              <div className="mt-2 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold flex items-center gap-1.5 flex-wrap">
+                <ShieldCheck size={13} className="shrink-0 text-emerald-600" />
+                <span>Awaj সার্ভারে নাম হবে:</span>
+                <span className="font-mono font-black break-all">
+                  {awajUploadPreviewName || (instShortCode ? `CM_${instShortCode}_...` : 'CM_...')}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider px-1">
+                {lang === 'bn' ? 'অডিও ফাইল নির্বাচন করুন *' : 'Select Audio File *'}
+              </label>
+              <label className="mt-1.5 flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors text-center">
+                <Upload size={22} className="text-[#0fb5ab] mb-1.5" />
+                <span className="text-xs font-black text-slate-700">
+                  {uploadFile ? uploadFile.name : (lang === 'bn' ? 'অডিও ফাইল সিলেক্ট করুন' : 'Choose audio file')}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 mt-0.5">MP3, WAV, OGG, M4A</span>
+                <input
+                  type="file"
+                  accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setUploadFile(file);
+                      if (!uploadName) setUploadName(file.name.replace(/\.[^/.]+$/, ''));
+                    }
+                  }}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={handleVoiceUpload}
+              disabled={isUploading || !uploadName.trim() || !uploadFile}
+              className="w-full h-14 bg-[#42f5e9] hover:bg-[#35e5da] text-[#0e8a84] rounded-full font-black text-sm shadow-lg shadow-[#42f5e9]/20 disabled:opacity-50 flex items-center justify-center gap-2 transition-all active:scale-95"
+            >
+              {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+              <span>{lang === 'bn' ? 'আপলোড করুন' : 'Upload Voice'}</span>
+            </button>
           </div>
         </div>,
         document.body

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ArrowLeft, 
   RefreshCw, 
@@ -36,6 +36,12 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { supabase } from 'supabase';
+import {
+  buildCmVoiceName,
+  extractInstitutionShortCode,
+  isCmVoiceName,
+  stripCmVoicePrefix
+} from 'utils/smsUtils';
 
 interface VoiceServiceDashboardProps {
   onBack: () => void;
@@ -43,68 +49,20 @@ interface VoiceServiceDashboardProps {
   setStatusModal: (modal: any) => void;
 }
 
-const DEFAULT_SAMPLE_VOICES = [
-  {
-    id: 4229,
-    name: 'DNRA0183_মাসিক বেতন পরিশোধ করুন',
-    status: 'approved',
-    createdAt: '2026-09-02T10:00:00Z',
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    duration: 18
-  },
-  {
-    id: 4228,
-    name: 'DNRA0182_জরুরি সাধারণ সভা ও মিটিং',
-    status: 'approved',
-    createdAt: '2026-09-02T09:30:00Z',
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    duration: 24
-  },
-  {
-    id: 4227,
-    name: 'DNRA0181_বার্ষিক চাঁদা ও অনুদান নোটিশ',
-    status: 'approved',
-    createdAt: '2026-09-01T15:20:00Z',
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    duration: 20
-  },
-  {
-    id: 4226,
-    name: 'DNRA0180_সদস্য নবায়ন বার্তা',
-    status: 'approved',
-    createdAt: '2026-08-30T11:15:00Z',
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    duration: 15
-  },
-  {
-    id: 4225,
-    name: 'DNRA0179_কমিটির বিশেষ কার্যক্রম আপডেট',
-    status: 'approved',
-    createdAt: '2026-08-28T14:00:00Z',
-    previewUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=notification-sound-7062.mp3',
-    duration: 30
-  }
-];
-
 export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ onBack, madrasah, setStatusModal }) => {
-  const [activeTab, setActiveTab] = useState<'voices' | 'assigned_voices' | 'direct_broadcast'>('voices');
+  const [activeTab, setActiveTab] = useState<'voices' | 'assigned_voices'>('voices');
   
   // Data states
-  const [voices, setVoices] = useState<any[]>(DEFAULT_SAMPLE_VOICES);
+  const [voices, setVoices] = useState<any[]>([]);
   const [assignedVoices, setAssignedVoices] = useState<any[]>([]);
-  const [senders, setSenders] = useState<any[]>([]);
-  const [balance, setBalance] = useState<any>(371.92);
+  const [balance, setBalance] = useState<any>(0);
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<'cm' | 'all'>('cm');
   const [voiceFilter, setVoiceFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -135,13 +93,6 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
   const [assignInstitutionId, setAssignInstitutionId] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
 
-  // Direct Voice Broadcast State
-  const [directAudioUrl, setDirectAudioUrl] = useState('');
-  const [directSender, setDirectSender] = useState('');
-  const [directPhoneNumbersInput, setDirectPhoneNumbersInput] = useState('');
-  const [directCampaignName, setDirectCampaignName] = useState('');
-  const [isSendingDirectBroadcast, setIsSendingDirectBroadcast] = useState(false);
-
   const isDark = madrasah?.theme === 'dark';
 
   // Fetch institutions
@@ -150,7 +101,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
       try {
         const { data } = await supabase
           .from('institutions')
-          .select('id, name, voice_sender_id, balance')
+          .select('id, name, voice_sender_id, balance, login_code, config_json')
           .or('is_super_admin.eq.false,is_super_admin.is.null')
           .order('name');
         if (data && data.length > 0) {
@@ -164,7 +115,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
   }, []);
 
   // Fetch all Awaj data
-  const fetchData = async (retryCount = 0) => {
+  const fetchData = async () => {
     setLoading(true);
     setApiError(null);
     try {
@@ -174,48 +125,34 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         : {};
 
       const fetchJson = async (url: string) => {
-        try {
-          const res = await fetch(url, { headers: authHeaders });
-          if (!res.ok) {
-            const text = await res.text();
-            let errorMsg = res.statusText;
-            try {
-              const json = JSON.parse(text);
-              errorMsg = json.error || json.message || errorMsg;
-            } catch (e) {}
-            throw new Error(`API Error (${res.status}): ${errorMsg}`);
-          }
-          return res.json();
-        } catch (e: any) {
-          throw e;
+        const res = await fetch(url, { headers: authHeaders });
+        if (!res.ok) {
+          const text = await res.text();
+          let errorMsg = res.statusText;
+          try {
+            const json = JSON.parse(text);
+            errorMsg = json.error || json.message || errorMsg;
+          } catch (e) {}
+          throw new Error(`API Error (${res.status}): ${errorMsg}`);
         }
+        return res.json();
       };
 
-      const [voicesRes, sendersRes, balanceRes] = await Promise.all([
-        fetchJson('/api/awaj/voices').catch(err => ({ error: err.message, voices: [] })),
-        fetchJson('/api/awaj/senders').catch(err => ({ error: err.message, senders: [] })),
+      const [voicesRes, balanceRes] = await Promise.all([
+        fetchJson('/api/awaj/voices').catch(err => {
+          setApiError(err.message);
+          return { voices: [] };
+        }),
         fetchJson('/api/awaj/balance').catch(() => null)
       ]);
 
       const apiVoices = voicesRes.voices || voicesRes.data || (Array.isArray(voicesRes) ? voicesRes : []);
-      const apiSenders = sendersRes.senders || sendersRes.data || (Array.isArray(sendersRes) ? sendersRes : []);
+      setVoices(Array.isArray(apiVoices) ? apiVoices : []);
 
-      if (Array.isArray(apiVoices) && apiVoices.length > 0) {
-        setVoices(apiVoices);
+      if (balanceRes !== null && balanceRes !== undefined) {
+        setBalance(balanceRes.data ?? balanceRes.balance ?? balanceRes.amount ?? balanceRes ?? 0);
       } else {
-        setVoices(DEFAULT_SAMPLE_VOICES);
-      }
-
-      if (Array.isArray(apiSenders) && apiSenders.length > 0) {
-        setSenders(apiSenders);
-        if (!directSender) {
-          const firstSender = apiSenders[0].callingNumber || apiSenders[0].number || apiSenders[0].caller_id || apiSenders[0].id;
-          if (firstSender) setDirectSender(firstSender);
-        }
-      }
-
-      if (balanceRes) {
-        setBalance(balanceRes.data || balanceRes.balance || balanceRes.amount || balanceRes || 371.92);
+        setBalance(0);
       }
 
       // Fetch assigned voices from Supabase
@@ -230,13 +167,10 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         `)
         .order('created_at', { ascending: false });
 
-      if (assignedData && assignedData.length > 0) {
-        setAssignedVoices(assignedData);
-      }
+      setAssignedVoices(assignedData || []);
     } catch (error: any) {
       console.warn("Awaj data load notice:", error.message);
-      // Ensure defaults are kept
-      setVoices(prev => prev.length > 0 ? prev : DEFAULT_SAMPLE_VOICES);
+      setApiError(error.message || 'Awaj ডেটা লোড করতে সমস্যা হয়েছে');
     } finally {
       setLoading(false);
     }
@@ -247,11 +181,11 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
   }, []);
 
   const getNumericBalance = (val: any): number => {
-    if (val === null || val === undefined) return 371.92;
-    if (typeof val === 'number') return isNaN(val) ? 371.92 : val;
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
     if (typeof val === 'string') {
       const parsed = parseFloat(val);
-      return isNaN(parsed) ? 371.92 : parsed;
+      return isNaN(parsed) ? 0 : parsed;
     }
     if (typeof val === 'object') {
       if (typeof val.balance === 'number') return val.balance;
@@ -265,7 +199,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         if (!isNaN(p)) return p;
       }
     }
-    return 371.92;
+    return 0;
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -295,11 +229,61 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
     }
   };
 
+  const knownInstCodes = useMemo(() => {
+    return institutions
+      .map(inst => extractInstitutionShortCode(inst))
+      .filter(Boolean);
+  }, [institutions]);
+
+  const selectedUploadInstitution = useMemo(() => {
+    return institutions.find(inst => inst.id === targetInstitutionId) || null;
+  }, [institutions, targetInstitutionId]);
+
+  const uploadInstShortCode = useMemo(() => {
+    return extractInstitutionShortCode(selectedUploadInstitution);
+  }, [selectedUploadInstitution]);
+
+  const awajPreviewName = useMemo(() => {
+    return buildCmVoiceName(voiceName, uploadInstShortCode);
+  }, [voiceName, uploadInstShortCode]);
+
+  const totalCommitteeWalletBalance = useMemo(() => {
+    return institutions.reduce((sum, inst) => sum + (Number(inst?.balance) || 0), 0);
+  }, [institutions]);
+
+  const isLinkedToCommittee = (voice: any): boolean => {
+    const vId = voice.id !== undefined && voice.id !== null ? String(voice.id) : '';
+    const vName = String(voice.name || voice.title || '').trim().toLowerCase();
+    const vClean = stripCmVoicePrefix(voice.name || voice.title || '', knownInstCodes).toLowerCase();
+
+    return assignedVoices.some((av) => {
+      if (vId && av.provider_voice_id && String(av.provider_voice_id) === vId) return true;
+      if (vName && av.provider_voice_name && String(av.provider_voice_name).trim().toLowerCase() === vName) return true;
+      if (av.title) {
+        const avTitle = String(av.title).trim().toLowerCase();
+        if (vName && avTitle === vName) return true;
+        if (vClean && avTitle === vClean) return true;
+      }
+      return false;
+    });
+  };
+
+  const cmVoices = useMemo(() => {
+    return voices.filter(voice => isCmVoiceName(voice.name || voice.title) || isLinkedToCommittee(voice));
+  }, [voices, assignedVoices, knownInstCodes]);
+
+  const sourceBaseVoices = sourceFilter === 'cm' ? cmVoices : voices;
+
   // Filtered Voices
-  const filteredVoices = voices.filter(voice => {
-    const vName = (voice.name || voice.title || '').toLowerCase();
+  const filteredVoices = sourceBaseVoices.filter(voice => {
+    const rawName = String(voice.name || voice.title || '');
+    const cleanName = stripCmVoicePrefix(rawName, knownInstCodes);
     const query = searchQuery.toLowerCase().trim();
-    const matchesSearch = !query || vName.includes(query) || (voice.id?.toString() || '').includes(query);
+    const matchesSearch =
+      !query ||
+      rawName.toLowerCase().includes(query) ||
+      cleanName.toLowerCase().includes(query) ||
+      (voice.id?.toString() || '').includes(query);
 
     const status = (voice.status || 'approved').toLowerCase();
     let matchesFilter = true;
@@ -310,9 +294,10 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
     return matchesSearch && matchesFilter;
   });
 
-  const approvedCount = voices.filter(v => (v.status || 'approved').toLowerCase() === 'approved').length;
-  const pendingCount = voices.filter(v => (v.status || '').toLowerCase() === 'pending').length;
-  const rejectedCount = voices.filter(v => (v.status || '').toLowerCase() === 'rejected').length;
+  const approvedCount = sourceBaseVoices.filter(v => (v.status || 'approved').toLowerCase() === 'approved').length;
+  const pendingCount = sourceBaseVoices.filter(v => (v.status || '').toLowerCase() === 'pending').length;
+  const rejectedCount = sourceBaseVoices.filter(v => (v.status || '').toLowerCase() === 'rejected').length;
+  const cmApprovedCount = cmVoices.filter(v => (v.status || 'approved').toLowerCase() === 'approved').length;
 
   // Recording Handlers
   const startRecording = async () => {
@@ -375,8 +360,11 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
 
     setIsUploadingVoice(true);
     try {
+      const awajVoiceName = buildCmVoiceName(voiceName, uploadInstShortCode);
+      const cleanTitle = stripCmVoicePrefix(voiceName, knownInstCodes) || voiceName.trim();
+
       let fileToUpload: File | Blob = selectedAudioFile || recordedAudioBlob!;
-      let fileName = selectedAudioFile ? selectedAudioFile.name : `${voiceName.trim().replace(/\s+/g, '_')}_record.webm`;
+      let fileName = selectedAudioFile ? selectedAudioFile.name : `${cleanTitle.replace(/\s+/g, '_')}_record.webm`;
 
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve, reject) => {
@@ -398,7 +386,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
           ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
         },
         body: JSON.stringify({
-          name: voiceName.trim(),
+          name: awajVoiceName,
           file_base64: base64Data,
           filename: fileName,
           content_type: fileToUpload.type || 'audio/mpeg'
@@ -410,11 +398,16 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
 
       // If assigned to an institution, save in Supabase voice_templates
       if (targetInstitutionId) {
+        const providerVoiceName = data.name || data.voice?.name || awajVoiceName;
+        const providerStatus = (data.status || data.voice?.status || 'pending').toLowerCase();
         await supabase.from('voice_templates').insert({
           institution_id: targetInstitutionId,
-          title: voiceName.trim(),
-          file_url: data.url || data.previewUrl || data.audioUrl || '',
-          provider_voice_id: (data.id || data.voice_id || '').toString()
+          title: cleanTitle,
+          provider_voice_name: providerVoiceName,
+          file_url: data.url || data.previewUrl || data.audioUrl || data.voice?.previewUrl || '',
+          provider_voice_id: (data.id || data.voice_id || data.voice?.id || '').toString(),
+          provider_status: providerStatus,
+          admin_status: 'approved'
         });
       }
 
@@ -422,7 +415,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         show: true,
         type: 'success',
         title: 'ভয়েস আপলোড সফল',
-        message: 'ভয়েস সফলভাবে AWAJ ডিজিটাল প্ল্যাটফর্মে আপলোড করা হয়েছে।'
+        message: `ভয়েস সফলভাবে AWAJ ডিজিটাল প্ল্যাটফর্মে (${awajVoiceName}) আপলোড করা হয়েছে।`
       });
 
       setShowUploadModal(false);
@@ -479,11 +472,16 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
     if (!assigningVoice || !assignInstitutionId) return;
     setIsAssigning(true);
     try {
+      const rawAwajName = String(assigningVoice.name || assigningVoice.title || 'Voice Template').trim();
+      const cleanTitle = stripCmVoicePrefix(rawAwajName, knownInstCodes) || rawAwajName;
       const { error } = await supabase.from('voice_templates').insert({
         institution_id: assignInstitutionId,
-        title: assigningVoice.name || assigningVoice.title || 'Voice Template',
+        title: cleanTitle,
+        provider_voice_name: rawAwajName,
         file_url: assigningVoice.previewUrl || assigningVoice.audioUrl || assigningVoice.url || '',
-        provider_voice_id: (assigningVoice.id || '').toString()
+        provider_voice_id: (assigningVoice.id || '').toString(),
+        provider_status: (assigningVoice.status || 'approved').toLowerCase(),
+        admin_status: 'approved'
       });
 
       if (error) throw error;
@@ -524,103 +522,6 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
     } catch (error: any) {
       console.error("Unassign error:", error);
       setStatusModal({ show: true, type: 'error', title: 'ত্রুটি', message: error.message || "Failed to unassign voice" });
-    }
-  };
-
-  // Direct Broadcast Send Action
-  const handleSendDirectBroadcast = async () => {
-    if (!directAudioUrl.trim() || !directSender.trim() || !directPhoneNumbersInput.trim()) {
-      setStatusModal({
-        show: true,
-        type: 'error',
-        title: 'তথ্য অসম্পূর্ণ',
-        message: 'অনুগ্রহ করে অডিও URL, সেন্ডার নম্বর এবং প্রাপকের ফোন নম্বর পূরণ করুন।'
-      });
-      return;
-    }
-
-    const rawNumbers = directPhoneNumbersInput
-      .split(/[,\n\r\s]+/)
-      .map(n => n.trim().replace(/[^0-9]/g, ''))
-      .filter(n => n.length >= 10);
-
-    const formattedNumbers = rawNumbers.map(n => {
-      if (n.length === 11 && n.startsWith('01')) return n;
-      if (n.length === 13 && n.startsWith('8801')) return n.substring(2);
-      if (n.length === 10 && n.startsWith('1')) return '0' + n;
-      return n;
-    });
-
-    const uniqueNumbers = Array.from(new Set(formattedNumbers)).filter(n => n.length === 11 && n.startsWith('01'));
-
-    if (uniqueNumbers.length === 0) {
-      setStatusModal({
-        show: true,
-        type: 'error',
-        title: 'সঠিক নম্বর দিন',
-        message: 'কমপক্ষে একটি সঠিক ১১ ডিজিটের বাংলাদেশী মোবাইল নম্বর দিন।'
-      });
-      return;
-    }
-
-    let sNumber = directSender.trim().replace(/[^0-9]/g, '');
-    if (sNumber.length === 11 && sNumber.startsWith('01')) {
-      sNumber = '88' + sNumber;
-    } else if (sNumber.length === 10 && sNumber.startsWith('1')) {
-      sNumber = '880' + sNumber;
-    }
-
-    setIsSendingDirectBroadcast(true);
-    try {
-      const requestId = `direct_req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const payload = {
-        request_id: requestId,
-        sender: sNumber,
-        phone_numbers: uniqueNumbers,
-        voices: [directAudioUrl.trim()],
-        metadata: {
-          campaign_name: directCampaignName || 'Direct Broadcast',
-          created_by: 'Super Admin',
-          timestamp: new Date().toISOString()
-        }
-      };
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/awaj/broadcast/direct', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await res.json();
-      if (!res.ok) {
-        throw new Error(result.error || result.message || 'Direct voice broadcast failed');
-      }
-
-      setStatusModal({
-        show: true,
-        type: 'success',
-        title: 'ডিরেক্ট কল সফলভাবে পাঠানো হয়েছে',
-        message: `${uniqueNumbers.length} টি নম্বরে ডিরেক্ট ভয়েস কল পাঠানো হয়েছে!`
-      });
-
-      setDirectPhoneNumbersInput('');
-      setDirectCampaignName('');
-      setActiveTab('voices');
-      fetchData();
-    } catch (err: any) {
-      console.error("Direct broadcast error:", err);
-      setStatusModal({
-        show: true,
-        type: 'error',
-        title: 'কল ব্যর্থ হয়েছে',
-        message: err.message || 'ডিরেক্ট কল পাঠানোর সময় ত্রুটি হয়েছে।'
-      });
-    } finally {
-      setIsSendingDirectBroadcast(false);
     }
   };
 
@@ -702,17 +603,22 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
             <p className={`text-[9px] font-black uppercase tracking-widest truncate ${
               isDark ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              BALANCE
+              AWAJ BALANCE
             </p>
             <h4 className={`text-xs sm:text-base font-black font-noto mt-0.5 truncate ${
               isDark ? 'text-white' : 'text-slate-900'
             }`}>
               ৳{getNumericBalance(balance).toFixed(2)}
             </h4>
+            <p className={`text-[9px] font-bold truncate mt-0.5 ${
+              isDark ? 'text-slate-400' : 'text-slate-500'
+            }`}>
+              কমিটি ওয়ালেট: ৳{totalCommitteeWalletBalance.toFixed(0)}
+            </p>
           </div>
         </div>
 
-        {/* Card 2: Total Voices */}
+        {/* Card 2: CM Voices */}
         <div className={`rounded-2xl sm:rounded-3xl p-3 sm:p-4 border shadow-sm flex flex-col justify-between ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
         }`}>
@@ -725,19 +631,19 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
             <p className={`text-[9px] font-black uppercase tracking-widest truncate ${
               isDark ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              TOTAL VOICES
+              CM VOICES
             </p>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-sm sm:text-base font-black ${
                 isDark ? 'text-white' : 'text-slate-900'
               }`}>
-                {voices.length}
+                {cmVoices.length}
               </span>
               <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
                 isDark ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
               }`}>
                 <Check size={10} strokeWidth={3} className="shrink-0" />
-                <span>{approvedCount} ok</span>
+                <span>{cmApprovedCount} ok</span>
               </span>
             </div>
           </div>
@@ -762,7 +668,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
               <span className={`text-xs sm:text-base font-black ${
                 isDark ? 'text-white' : 'text-slate-900'
               }`}>
-                {assignedVoices.length > 0 ? assignedVoices.length : '334'}
+                {assignedVoices.length}
               </span>
               <span className={`text-[9px] sm:text-[10px] font-bold whitespace-nowrap ${
                 isDark ? 'text-slate-400' : 'text-slate-500'
@@ -774,7 +680,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         </div>
       </div>
 
-      {/* 3. MAIN TABS (Awaj Voices vs Assigned Voices vs Direct Call) */}
+      {/* 3. MAIN TABS (Awaj Voices vs Assigned Voices) */}
       <div className={`p-1.5 rounded-full border shadow-sm flex items-center gap-1 ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
       }`}>
@@ -797,7 +703,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                 ? 'bg-slate-800 text-slate-300' 
                 : 'bg-slate-100 text-slate-800'
           }`}>
-            {voices.length}
+            {sourceBaseVoices.length}
           </span>
         </button>
 
@@ -820,23 +726,8 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                 ? 'bg-slate-800 text-slate-300' 
                 : 'bg-slate-100 text-slate-800'
           }`}>
-            {assignedVoices.length > 0 ? assignedVoices.length : '334'}
+            {assignedVoices.length}
           </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('direct_broadcast')}
-          className={`py-2.5 px-3 sm:px-4 rounded-full font-black text-xs flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
-            activeTab === 'direct_broadcast'
-              ? 'bg-purple-600 text-white shadow-sm'
-              : isDark
-                ? 'text-purple-400 hover:bg-purple-950/40'
-                : 'text-purple-700 hover:bg-purple-50'
-          }`}
-          title="Direct Broadcast"
-        >
-          <Radio size={14} />
-          <span className="hidden sm:inline">Direct Call</span>
         </button>
       </div>
 
@@ -844,6 +735,15 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
       {activeTab === 'voices' && (
         <div className="space-y-3.5 animate-in fade-in duration-300">
           
+          {apiError && (
+            <div className={`p-3.5 rounded-2xl border flex items-center gap-2.5 text-xs font-bold ${
+              isDark ? 'bg-rose-950/40 border-rose-900 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}>
+              <AlertCircle size={16} className="text-rose-500 shrink-0" />
+              <p className="leading-snug">{apiError}</p>
+            </div>
+          )}
+
           {/* 4. SEARCH BAR */}
           <div className={`relative rounded-2xl border shadow-sm px-4 py-3 flex items-center gap-3 ${
             isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
@@ -866,6 +766,52 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                 <X size={16} />
               </button>
             )}
+          </div>
+
+          {/* SOURCE FILTER PILL (Committee Voices vs All Awaj Voices) */}
+          <div className={`p-1.5 rounded-2xl border shadow-sm flex items-center gap-1.5 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
+          }`}>
+            <button
+              onClick={() => setSourceFilter('cm')}
+              className={`flex-1 py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all ${
+                sourceFilter === 'cm'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : isDark
+                    ? 'text-slate-300 hover:bg-slate-800'
+                    : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <ShieldCheck size={14} />
+              <span>Committee Voices</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                sourceFilter === 'cm'
+                  ? 'bg-white/20 text-white'
+                  : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-800'
+              }`}>
+                {cmVoices.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setSourceFilter('all')}
+              className={`flex-1 py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all ${
+                sourceFilter === 'all'
+                  ? 'bg-[#375DFB] text-white shadow-sm'
+                  : isDark
+                    ? 'text-slate-300 hover:bg-slate-800'
+                    : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Radio size={14} />
+              <span>All Awaj Voices</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                sourceFilter === 'all'
+                  ? 'bg-white/20 text-white'
+                  : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-800'
+              }`}>
+                {voices.length}
+              </span>
+            </button>
           </div>
 
           {/* 5. STATUS FILTER 2x2 GRID */}
@@ -892,7 +838,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                     ? 'bg-slate-800 text-slate-300' 
                     : 'bg-slate-100 text-slate-800'
               }`}>
-                {voices.length}
+                {sourceBaseVoices.length}
               </span>
             </button>
 
@@ -1023,8 +969,21 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                           <h4 className={`text-sm sm:text-base font-black truncate ${
                             isDark ? 'text-white' : 'text-slate-900'
                           }`} title={voice.name}>
-                            {voice.name}
+                            {stripCmVoicePrefix(voice.name || voice.title, knownInstCodes)}
                           </h4>
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border ${
+                              isCmVoiceName(voice.name)
+                                ? isDark
+                                  ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/70'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : isDark
+                                  ? 'bg-slate-800 text-slate-300 border-slate-700'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}>
+                              Awaj: {voice.name}
+                            </span>
+                          </div>
                           <div className={`flex items-center gap-2 text-xs font-bold mt-1 flex-wrap ${
                             isDark ? 'text-slate-400' : 'text-slate-600'
                           }`}>
@@ -1125,22 +1084,6 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                           <Building size={14} />
                           <span>কমিটিকে বরাদ্দ দিন</span>
                         </button>
-
-                        <button
-                          onClick={() => {
-                            setDirectAudioUrl(audioUrl);
-                            setDirectCampaignName(`Call_${voice.name}`);
-                            setActiveTab('direct_broadcast');
-                          }}
-                          className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
-                            isDark 
-                              ? 'bg-purple-950/40 text-purple-400 border border-purple-900/40 hover:bg-purple-900/50' 
-                              : 'bg-purple-50 text-purple-700 border border-purple-200/80 hover:bg-purple-100'
-                          }`}
-                        >
-                          <Radio size={14} />
-                          <span>ডিরেক্ট কল</span>
-                        </button>
                       </div>
 
                       <button
@@ -1202,9 +1145,16 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                         <h4 className={`font-black text-sm truncate ${
                           isDark ? 'text-white' : 'text-slate-900'
                         }`}>
-                          {voice.title}
+                          {stripCmVoicePrefix(voice.title, knownInstCodes)}
                         </h4>
-                        <p className={`text-xs font-bold mt-0.5 ${
+                        {voice.provider_voice_name && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-mono text-[10px] font-bold border mt-1 ${
+                            isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}>
+                            Awaj: {voice.provider_voice_name}
+                          </span>
+                        )}
+                        <p className={`text-xs font-bold mt-1 ${
                           isDark ? 'text-slate-400' : 'text-slate-600'
                         }`}>
                           কমিটি: <span className={`font-black ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>{voice.institutions?.name || 'Global'}</span>
@@ -1250,95 +1200,6 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
               </p>
             </div>
           )}
-        </div>
-      )}
-
-      {/* TAB CONTENT: DIRECT BROADCAST */}
-      {activeTab === 'direct_broadcast' && (
-        <div className={`p-6 sm:p-8 rounded-[2.5rem] border shadow-sm max-w-2xl mx-auto space-y-5 animate-in fade-in duration-300 ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200/90'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-              isDark ? 'bg-purple-950/50 text-purple-400' : 'bg-purple-50 text-purple-600 border border-purple-100'
-            }`}>
-              <Radio size={22} />
-            </div>
-            <div>
-              <h3 className={`text-base sm:text-lg font-black ${
-                isDark ? 'text-white' : 'text-slate-900'
-              }`}>
-                ডিরেক্ট ভয়েস ব্রডকাস্ট (Direct Call)
-              </h3>
-              <p className={`text-xs font-bold ${
-                isDark ? 'text-slate-400' : 'text-slate-600'
-              }`}>
-                অনুমোদন ছাড়াই সরাসরি যেকোনো অডিও ফাইল বা লিঙ্ক দিয়ে কল পাঠান।
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-2">
-            <div>
-              <label className={`text-xs font-black uppercase tracking-widest px-1 ${
-                isDark ? 'text-slate-300' : 'text-slate-700'
-              }`}>
-                ১. অডিও URL (WAV/MP3) *
-              </label>
-              <input
-                type="url"
-                value={directAudioUrl}
-                onChange={(e) => setDirectAudioUrl(e.target.value)}
-                placeholder="https://cdn.example.com/voice.mp3"
-                className={`w-full h-12 mt-1 rounded-2xl px-4 text-xs font-mono border outline-none focus:ring-2 focus:ring-purple-400 ${
-                  isDark ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white'
-                }`}
-              />
-            </div>
-
-            <div>
-              <label className={`text-xs font-black uppercase tracking-widest px-1 ${
-                isDark ? 'text-slate-300' : 'text-slate-700'
-              }`}>
-                ২. সেন্ডার নম্বর (Caller ID) *
-              </label>
-              <input
-                type="text"
-                value={directSender}
-                onChange={(e) => setDirectSender(e.target.value)}
-                placeholder="যেমন: 09612345678 বা 8809612345678"
-                className={`w-full h-12 mt-1 rounded-2xl px-4 text-sm font-black border outline-none focus:ring-2 focus:ring-purple-400 ${
-                  isDark ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white'
-                }`}
-              />
-            </div>
-
-            <div>
-              <label className={`text-xs font-black uppercase tracking-widest px-1 ${
-                isDark ? 'text-slate-300' : 'text-slate-700'
-              }`}>
-                ৩. প্রাপকের নম্বরসমূহ (কমা দিয়ে একাধিক নম্বর) *
-              </label>
-              <textarea
-                rows={3}
-                value={directPhoneNumbersInput}
-                onChange={(e) => setDirectPhoneNumbersInput(e.target.value)}
-                placeholder="017XXXXXXXX, 018XXXXXXXX, 019XXXXXXXX"
-                className={`w-full p-4 mt-1 rounded-2xl text-xs font-mono border outline-none focus:ring-2 focus:ring-purple-400 ${
-                  isDark ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white'
-                }`}
-              />
-            </div>
-
-            <button
-              onClick={handleSendDirectBroadcast}
-              disabled={isSendingDirectBroadcast || !directAudioUrl.trim() || !directSender.trim() || !directPhoneNumbersInput.trim()}
-              className="w-full h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 active:scale-[0.99]"
-            >
-              {isSendingDirectBroadcast ? <Loader2 className="animate-spin" size={18} /> : <Radio size={18} />}
-              <span>সরাসরি কল পাঠান</span>
-            </button>
-          </div>
         </div>
       )}
 
@@ -1419,11 +1280,22 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                   type="text"
                   value={voiceName}
                   onChange={(e) => setVoiceName(e.target.value)}
-                  placeholder="যেমন: Monthly_Fee_Notice_Voice"
+                  placeholder="যেমন: মাসিক চাঁদা নোটিশ"
                   className={`w-full h-12 mt-1 rounded-2xl px-4 text-sm font-black border outline-none focus:ring-2 focus:ring-blue-500 ${
                     isDark ? 'bg-slate-800 border-slate-700 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:bg-white'
                   }`}
                 />
+                <div className={`mt-2 px-3 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 flex-wrap ${
+                  isDark
+                    ? 'bg-emerald-950/40 border-emerald-900/70 text-emerald-300'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                }`}>
+                  <ShieldCheck size={13} className="shrink-0 text-emerald-500" />
+                  <span>Awaj সার্ভারে নাম হবে:</span>
+                  <span className="font-mono font-black break-all">
+                    {awajPreviewName || (uploadInstShortCode ? `CM_${uploadInstShortCode}_...` : 'CM_...')}
+                  </span>
+                </div>
               </div>
 
               <div>
@@ -1557,10 +1429,15 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                 }`}>
                   ভয়েসের নাম
                 </label>
-                <div className={`w-full h-12 mt-1 rounded-2xl px-4 flex items-center text-sm font-black border ${
+                <div className={`w-full min-h-12 py-2.5 mt-1 rounded-2xl px-4 flex flex-col justify-center border ${
                   isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-900'
                 }`}>
-                  {assigningVoice.name}
+                  <span className="text-sm font-black">
+                    {stripCmVoicePrefix(assigningVoice.name || assigningVoice.title, knownInstCodes)}
+                  </span>
+                  <span className={`text-[10px] font-mono mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Awaj: {assigningVoice.name}
+                  </span>
                 </div>
               </div>
 

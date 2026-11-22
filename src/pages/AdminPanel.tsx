@@ -10,6 +10,12 @@ import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Transaction, AdminSMSStock } from 'types';
 import { COMMITTEE_TYPES as UTILITY_COMMITTEE_TYPES } from '../utils/committeeTypes';
 import { SONGHO_ACTIVITIES, getDefaultSonghoActivityIds } from '../utils/songhoActivities';
+import {
+  DEFAULT_MASKING_SMS_RATE,
+  DEFAULT_NON_MASKING_SMS_RATE,
+  DEFAULT_VOICE_RATE,
+  resolveInstitutionSmsPricing
+} from '../utils/smsUtils';
 
 const COMMITTEE_PACKAGES = [
   { name: 'STARTER', rate: 200 },
@@ -179,9 +185,19 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editReveCallerId, setEditReveCallerId] = useState('');
   const [editReveClientId, setEditReveClientId] = useState('');
   const [editVoiceSenderId, setEditVoiceSenderId] = useState('');
-  const [editSmsRate, setEditSmsRate] = useState<number>(0.40);
-  const [editVoiceRate, setEditVoiceRate] = useState<number>(0.50);
+  const [editSmsType, setEditSmsType] = useState<'non_masking' | 'masking'>('non_masking');
+  const [editSmsRate, setEditSmsRate] = useState<string>('');
+  const [editVoiceRate, setEditVoiceRate] = useState<number>(DEFAULT_VOICE_RATE);
   const [editMemberLimit, setEditMemberLimit] = useState<number>(0);
+  const [globalSmsRates, setGlobalSmsRates] = useState<{
+    masking_rate: number;
+    non_masking_rate: number;
+    default_sms_type: 'non_masking' | 'masking';
+  }>({
+    masking_rate: DEFAULT_MASKING_SMS_RATE,
+    non_masking_rate: DEFAULT_NON_MASKING_SMS_RATE,
+    default_sms_type: 'non_masking'
+  });
 
   const [editModules, setEditModules] = useState<Record<string, boolean>>({
     departments: true,
@@ -399,6 +415,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   useEffect(() => { 
     initData(); 
   }, [dataVersion, view, initData]);
+
+  useEffect(() => {
+    let active = true;
+    smsApi.getGlobalSettings()
+      .then((res) => {
+        if (!active || !res) return;
+        setGlobalSmsRates({
+          masking_rate: Number(res.masking_rate) > 0 ? Number(res.masking_rate) : DEFAULT_MASKING_SMS_RATE,
+          non_masking_rate: Number(res.non_masking_rate) > 0 ? Number(res.non_masking_rate) : DEFAULT_NON_MASKING_SMS_RATE,
+          default_sms_type: res.default_sms_type === 'masking' ? 'masking' : 'non_masking'
+        });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [dataVersion]);
 
   useEffect(() => {
     if (currentView === 'approvals') setView('approvals');
@@ -826,8 +857,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       }
     }
 
-    setEditSmsRate(userConfig?.sms_rate ?? 0.40);
-    setEditVoiceRate(userConfig?.voice_rate ?? 0.50);
+    const resolvedPricing = resolveInstitutionSmsPricing(
+      { ...user, config_json: userConfig },
+      globalSmsRates
+    );
+    setEditSmsType(resolvedPricing.smsType);
+    const customSmsRate = Number(userConfig?.sms_rate);
+    setEditSmsRate(Number.isFinite(customSmsRate) && customSmsRate > 0 ? String(customSmsRate) : '');
+    setEditVoiceRate(Number(userConfig?.voice_rate) > 0 ? Number(userConfig.voice_rate) : DEFAULT_VOICE_RATE);
     setEditMemberLimit(Number(userConfig?.member_limit) || 0);
 
     const userModules = { ...(userConfig?.modules || {}) };
@@ -923,8 +960,39 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
       const parsedSmsBalance = Math.max(0, parseInt(editSmsBalance, 10) || 0);
       const parsedVoiceBalance = Math.max(0, parseFloat(editVoiceBalance) || 0);
+      const parsedCustomSmsRate = parseFloat(String(editSmsRate || '').trim());
+      const validCustomSmsRate = Number.isFinite(parsedCustomSmsRate) && parsedCustomSmsRate > 0
+        ? Math.round(parsedCustomSmsRate * 10000) / 10000
+        : null;
+      const effectiveSmsType: 'non_masking' | 'masking' = editReveClientId.trim() ? 'masking' : editSmsType;
 
-      const { data, error } = await supabase.from('institutions').update({
+      const nextConfigJson: Record<string, any> = {
+        ...(typeof userConfig === 'object' && userConfig !== null ? userConfig : {}),
+        modules: editModules,
+        member_limit: Number(editMemberLimit) || 0,
+        sms_type: effectiveSmsType,
+        voice_rate: Number(editVoiceRate) || DEFAULT_VOICE_RATE,
+        attendance_type: editAttendanceType,
+        fee_structure: editFeeStructure,
+        subscription_type: editSubscriptionType,
+        custom_subscription_fee: editCustomSubscriptionFee,
+        package_name: editPackageName,
+        package_rate: Number(editPackageRate) || 0,
+        paid_months: editPaidMonths,
+        due_amount: Number(editDueAmount) || 0,
+        subscription_note: editSubscriptionNote,
+        fee_engine: editFeeEngine,
+        accounting_mode: editAccountingMode,
+        ...((editInstitutionType === 'sangha' || editInstitutionType === 'union') ? { songho_activities: editSonghoActivities } : {})
+      };
+
+      if (validCustomSmsRate !== null) {
+        nextConfigJson.sms_rate = validCustomSmsRate;
+      } else {
+        delete nextConfigJson.sms_rate;
+      }
+
+      const updatePayload: Record<string, any> = {
         name: editName.trim(),
         phone: editPhone.trim(),
         email: editEmail.trim() || null,
@@ -938,29 +1006,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         reve_caller_id: editReveCallerId.trim() || null,
         reve_client_id: editReveClientId.trim() || null,
         voice_sender_id: editVoiceSenderId.trim() || null,
+        sms_type: effectiveSmsType,
         institution_type: editInstitutionType,
         subscription_end: editSubscriptionEnd || null,
         status: editStatus,
-        config_json: {
-          ...(typeof userConfig === 'object' && userConfig !== null ? userConfig : {}),
-          modules: editModules,
-          member_limit: Number(editMemberLimit) || 0,
-          sms_rate: Number(editSmsRate) || 0.40,
-          voice_rate: Number(editVoiceRate) || 0.50,
-          attendance_type: editAttendanceType,
-          fee_structure: editFeeStructure,
-          subscription_type: editSubscriptionType,
-          custom_subscription_fee: editCustomSubscriptionFee,
-          package_name: editPackageName,
-          package_rate: Number(editPackageRate) || 0,
-          paid_months: editPaidMonths,
-          due_amount: Number(editDueAmount) || 0,
-          subscription_note: editSubscriptionNote,
-          fee_engine: editFeeEngine,
-          accounting_mode: editAccountingMode,
-          ...((editInstitutionType === 'sangha' || editInstitutionType === 'union') ? { songho_activities: editSonghoActivities } : {})
-        }
-      }).eq('id', selectedUser.id).select();
+        config_json: nextConfigJson
+      };
+
+      let { data, error } = await supabase.from('institutions').update(updatePayload).eq('id', selectedUser.id).select();
+
+      if (error && (error.code === '42703' || error.code === 'PGRST204' || String(error.message || '').toLowerCase().includes('sms_type'))) {
+        const { sms_type: _omitSmsType, ...fallbackUpdatePayload } = updatePayload;
+        const retryRes = await supabase.from('institutions').update(fallbackUpdatePayload).eq('id', selectedUser.id).select();
+        data = retryRes.data;
+        error = retryRes.error;
+      }
       
       if (error) throw error;
       if (!data || data.length === 0) throw new Error('Update failed: No rows updated. Check permissions or if the institution exists.');
@@ -2495,20 +2555,102 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                     )}
 
                     {/* TAB 2: API & SECURITY */}
-                    {detailsTab === 'api' && (
+                    {detailsTab === 'api' && (() => {
+                      const hasMaskingId = Boolean(editReveClientId.trim());
+                      const effectiveType: 'masking' | 'non_masking' = hasMaskingId ? 'masking' : editSmsType;
+                      const autoGlobalRate = effectiveType === 'masking' ? globalSmsRates.masking_rate : globalSmsRates.non_masking_rate;
+                      const parsedCustom = parseFloat(String(editSmsRate || '').trim());
+                      const activeDisplayRate = Number.isFinite(parsedCustom) && parsedCustom > 0 ? parsedCustom : autoGlobalRate;
+                      return (
                       <div className="space-y-6 animate-in fade-in duration-300">
                         <div className={`${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'} p-6 md:p-8 rounded-[2.5rem] border space-y-6`}>
-                          <div className="flex items-center gap-2 px-1">
-                            <Key size={16} className={isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
-                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">API & Security</h4>
+                          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                            <div className="flex items-center gap-2">
+                              <Key size={16} className={isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'} />
+                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">API & Security</h4>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-wide border ${
+                              effectiveType === 'masking'
+                                ? isDark
+                                  ? 'bg-[#42f5e9]/15 text-[#42f5e9] border-[#42f5e9]/30'
+                                  : 'bg-[#0fb5ab]/10 text-[#0e8a84] border-[#0fb5ab]/30'
+                                : isDark
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}>
+                              {effectiveType === 'masking'
+                                ? hasMaskingId
+                                  ? `Masking Account (Auto • ৳${activeDisplayRate}/SMS)`
+                                  : `Masking SMS (৳${activeDisplayRate}/SMS)`
+                                : `Non-Masking SMS (৳${activeDisplayRate}/SMS)`}
+                            </span>
                           </div>
+
+                          {/* SMS Type Selector */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block">
+                              SMS Type & Gateway Routing
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <button
+                                type="button"
+                                disabled={hasMaskingId}
+                                onClick={() => setEditSmsType('non_masking')}
+                                className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
+                                  effectiveType === 'non_masking'
+                                    ? isDark
+                                      ? 'bg-[#42f5e9]/15 border-[#42f5e9] text-white'
+                                      : 'bg-white border-[#0fb5ab] text-slate-800 shadow-sm'
+                                    : isDark
+                                      ? 'bg-slate-900 border-slate-800 text-slate-400 opacity-70'
+                                      : 'bg-white/60 border-slate-200 text-slate-500 opacity-75'
+                                } ${hasMaskingId ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                              >
+                                <div>
+                                  <p className="text-xs font-black">Non-Masking ({globalSmsRates.non_masking_rate} ৳)</p>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-0.5">Automas Primary • ৳100 = {Math.ceil(100 / globalSmsRates.non_masking_rate)} SMS</p>
+                                </div>
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${effectiveType === 'non_masking' ? 'border-[#0fb5ab] bg-[#0fb5ab]' : 'border-slate-300'}`}>
+                                  {effectiveType === 'non_masking' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                </div>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setEditSmsType('masking')}
+                                className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between cursor-pointer ${
+                                  effectiveType === 'masking'
+                                    ? isDark
+                                      ? 'bg-[#42f5e9]/15 border-[#42f5e9] text-white'
+                                      : 'bg-white border-[#0fb5ab] text-slate-800 shadow-sm'
+                                    : isDark
+                                      ? 'bg-slate-900 border-slate-800 text-slate-400 opacity-70'
+                                      : 'bg-white/60 border-slate-200 text-slate-500 opacity-75'
+                                }`}
+                              >
+                                <div>
+                                  <p className="text-xs font-black">Masking ({globalSmsRates.masking_rate} ৳)</p>
+                                  <p className="text-[10px] font-bold text-slate-400 mt-0.5">REVE SMS Primary • ৳100 = {Math.ceil(100 / globalSmsRates.masking_rate)} SMS</p>
+                                </div>
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${effectiveType === 'masking' ? 'border-[#0fb5ab] bg-[#0fb5ab]' : 'border-slate-300'}`}>
+                                  {effectiveType === 'masking' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                </div>
+                              </button>
+                            </div>
+                            {hasMaskingId && (
+                              <p className="text-[10px] font-bold text-[#0fb5ab] px-1">
+                                Masking / Client ID সেট থাকায় এই অ্যাকাউন্টটি স্বয়ংক্রিয়ভাবে Masking হিসেবে চিহ্নিত হয়েছে।
+                              </p>
+                            )}
+                          </div>
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-1.5">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Voice Sender ID</label>
                               <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editVoiceSenderId} onChange={(e) => setEditVoiceSenderId(e.target.value)} placeholder="e.g. 8801..." />
                             </div>
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">MRAM / REVE API Key</label>
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">REVE / Custom API Key</label>
                               <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-bold text-xs outline-none focus:border-[#0fb5ab]`} value={editReveApiKey} onChange={(e) => setEditReveApiKey(e.target.value)} placeholder="System Default Used" />
                             </div>
                             <div className="space-y-1.5">
@@ -2520,12 +2662,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                               <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editReveCallerId} onChange={(e) => setEditReveCallerId(e.target.value)} placeholder="e.g. 12345" />
                             </div>
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Masking / Client ID</label>
-                              <input type="text" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editReveClientId} onChange={(e) => setEditReveClientId(e.target.value)} placeholder="e.g. COMMITTEE" />
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Masking / Client ID (REVE)</label>
+                              <input
+                                type="text"
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`}
+                                value={editReveClientId}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setEditReveClientId(val);
+                                  if (val.trim()) setEditSmsType('masking');
+                                }}
+                                placeholder="e.g. COMMITTEE (sets Masking)"
+                              />
                             </div>
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">SMS Rate (BDT)</label>
-                              <input type="number" step="0.01" min="0" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editSmsRate} onChange={(e) => setEditSmsRate(parseFloat(e.target.value) || 0)} placeholder="0.40" />
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                Custom SMS Rate (BDT) — Optional
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`}
+                                value={editSmsRate}
+                                onChange={(e) => setEditSmsRate(e.target.value)}
+                                placeholder={`Auto (${autoGlobalRate} ৳)`}
+                              />
+                              <p className="text-[10px] font-bold text-slate-400 px-1">
+                                খালি বা ০ রাখলে গ্লোবাল {effectiveType === 'masking' ? 'Masking' : 'Non-Masking'} রেট ({autoGlobalRate} ৳) প্রযোজ্য হবে।
+                              </p>
                             </div>
                             <div className="space-y-1.5">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Voice Rate (BDT)</label>
@@ -2534,7 +2699,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                           </div>
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
 
                     {/* TAB 3: PERMISSIONS */}
                     {detailsTab === 'permissions' && (

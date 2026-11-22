@@ -84,7 +84,8 @@ export interface Institution {
     accounting_mode?: 'committee_system' | 'flexible' | 'qawmi_flexible' | 'school_system';
     subscription_type?: 'monthly' | 'quarterly' | 'yearly' | 'lifetime';
     member_limit?: number;
-    sms_rate?: number;
+    sms_type?: 'non_masking' | 'masking';
+    sms_rate?: number | null;
     voice_rate?: number;
     custom_subscription_fee?: number | '';
     package_name?: string;
@@ -104,6 +105,7 @@ export interface Institution {
   login_code?: string;
   balance: number;
   sms_balance: number;
+  sms_type?: 'non_masking' | 'masking';
   subscription_end?: string;
   reve_api_key?: string;
   reve_secret_key?: string;

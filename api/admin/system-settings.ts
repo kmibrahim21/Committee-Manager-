@@ -11,6 +11,37 @@ const normalizeNumberInput = (val: unknown): string => {
     .trim();
 };
 
+const sanitizeProviderConfig = (raw: any) => {
+  if (!raw || typeof raw !== 'object') return null;
+  const maskingRate = Number(raw.masking_rate);
+  const nonMaskingRate = Number(raw.non_masking_rate);
+
+  const reve = raw.reve && typeof raw.reve === 'object' ? raw.reve : {};
+  const automas = raw.automas && typeof raw.automas === 'object' ? raw.automas : {};
+
+  return {
+    default_type: raw.default_type === 'masking' ? 'masking' : 'non_masking',
+    masking_rate: Number.isFinite(maskingRate) && maskingRate > 0 ? maskingRate : 0.55,
+    non_masking_rate: Number.isFinite(nonMaskingRate) && nonMaskingRate > 0 ? nonMaskingRate : 0.35,
+    primary: {
+      masking: raw.primary?.masking || 'reve',
+      non_masking: raw.primary?.non_masking || 'automas'
+    },
+    reve: {
+      api_key: String(reve.api_key ?? '').trim(),
+      secret_key: String(reve.secret_key ?? '').trim(),
+      client_id: String(reve.client_id ?? '').trim(),
+      caller_id: String(reve.caller_id ?? '').trim(),
+      non_masking_id: String(reve.non_masking_id ?? '').trim()
+    },
+    automas: {
+      api_key: String(automas.api_key ?? '').trim(),
+      non_masking_sender_id: String(automas.non_masking_sender_id ?? '').trim(),
+      masking_sender_id: String(automas.masking_sender_id ?? '').trim()
+    }
+  };
+};
+
 export default async function handler(req: any, res: any) {
   const origin = req.headers?.origin;
   if (origin) {
@@ -107,12 +138,21 @@ export default async function handler(req: any, res: any) {
       updatePayload.nagad_number = cleanNagad;
     }
 
-    if (body.reve_api_key !== undefined) {
-      updatePayload.reve_api_key = String(body.reve_api_key ?? '').trim();
-    }
+    const textFields = [
+      'reve_api_key',
+      'reve_secret_key',
+      'reve_client_id',
+      'reve_caller_id',
+      'reve_non_masking_id',
+      'automas_api_key',
+      'automas_non_masking_sender_id',
+      'automas_masking_sender_id'
+    ] as const;
 
-    if (body.reve_caller_id !== undefined) {
-      updatePayload.reve_caller_id = String(body.reve_caller_id ?? '').trim();
+    for (const field of textFields) {
+      if (body[field] !== undefined) {
+        updatePayload[field] = String(body[field] ?? '').trim();
+      }
     }
 
     if (body.sms_rate !== undefined) {
@@ -131,6 +171,17 @@ export default async function handler(req: any, res: any) {
       updatePayload.voice_rate = voiceRate;
     }
 
+    if (body.sms_provider_config !== undefined) {
+      const cleanCfg = sanitizeProviderConfig(body.sms_provider_config);
+      if (!cleanCfg) {
+        return res.status(400).json({ error: 'Invalid sms_provider_config payload' });
+      }
+      updatePayload.sms_provider_config = cleanCfg;
+      if (updatePayload.sms_rate === undefined) {
+        updatePayload.sms_rate = cleanCfg.non_masking_rate;
+      }
+    }
+
     if (Object.keys(updatePayload).length === 0) {
       return res.status(400).json({ error: 'No settings fields provided to update' });
     }
@@ -146,6 +197,7 @@ export default async function handler(req: any, res: any) {
 
     let savedRow: any = null;
     if (existingRow && existingRow.id !== undefined && existingRow.id !== null) {
+      const hasSmsProviderConfigCol = Object.prototype.hasOwnProperty.call(existingRow, 'sms_provider_config');
       const missingNonEmptyCols: string[] = [];
       const filteredPayload: Record<string, any> = {};
 
@@ -153,7 +205,15 @@ export default async function handler(req: any, res: any) {
         if (Object.prototype.hasOwnProperty.call(existingRow, col)) {
           filteredPayload[col] = val;
         } else if (val !== '' && val !== null && val !== undefined) {
-          missingNonEmptyCols.push(col);
+          // If sms_provider_config column exists, gateway subfields are also stored in jsonb
+          const coveredByJsonb =
+            hasSmsProviderConfigCol &&
+            col !== 'bkash_number' &&
+            col !== 'nagad_number' &&
+            col !== 'sms_provider_config';
+          if (!coveredByJsonb) {
+            missingNonEmptyCols.push(col);
+          }
         }
       }
 
@@ -173,7 +233,10 @@ export default async function handler(req: any, res: any) {
 
       if (missingNonEmptyCols.length > 0) {
         const alterSql = missingNonEmptyCols
-          .map((c) => `ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS ${c} TEXT;`)
+          .map((c) => {
+            const colType = c === 'sms_provider_config' ? "JSONB DEFAULT '{}'::jsonb" : 'TEXT';
+            return `ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS ${c} ${colType};`;
+          })
           .join(' ');
         return res.status(422).json({
           error: `Database column missing in system_settings: ${missingNonEmptyCols.join(', ')}. Please run in Supabase SQL Editor: ${alterSql}`,

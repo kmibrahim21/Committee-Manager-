@@ -194,7 +194,7 @@ serve(async (req: Request) => {
 
     const { data: inst, error: instErr } = await supabaseAdmin
       .from("institutions")
-      .select("id, name, phone, balance, sms_balance, config_json, subscription_end, status, is_active")
+      .select("*")
       .eq("id", matchedTrx.institution_id)
       .single();
 
@@ -215,19 +215,40 @@ serve(async (req: Request) => {
 
     const { data: sysSettings } = await supabaseAdmin
       .from("system_settings")
-      .select("sms_rate, voice_rate")
+      .select("*")
+      .order("id", { ascending: true })
       .limit(1)
       .maybeSingle();
 
     let updatedSmsCount = Number(matchedTrx.sms_count || 0);
 
     if (moduleName === "sms") {
+      const providerCfg =
+        sysSettings?.sms_provider_config && typeof sysSettings.sms_provider_config === "object"
+          ? sysSettings.sms_provider_config
+          : {};
+      const globalMaskingRate =
+        Number(providerCfg.masking_rate) > 0 ? Number(providerCfg.masking_rate) : 0.55;
+      const globalNonMaskingRate =
+        Number(providerCfg.non_masking_rate) > 0
+          ? Number(providerCfg.non_masking_rate)
+          : Number(sysSettings?.sms_rate) > 0
+            ? Number(sysSettings.sms_rate)
+            : 0.35;
+
+      const hasMaskingId = Boolean(String(inst.reve_client_id || "").trim());
+      const explicitType = inst.sms_type || instConfig?.sms_type || matchedTrx.metadata?.sms_type;
+      const isMasking =
+        hasMaskingId ||
+        explicitType === "masking" ||
+        (explicitType !== "non_masking" && providerCfg.default_type === "masking");
+
       const effectiveSmsRate =
         Number(instConfig?.sms_rate) > 0
           ? Number(instConfig.sms_rate)
-          : Number(sysSettings?.sms_rate) > 0
-            ? Number(sysSettings.sms_rate)
-            : 0.50;
+          : isMasking
+            ? globalMaskingRate
+            : globalNonMaskingRate;
 
       if (updatedSmsCount <= 0) {
         updatedSmsCount = Math.ceil(amount / effectiveSmsRate);

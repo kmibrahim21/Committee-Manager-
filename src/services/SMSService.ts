@@ -17,12 +17,22 @@ export const SMSService = {
     const defaults = {
       id: null as string | number | null,
       reve_api_key: '',
+      reve_secret_key: '',
+      reve_client_id: '',
       reve_caller_id: '8809601017065',
+      reve_non_masking_id: '',
+      automas_api_key: '',
+      automas_non_masking_sender_id: '',
+      automas_masking_sender_id: '',
       bkash_number: '01766-XXXXXX',
       nagad_number: '',
       rocket_number: '',
-      sms_rate: 0.50,
-      voice_rate: 1.00
+      sms_rate: 0.35,
+      non_masking_rate: 0.35,
+      masking_rate: 0.55,
+      default_sms_type: 'non_masking' as 'non_masking' | 'masking',
+      voice_rate: 0.50,
+      sms_provider_config: null as any
     };
     try {
       const { data } = await supabase
@@ -34,15 +44,46 @@ export const SMSService = {
 
       if (!data) return defaults;
 
+      let providerCfg: any = data.sms_provider_config;
+      if (typeof providerCfg === 'string') {
+        try { providerCfg = JSON.parse(providerCfg); } catch { providerCfg = {}; }
+      }
+      providerCfg = providerCfg && typeof providerCfg === 'object' ? providerCfg : {};
+
+      const nonMaskingRate =
+        Number(providerCfg?.non_masking_rate) > 0
+          ? Number(providerCfg.non_masking_rate)
+          : Number(data.sms_rate) > 0
+            ? Number(data.sms_rate)
+            : defaults.non_masking_rate;
+
+      const maskingRate =
+        Number(providerCfg?.masking_rate) > 0
+          ? Number(providerCfg.masking_rate)
+          : defaults.masking_rate;
+
+      const defaultSmsType: 'non_masking' | 'masking' =
+        providerCfg?.default_type === 'masking' ? 'masking' : 'non_masking';
+
       return {
         id: data.id ?? null,
-        reve_api_key: data.reve_api_key || '',
-        reve_caller_id: data.reve_caller_id || defaults.reve_caller_id,
+        reve_api_key: data.reve_api_key || providerCfg?.reve?.api_key || '',
+        reve_secret_key: data.reve_secret_key || providerCfg?.reve?.secret_key || '',
+        reve_client_id: data.reve_client_id || providerCfg?.reve?.client_id || '',
+        reve_caller_id: data.reve_caller_id || providerCfg?.reve?.caller_id || defaults.reve_caller_id,
+        reve_non_masking_id: data.reve_non_masking_id || providerCfg?.reve?.non_masking_id || data.reve_caller_id || '',
+        automas_api_key: data.automas_api_key || providerCfg?.automas?.api_key || '',
+        automas_non_masking_sender_id: data.automas_non_masking_sender_id || providerCfg?.automas?.non_masking_sender_id || '',
+        automas_masking_sender_id: data.automas_masking_sender_id || providerCfg?.automas?.masking_sender_id || '',
         bkash_number: data.bkash_number ?? defaults.bkash_number,
         nagad_number: data.nagad_number || '',
         rocket_number: data.rocket_number || '',
-        sms_rate: data.sms_rate ?? defaults.sms_rate,
-        voice_rate: data.voice_rate ?? defaults.voice_rate
+        sms_rate: nonMaskingRate,
+        non_masking_rate: nonMaskingRate,
+        masking_rate: maskingRate,
+        default_sms_type: defaultSmsType,
+        voice_rate: Number(data.voice_rate) > 0 ? Number(data.voice_rate) : defaults.voice_rate,
+        sms_provider_config: providerCfg
       };
     } catch {
       return defaults;

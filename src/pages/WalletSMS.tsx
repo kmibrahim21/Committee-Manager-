@@ -6,7 +6,12 @@ import { supabase, smsApi } from 'supabase';
 import { SMSTemplate, Language, Institution, Department, Member, Transaction, Profile, UserRole } from 'types';
 import { t } from 'translations';
 import { sortMadrasahClasses } from 'pages/Departments';
-import { getSmsLengthInfo } from 'utils/smsUtils';
+import {
+  getSmsLengthInfo,
+  DEFAULT_MASKING_SMS_RATE,
+  DEFAULT_NON_MASKING_SMS_RATE,
+  resolveInstitutionSmsPricing
+} from 'utils/smsUtils';
 import VoiceBroadcast from './VoiceBroadcast';
 import PaymentCheckout from 'components/PaymentCheckout';
 
@@ -84,6 +89,21 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
     { code: '{institution_name}', label: lang === 'bn' ? 'কমিটি/প্রতিষ্ঠানের নাম' : 'Committee Name' },
   ];
 
+  const [globalSmsRates, setGlobalSmsRates] = useState<{
+    masking_rate: number;
+    non_masking_rate: number;
+    default_sms_type: 'non_masking' | 'masking';
+  }>({
+    masking_rate: DEFAULT_MASKING_SMS_RATE,
+    non_masking_rate: DEFAULT_NON_MASKING_SMS_RATE,
+    default_sms_type: 'non_masking'
+  });
+
+  const smsPricing = useMemo(
+    () => resolveInstitutionSmsPricing(madrasah, globalSmsRates),
+    [madrasah, globalSmsRates]
+  );
+
   // Error/Status Modal
   const [statusModal, setStatusModal] = useState<{show: boolean, type: 'error' | 'balance' | 'success', title: string, message: string}>({
     show: false,
@@ -91,6 +111,21 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
     title: '',
     message: ''
   });
+
+  useEffect(() => {
+    let active = true;
+    smsApi.getGlobalSettings()
+      .then((res) => {
+        if (!active || !res) return;
+        setGlobalSmsRates({
+          masking_rate: Number(res.masking_rate) > 0 ? Number(res.masking_rate) : DEFAULT_MASKING_SMS_RATE,
+          non_masking_rate: Number(res.non_masking_rate) > 0 ? Number(res.non_masking_rate) : DEFAULT_NON_MASKING_SMS_RATE,
+          default_sms_type: res.default_sms_type === 'masking' ? 'masking' : 'non_masking'
+        });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [dataVersion]);
 
   useEffect(() => { 
     if (activeTab === 'templates') fetchTemplates(); 
@@ -320,12 +355,17 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
 
         {activeTab === 'bulk-sms' && (
           <div className="space-y-5 animate-in slide-in-from-bottom-5">
-            <div className="bg-[#42f5e9] p-6 rounded-[2.2rem] shadow-premium border border-[#42f5e9]/20 flex items-center justify-between text-[#0e8a84] relative">
-               <div className="relative z-10">
-                 <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">{t('available_sms', lang)}</p>
-                 <h3 className="text-4xl font-black flex items-baseline gap-2">{madrasah?.sms_balance || 0}</h3>
+            <div className="bg-[#42f5e9] p-6 rounded-[2.2rem] shadow-premium border border-[#42f5e9]/20 flex items-center justify-between gap-4 text-[#0e8a84] relative">
+               <div className="relative z-10 space-y-1.5">
+                 <div className="flex flex-wrap items-center gap-2">
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-75">{t('available_sms', lang)}</p>
+                   <span className="px-2.5 py-0.5 rounded-full bg-white/60 text-[#0e8a84] text-[10px] font-black tracking-wide">
+                     {smsPricing.isMasking ? 'Masking' : 'Non-Masking'} • ৳{smsPricing.effectiveRate}/SMS (৳100 = {Math.ceil(100 / smsPricing.effectiveRate)} SMS)
+                   </span>
+                 </div>
+                 <h3 className="text-4xl font-black flex items-baseline gap-2 tabular-nums">{madrasah?.sms_balance || 0}</h3>
                </div>
-               <Zap size={40} className="text-[#0e8a84] opacity-20" />
+               <Zap size={40} className="text-[#0e8a84] opacity-20 shrink-0" />
             </div>
 
             <div className="bg-white p-6 rounded-[2.5rem] shadow-bubble border border-slate-100">
@@ -531,21 +571,46 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
         )}
 
         {activeTab === 'recharge' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-5 duration-500">
-             <PaymentCheckout
-               lang={lang}
-               madrasah={madrasah}
-               module="sms"
-               onSuccess={() => {
-                 triggerRefresh();
-                 fetchUserTransactions();
-               }}
-               onCancel={() => {
-                 fetchUserTransactions();
-               }}
-             />
+          <div className="space-y-4 animate-in slide-in-from-bottom-5 duration-500">
+            <div className={`px-5 py-3.5 rounded-[1.8rem] border flex flex-wrap items-center justify-between gap-3 ${
+              madrasah?.theme === 'dark'
+                ? 'bg-slate-800/80 border-slate-700 text-slate-200'
+                : 'bg-[#42f5e9]/10 border-[#42f5e9]/30 text-[#0e8a84]'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <span className={`px-3 py-1 rounded-full text-[11px] font-black ${
+                  smsPricing.isMasking
+                    ? 'bg-[#0fb5ab] text-white'
+                    : madrasah?.theme === 'dark'
+                      ? 'bg-emerald-500/20 text-emerald-300'
+                      : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  {smsPricing.isMasking ? 'Masking SMS' : 'Non-Masking SMS'}
+                </span>
+                <span className="text-xs font-black tabular-nums">
+                  ৳{smsPricing.effectiveRate} / SMS
+                </span>
+              </div>
+              <span className="text-xs font-black tabular-nums opacity-85">
+                ৳100 = {Math.ceil(100 / smsPricing.effectiveRate)} SMS
+              </span>
+            </div>
 
-             <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PaymentCheckout
+                lang={lang}
+                madrasah={madrasah}
+                module="sms"
+                onSuccess={() => {
+                  triggerRefresh();
+                  fetchUserTransactions();
+                }}
+                onCancel={() => {
+                  fetchUserTransactions();
+                }}
+              />
+
+              <div className="space-y-4">
                 <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-3 flex items-center gap-2">
                    <History size={12} /> {t('recharge_history', lang)}
                 </h2>
@@ -582,7 +647,8 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                     </div>
                   )}
                 </div>
-             </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -171,28 +171,42 @@ async function sendOtpSMS(
   const { data: sysSettings } = await supabaseAdmin
     .from('system_settings')
     .select('*')
-    .eq('id', 1)
+    .order('id', { ascending: true })
+    .limit(1)
     .maybeSingle();
+
+  let providerCfg: any = {};
+  if (typeof sysSettings?.sms_provider_config === 'string') {
+    try { providerCfg = JSON.parse(sysSettings.sms_provider_config); } catch { providerCfg = {}; }
+  } else if (sysSettings?.sms_provider_config && typeof sysSettings.sms_provider_config === 'object') {
+    providerCfg = sysSettings.sms_provider_config;
+  }
 
   const errors: string[] = [];
 
   // 1. Automas Non-Masking (if configured)
-  const automasKey = (
+  const automasKey = String(
     process.env.AUTOMAS_API_KEY ||
     sysSettings?.automas_api_key ||
+    providerCfg?.automas?.api_key ||
     ''
   ).trim();
   if (automasKey) {
     try {
-      const automasSender = (
+      let automasSender = String(
         process.env.AUTOMAS_SENDER_ID ||
+        sysSettings?.automas_non_masking_sender_id ||
         sysSettings?.automas_sender_id ||
+        providerCfg?.automas?.non_masking_sender_id ||
         DEFAULT_SENDER_ID
       ).trim();
-      const automasUrl = `https://api.automas.com.bd/smsapiv3?api_key=${encodeURIComponent(automasKey)}&type=unicode&contacts=${encodeURIComponent(intlPhone)}&senderid=${encodeURIComponent(automasSender)}&msg=${encodeURIComponent(message)}&smsformat=8`;
+      if (/^0961\d+/.test(automasSender)) {
+        automasSender = `88${automasSender}`;
+      }
+      const automasUrl = `https://api.automas.com.bd/smsapiv3?apikey=${encodeURIComponent(automasKey)}&sender=${encodeURIComponent(automasSender)}&msisdn=${encodeURIComponent(intlPhone)}&smstext=${encodeURIComponent(message)}&type=unicode&smsformat=8`;
       const gwRes = await fetch(automasUrl, { method: 'GET' });
       const resText = await gwRes.text();
-      if (gwRes.ok && !/error|invalid|failed/i.test(resText)) {
+      if (gwRes.ok && !/\b(error|invalid|failed|unauthorized)\b/i.test(resText)) {
         return;
       }
       errors.push(`Automas HTTP ${gwRes.status}: ${resText.slice(0, 120)}`);
@@ -201,17 +215,53 @@ async function sendOtpSMS(
     }
   }
 
-  // 2. MRAM SMS Gateway (primary Committee Manager gateway)
-  const mramKey = (
-    process.env.MRAM_API_KEY ||
-    process.env.SMS_API_KEY ||
+  // 2. REVE SMS Gateway (primary if API key + secret key exist)
+  const reveKey = String(
+    process.env.REVE_API_KEY ||
     sysSettings?.reve_api_key ||
+    providerCfg?.reve?.api_key ||
     institution?.reve_api_key ||
     ''
   ).trim();
+  const reveSecret = String(
+    process.env.REVE_SECRET_KEY ||
+    sysSettings?.reve_secret_key ||
+    providerCfg?.reve?.secret_key ||
+    institution?.reve_secret_key ||
+    ''
+  ).trim();
+  if (reveKey && reveSecret) {
+    try {
+      const callerId = String(
+        sysSettings?.reve_non_masking_id ||
+        providerCfg?.reve?.non_masking_id ||
+        sysSettings?.reve_caller_id ||
+        providerCfg?.reve?.caller_id ||
+        institution?.reve_caller_id ||
+        process.env.REVE_CALLER_ID ||
+        DEFAULT_SENDER_ID
+      ).trim();
+      const reveUrl = `https://smpp.revesms.com:7790/sendtext?apikey=${encodeURIComponent(reveKey)}&secretkey=${encodeURIComponent(reveSecret)}&callerID=${encodeURIComponent(callerId)}&toUser=${encodeURIComponent(intlPhone)}&messageContent=${encodeURIComponent(message)}&type=3`;
+      const gwRes = await fetch(reveUrl, { method: 'GET' });
+      const resText = await gwRes.text();
+      if (gwRes.ok && !/\b(error|invalid|failed|unauthorized)\b/i.test(resText)) {
+        return;
+      }
+      errors.push(`REVE HTTP ${gwRes.status}: ${resText.slice(0, 120)}`);
+    } catch (err: any) {
+      errors.push(`REVE error: ${err?.message || 'failed'}`);
+    }
+  }
+
+  // 3. MRAM SMS Gateway fallback
+  const mramKey = String(
+    process.env.MRAM_API_KEY ||
+    process.env.SMS_API_KEY ||
+    (!reveSecret ? (sysSettings?.reve_api_key || institution?.reve_api_key || '') : '')
+  ).trim();
   if (mramKey) {
     try {
-      const mramSender = (
+      const mramSender = String(
         sysSettings?.reve_caller_id ||
         institution?.reve_caller_id ||
         institution?.reve_client_id ||
@@ -227,38 +277,6 @@ async function sendOtpSMS(
       errors.push(`MRAM HTTP ${gwRes.status}: ${resText.slice(0, 120)}`);
     } catch (err: any) {
       errors.push(`MRAM error: ${err?.message || 'failed'}`);
-    }
-  }
-
-  // 3. REVE SMS Gateway fallback (if both API key and secret key exist)
-  const reveKey = (
-    process.env.REVE_API_KEY ||
-    sysSettings?.reve_api_key ||
-    institution?.reve_api_key ||
-    ''
-  ).trim();
-  const reveSecret = (
-    process.env.REVE_SECRET_KEY ||
-    sysSettings?.reve_secret_key ||
-    institution?.reve_secret_key ||
-    ''
-  ).trim();
-  if (reveKey && reveSecret) {
-    try {
-      const callerId = (
-        sysSettings?.reve_caller_id ||
-        institution?.reve_caller_id ||
-        process.env.REVE_CALLER_ID ||
-        DEFAULT_SENDER_ID
-      ).trim();
-      const reveUrl = `https://smpp.ajuratech.com:7790/sendtext?apikey=${encodeURIComponent(reveKey)}&secretkey=${encodeURIComponent(reveSecret)}&callerID=${encodeURIComponent(callerId)}&toUser=${encodeURIComponent(intlPhone)}&messageContent=${encodeURIComponent(message)}`;
-      const gwRes = await fetch(reveUrl, { method: 'GET' });
-      if (gwRes.ok) {
-        return;
-      }
-      errors.push(`REVE HTTP ${gwRes.status}`);
-    } catch (err: any) {
-      errors.push(`REVE error: ${err?.message || 'failed'}`);
     }
   }
 

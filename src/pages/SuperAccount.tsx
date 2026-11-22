@@ -56,19 +56,37 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
   const [globalSettings, setGlobalSettings] = useState<{
     id: string | number | null;
     reve_api_key: string;
+    reve_secret_key: string;
+    reve_client_id: string;
     reve_caller_id: string;
+    reve_non_masking_id: string;
+    automas_api_key: string;
+    automas_non_masking_sender_id: string;
+    automas_masking_sender_id: string;
     bkash_number: string;
     nagad_number: string;
     sms_rate: number;
+    non_masking_rate: number;
+    masking_rate: number;
+    default_sms_type: 'non_masking' | 'masking';
     voice_rate: number;
   }>({
     id: null,
     reve_api_key: '',
+    reve_secret_key: '',
+    reve_client_id: '',
     reve_caller_id: '',
+    reve_non_masking_id: '',
+    automas_api_key: '',
+    automas_non_masking_sender_id: '',
+    automas_masking_sender_id: '',
     bkash_number: '',
     nagad_number: '',
-    sms_rate: 0.50,
-    voice_rate: 1.00
+    sms_rate: 0.35,
+    non_masking_rate: 0.35,
+    masking_rate: 0.55,
+    default_sms_type: 'non_masking',
+    voice_rate: 0.50
   });
 
   useEffect(() => {
@@ -77,14 +95,41 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
 
   const applySettingsRow = (row: any) => {
     if (!row) return;
+    let providerCfg: any = row.sms_provider_config;
+    if (typeof providerCfg === 'string') {
+      try { providerCfg = JSON.parse(providerCfg); } catch { providerCfg = {}; }
+    }
+    providerCfg = providerCfg && typeof providerCfg === 'object' ? providerCfg : {};
+
+    const nonMaskingRate =
+      Number(providerCfg?.non_masking_rate) > 0
+        ? Number(providerCfg.non_masking_rate)
+        : Number(row.sms_rate) > 0
+          ? Number(row.sms_rate)
+          : 0.35;
+
+    const maskingRate =
+      Number(providerCfg?.masking_rate) > 0
+        ? Number(providerCfg.masking_rate)
+        : 0.55;
+
     setGlobalSettings({
       id: row.id ?? null,
-      reve_api_key: row.reve_api_key || '',
-      reve_caller_id: row.reve_caller_id || '',
+      reve_api_key: row.reve_api_key || providerCfg?.reve?.api_key || '',
+      reve_secret_key: row.reve_secret_key || providerCfg?.reve?.secret_key || '',
+      reve_client_id: row.reve_client_id || providerCfg?.reve?.client_id || '',
+      reve_caller_id: row.reve_caller_id || providerCfg?.reve?.caller_id || '',
+      reve_non_masking_id: row.reve_non_masking_id || providerCfg?.reve?.non_masking_id || row.reve_caller_id || '',
+      automas_api_key: row.automas_api_key || providerCfg?.automas?.api_key || '',
+      automas_non_masking_sender_id: row.automas_non_masking_sender_id || providerCfg?.automas?.non_masking_sender_id || '',
+      automas_masking_sender_id: row.automas_masking_sender_id || providerCfg?.automas?.masking_sender_id || '',
       bkash_number: row.bkash_number || '',
       nagad_number: row.nagad_number || '',
-      sms_rate: Number(row.sms_rate) > 0 ? Number(row.sms_rate) : 0.50,
-      voice_rate: Number(row.voice_rate) > 0 ? Number(row.voice_rate) : 1.00
+      sms_rate: nonMaskingRate,
+      non_masking_rate: nonMaskingRate,
+      masking_rate: maskingRate,
+      default_sms_type: providerCfg?.default_type === 'masking' ? 'masking' : 'non_masking',
+      voice_rate: Number(row.voice_rate) > 0 ? Number(row.voice_rate) : 0.50
     });
   };
 
@@ -160,22 +205,34 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
     }
 
     // Fallback: direct Supabase update using the actual existing row ID
-    let targetId = globalSettings.id;
-    if (targetId === null || targetId === undefined) {
-      const { data: existingRow, error: lookupErr } = await supabase
-        .from('system_settings')
-        .select('id')
-        .order('id', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (lookupErr) throw lookupErr;
-      targetId = existingRow?.id ?? null;
-    }
+    const { data: existingRow, error: lookupErr } = await supabase
+      .from('system_settings')
+      .select('*')
+      .order('id', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (lookupErr) throw lookupErr;
+
+    const targetId = existingRow?.id ?? globalSettings.id;
 
     if (targetId !== null && targetId !== undefined) {
+      const safePayload: Record<string, any> = {};
+      if (existingRow && typeof existingRow === 'object') {
+        const hasJsonbCfg = Object.prototype.hasOwnProperty.call(existingRow, 'sms_provider_config');
+        for (const [k, v] of Object.entries(payload)) {
+          if (Object.prototype.hasOwnProperty.call(existingRow, k)) {
+            safePayload[k] = v;
+          } else if (!hasJsonbCfg && v !== '' && v !== null && v !== undefined) {
+            safePayload[k] = v;
+          }
+        }
+      } else {
+        Object.assign(safePayload, payload);
+      }
+
       const { data: updatedRow, error: updateErr } = await supabase
         .from('system_settings')
-        .update(payload)
+        .update(safePayload)
         .eq('id', targetId)
         .select('*')
         .maybeSingle();
@@ -205,22 +262,67 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
     setSaving(true);
     setBulkSmsError('');
     try {
+      const nonMaskingRate = Number(globalSettings.non_masking_rate) > 0 ? Number(globalSettings.non_masking_rate) : 0.35;
+      const maskingRate = Number(globalSettings.masking_rate) > 0 ? Number(globalSettings.masking_rate) : 0.55;
+      const voiceRate = Number(globalSettings.voice_rate) > 0 ? Number(globalSettings.voice_rate) : 0.50;
+
+      const reveApiKey = (globalSettings.reve_api_key || '').trim();
+      const reveSecretKey = (globalSettings.reve_secret_key || '').trim();
+      const reveClientId = (globalSettings.reve_client_id || '').trim();
+      const reveNonMaskingId = (globalSettings.reve_non_masking_id || globalSettings.reve_caller_id || '').trim();
+      const reveCallerId = (globalSettings.reve_caller_id || reveNonMaskingId).trim();
+
+      const automasApiKey = (globalSettings.automas_api_key || '').trim();
+      const automasNonMaskingSenderId = (globalSettings.automas_non_masking_sender_id || '').trim();
+      const automasMaskingSenderId = (globalSettings.automas_masking_sender_id || '').trim();
+
+      const smsProviderConfig = {
+        default_type: globalSettings.default_sms_type,
+        masking_rate: maskingRate,
+        non_masking_rate: nonMaskingRate,
+        primary: {
+          masking: 'reve',
+          non_masking: 'automas'
+        },
+        reve: {
+          api_key: reveApiKey,
+          secret_key: reveSecretKey,
+          client_id: reveClientId,
+          caller_id: reveCallerId,
+          non_masking_id: reveNonMaskingId
+        },
+        automas: {
+          api_key: automasApiKey,
+          non_masking_sender_id: automasNonMaskingSenderId,
+          masking_sender_id: automasMaskingSenderId
+        }
+      };
+
       const savedRow = await persistSystemSettings({
-        reve_api_key: (globalSettings.reve_api_key || '').trim(),
-        reve_caller_id: (globalSettings.reve_caller_id || '').trim(),
-        sms_rate: Number(globalSettings.sms_rate),
-        voice_rate: Number(globalSettings.voice_rate)
+        reve_api_key: reveApiKey,
+        reve_secret_key: reveSecretKey,
+        reve_client_id: reveClientId,
+        reve_caller_id: reveCallerId,
+        reve_non_masking_id: reveNonMaskingId,
+        automas_api_key: automasApiKey,
+        automas_non_masking_sender_id: automasNonMaskingSenderId,
+        automas_masking_sender_id: automasMaskingSenderId,
+        sms_rate: nonMaskingRate,
+        voice_rate: voiceRate,
+        sms_provider_config: smsProviderConfig
       });
       applySettingsRow(savedRow);
       setIsEditingBulkSMS(false);
-      setShowSuccessModal({ show: true, title: 'Bulk SMS আপডেট', message: 'Bulk SMS ও রেট সেটিংস আপডেট হয়েছে।' });
+      setShowSuccessModal({
+        show: true,
+        title: lang === 'bn' ? 'SMS গেটওয়ে ও রেট আপডেট' : 'SMS Gateway & Rates Updated',
+        message: lang === 'bn'
+          ? 'REVE, Automas এবং Masking / Non-Masking রেট সফলভাবে আপডেট হয়েছে।'
+          : 'REVE, Automas & Masking / Non-Masking rates updated successfully.'
+      });
       fetchGlobalSettings();
     } catch (err: any) {
-      if (err?.message?.includes('reve_caller_id')) {
-        setBulkSmsError('Database schema mismatch: reve_api_key / reve_caller_id column missing in system_settings.');
-      } else {
-        setBulkSmsError(err?.message || (lang === 'bn' ? 'সেটিংস আপডেট করতে সমস্যা হয়েছে।' : 'Failed to update settings.'));
-      }
+      setBulkSmsError(err?.message || (lang === 'bn' ? 'সেটিংস আপডেট করতে সমস্যা হয়েছে।' : 'Failed to update settings.'));
     } finally { setSaving(false); }
   };
 
@@ -529,41 +631,224 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
 
       {isEditingBulkSMS && createPortal(
         <div className="modal-overlay bg-slate-900/40 backdrop-blur-xl animate-in fade-in duration-300">
-           <div className={`w-full max-w-sm rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-500 border overflow-hidden flex flex-col max-h-[85vh] relative ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <div className="p-5 shrink-0 relative overflow-hidden">
+           <div className={`w-full max-w-lg rounded-[2.75rem] shadow-2xl animate-in zoom-in-95 duration-500 border overflow-hidden flex flex-col max-h-[88vh] relative ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+              <div className="p-5 sm:px-6 shrink-0 relative overflow-hidden border-b border-slate-100/80 dark:border-slate-800">
                  <div className="flex items-center justify-between relative z-10">
                     <div className="flex items-center gap-3">
                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${madrasah?.theme === 'dark' ? 'bg-[#42f5e9]/10 text-[#42f5e9] border-[#42f5e9]/20' : 'bg-[#42f5e9]/10 text-[#0fb5ab] border-[#42f5e9]/20'}`}><LayoutDashboard size={20} strokeWidth={2.5} /></div>
-                       <div><h3 className={`text-lg font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>Bulk SMS</h3><p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Master Gateway</p></div>
+                       <div>
+                         <h3 className={`text-lg font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>
+                           {lang === 'bn' ? 'মাস্টার SMS গেটওয়ে ও রেট' : 'Master SMS Gateway & Rates'}
+                         </h3>
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">REVE (Masking) & Automas (Non-Masking)</p>
+                       </div>
                     </div>
                     <button onClick={() => setIsEditingBulkSMS(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-all border ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-slate-50 text-slate-300 border-slate-100'}`}><X size={18} /></button>
                  </div>
               </div>
-              <div className="px-6 pb-8 space-y-5 overflow-y-auto custom-scrollbar flex-1 relative z-10">
+
+              <div className="px-5 sm:px-6 py-5 space-y-5 overflow-y-auto custom-scrollbar flex-1 relative z-10">
+                 {/* Section 1: Service Rates */}
                  <div className="space-y-2.5">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Gateway Protocols</h4>
-                    <div className={`p-4 rounded-[2rem] border space-y-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">MRAM API Key</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === "dark" ? "bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50" : "bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50"}`} value={globalSettings.reve_api_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_api_key: e.target.value})} /></div>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">MRAM Sender ID</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === "dark" ? "bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50" : "bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50"}`} value={globalSettings.reve_caller_id} onChange={(e) => setGlobalSettings({...globalSettings, reve_caller_id: e.target.value})} /></div>
-<div className="hidden"><input type="text" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.reve_api_key} onChange={(e) => setGlobalSettings({...globalSettings, reve_api_key: e.target.value})} /></div>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">
+                      {lang === 'bn' ? 'সার্ভিস রেট (প্রতি ইউনিট)' : 'Service Rates (Per Unit)'}
+                    </h4>
+                    <div className={`p-4 rounded-[1.8rem] border space-y-3.5 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-[#0fb5ab] uppercase px-1 block">Non-Masking SMS (৳)</label>
+                           <input
+                             type="number"
+                             step="0.01"
+                             min="0.01"
+                             className={`w-full h-11 rounded-xl px-3.5 font-black text-xs tabular-nums outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/60' : 'bg-white border-slate-200 text-[#0e8a84] focus:border-[#0fb5ab]'}`}
+                             value={globalSettings.non_masking_rate}
+                             onChange={(e) => {
+                               const v = parseFloat(e.target.value);
+                               setGlobalSettings({ ...globalSettings, non_masking_rate: Number.isFinite(v) ? v : 0, sms_rate: Number.isFinite(v) ? v : 0 });
+                             }}
+                           />
+                           <p className="text-[9px] font-bold text-slate-400 px-1 tabular-nums">
+                             ৳100 = {globalSettings.non_masking_rate > 0 ? Math.ceil(100 / globalSettings.non_masking_rate) : 286} SMS
+                           </p>
+                         </div>
+
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-indigo-500 uppercase px-1 block">Masking SMS (৳)</label>
+                           <input
+                             type="number"
+                             step="0.01"
+                             min="0.01"
+                             className={`w-full h-11 rounded-xl px-3.5 font-black text-xs tabular-nums outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-indigo-400 focus:border-indigo-400/60' : 'bg-white border-slate-200 text-indigo-600 focus:border-indigo-500'}`}
+                             value={globalSettings.masking_rate}
+                             onChange={(e) => {
+                               const v = parseFloat(e.target.value);
+                               setGlobalSettings({ ...globalSettings, masking_rate: Number.isFinite(v) ? v : 0 });
+                             }}
+                           />
+                           <p className="text-[9px] font-bold text-slate-400 px-1 tabular-nums">
+                             ৳100 = {globalSettings.masking_rate > 0 ? Math.ceil(100 / globalSettings.masking_rate) : 182} SMS
+                           </p>
+                         </div>
+
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1 block">Voice Call (৳)</label>
+                           <input
+                             type="number"
+                             step="0.01"
+                             min="0.01"
+                             className={`w-full h-11 rounded-xl px-3.5 font-black text-xs tabular-nums outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/60' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
+                             value={globalSettings.voice_rate}
+                             onChange={(e) => {
+                               const v = parseFloat(e.target.value);
+                               setGlobalSettings({ ...globalSettings, voice_rate: Number.isFinite(v) ? v : 0 });
+                             }}
+                           />
+                           <p className="text-[9px] font-bold text-slate-400 px-1">Per Call Unit</p>
+                         </div>
+                       </div>
+
+                       {/* Default SMS Type Selector */}
+                       <div className="pt-1 space-y-1.5">
+                         <label className="text-[9px] font-black text-slate-400 uppercase px-1 block">
+                           {lang === 'bn' ? 'ডিফল্ট SMS ধরন (Default SMS Type)' : 'Default SMS Type'}
+                         </label>
+                         <div className="grid grid-cols-2 gap-2">
+                           <button
+                             type="button"
+                             onClick={() => setGlobalSettings({ ...globalSettings, default_sms_type: 'non_masking' })}
+                             className={`py-2.5 px-3 rounded-xl border text-left transition-all ${
+                               globalSettings.default_sms_type === 'non_masking'
+                                 ? 'bg-[#0fb5ab] text-white border-[#0fb5ab] shadow-sm'
+                                 : madrasah?.theme === 'dark'
+                                   ? 'bg-slate-900 border-slate-700 text-slate-300'
+                                   : 'bg-white border-slate-200 text-slate-600'
+                             }`}
+                           >
+                             <span className="text-[11px] font-black block">Non-Masking</span>
+                             <span className="text-[9px] font-bold opacity-80 block">Primary: Automas</span>
+                           </button>
+                           <button
+                             type="button"
+                             onClick={() => setGlobalSettings({ ...globalSettings, default_sms_type: 'masking' })}
+                             className={`py-2.5 px-3 rounded-xl border text-left transition-all ${
+                               globalSettings.default_sms_type === 'masking'
+                                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                 : madrasah?.theme === 'dark'
+                                   ? 'bg-slate-900 border-slate-700 text-slate-300'
+                                   : 'bg-white border-slate-200 text-slate-600'
+                             }`}
+                           >
+                             <span className="text-[11px] font-black block">Masking</span>
+                             <span className="text-[9px] font-bold opacity-80 block">Primary: REVE SMS</span>
+                           </button>
+                         </div>
+                       </div>
                     </div>
                  </div>
+
+                 {/* Section 2: REVE SMS (Masking) */}
                  <div className="space-y-2.5">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Service Rates (Per Unit)</h4>
-                    <div className={`p-4 rounded-[2rem] border space-y-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Bulk SMS Rate (TK)</label><input type="number" step="0.01" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.sms_rate} onChange={(e) => setGlobalSettings({...globalSettings, sms_rate: parseFloat(e.target.value)})} /></div>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Voice Call Rate (TK)</label><input type="number" step="0.01" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.voice_rate} onChange={(e) => setGlobalSettings({...globalSettings, voice_rate: parseFloat(e.target.value)})} /></div>
+                    <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] px-1">
+                      REVE SMS (Masking Gateway)
+                    </h4>
+                    <div className={`p-4 rounded-[1.8rem] border space-y-3 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">REVE API Key</label>
+                           <input
+                             type="text"
+                             placeholder="REVE API Key"
+                             className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
+                             value={globalSettings.reve_api_key}
+                             onChange={(e) => setGlobalSettings({ ...globalSettings, reve_api_key: e.target.value })}
+                           />
+                         </div>
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">REVE Secret Key</label>
+                           <input
+                             type="text"
+                             placeholder="REVE Secret Key"
+                             className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
+                             value={globalSettings.reve_secret_key}
+                             onChange={(e) => setGlobalSettings({ ...globalSettings, reve_secret_key: e.target.value })}
+                           />
+                         </div>
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Default Masking ID</label>
+                           <input
+                             type="text"
+                             placeholder="e.g. COMMITTEE"
+                             className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
+                             value={globalSettings.reve_client_id}
+                             onChange={(e) => setGlobalSettings({ ...globalSettings, reve_client_id: e.target.value })}
+                           />
+                         </div>
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Non-Masking Caller ID</label>
+                           <input
+                             type="text"
+                             placeholder="e.g. 8809601017065"
+                             className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
+                             value={globalSettings.reve_non_masking_id}
+                             onChange={(e) => setGlobalSettings({ ...globalSettings, reve_non_masking_id: e.target.value, reve_caller_id: e.target.value })}
+                           />
+                         </div>
+                       </div>
                     </div>
                  </div>
+
+                 {/* Section 3: Automas SMS (Non-Masking) */}
+                 <div className="space-y-2.5">
+                    <h4 className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-[0.2em] px-1">
+                      Automas SMS (Non-Masking Gateway)
+                    </h4>
+                    <div className={`p-4 rounded-[1.8rem] border space-y-3 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                       <div className="space-y-1">
+                         <label className="text-[9px] font-black text-slate-400 uppercase px-1">Automas API Key</label>
+                         <input
+                           type="text"
+                           placeholder="Automas API Key"
+                           className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
+                           value={globalSettings.automas_api_key}
+                           onChange={(e) => setGlobalSettings({ ...globalSettings, automas_api_key: e.target.value })}
+                         />
+                       </div>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Non-Masking Sender ID</label>
+                           <input
+                             type="text"
+                             placeholder="e.g. 0961XXXXXXX"
+                             className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
+                             value={globalSettings.automas_non_masking_sender_id}
+                             onChange={(e) => setGlobalSettings({ ...globalSettings, automas_non_masking_sender_id: e.target.value })}
+                           />
+                         </div>
+                         <div className="space-y-1">
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Masking Sender ID</label>
+                           <input
+                             type="text"
+                             placeholder="Optional Masking ID"
+                             className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
+                             value={globalSettings.automas_masking_sender_id}
+                             onChange={(e) => setGlobalSettings({ ...globalSettings, automas_masking_sender_id: e.target.value })}
+                           />
+                         </div>
+                       </div>
+                    </div>
+                 </div>
+
                  {bulkSmsError && (
                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-start gap-2">
                      <AlertCircle size={15} className="shrink-0 mt-0.5" />
                      <span>{bulkSmsError}</span>
                    </div>
                  )}
-                 <div className="pt-2">
-                    <button onClick={handleSaveBulkSMS} disabled={saving} className="relative w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/20 text-[13px] uppercase tracking-[0.25em]">
-                       {saving ? <Loader2 className="animate-spin" size={22} /> : <>Save Settings</>}
+
+                 <div className="pt-1">
+                    <button onClick={handleSaveBulkSMS} disabled={saving} className="relative w-full h-14 bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/20 text-xs uppercase tracking-[0.2em] disabled:opacity-60">
+                       {saving ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> {lang === 'bn' ? 'সেটিংস সংরক্ষণ করুন' : 'Save Settings'}</>}
                     </button>
                  </div>
               </div>

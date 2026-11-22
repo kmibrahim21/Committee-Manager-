@@ -123,12 +123,21 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
           },
           body: JSON.stringify(payload)
         });
-        const json = await res.json().catch(() => ({}));
+        const rawText = await res.text();
+        let json: any = {};
+        try {
+          json = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          json = {};
+        }
         if (res.ok && json?.success && json?.settings) {
           return json.settings;
         }
-        if (res.status !== 404 && !String(json?.error || '').includes('SUPABASE_SERVICE_ROLE_KEY')) {
-          throw new Error(json?.error || `Failed to update settings (${res.status})`);
+        const serverMessage =
+          json?.error ||
+          (rawText && !rawText.trim().startsWith('<') ? rawText.slice(0, 220) : '');
+        if (res.status !== 404 && !String(serverMessage).includes('SUPABASE_SERVICE_ROLE_KEY')) {
+          throw new Error(serverMessage || `Failed to update settings (${res.status})`);
         }
       } catch (apiErr: any) {
         if (!String(apiErr?.message || '').includes('Failed to fetch') && !String(apiErr?.message || '').includes('SUPABASE_SERVICE_ROLE_KEY')) {
@@ -143,6 +152,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
       const { data: existingRow, error: lookupErr } = await supabase
         .from('system_settings')
         .select('id')
+        .order('id', { ascending: true })
         .limit(1)
         .maybeSingle();
       if (lookupErr) throw lookupErr;

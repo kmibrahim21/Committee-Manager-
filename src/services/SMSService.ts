@@ -28,6 +28,7 @@ export const SMSService = {
       const { data } = await supabase
         .from('system_settings')
         .select('*')
+        .order('id', { ascending: true })
         .limit(1)
         .maybeSingle();
 

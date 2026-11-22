@@ -72,6 +72,7 @@ export default async function handler(req: any, res: any) {
       const { data, error } = await supabaseAdmin
         .from('system_settings')
         .select('*')
+        .order('id', { ascending: true })
         .limit(1)
         .maybeSingle();
 
@@ -136,7 +137,8 @@ export default async function handler(req: any, res: any) {
 
     const { data: existingRow, error: fetchErr } = await supabaseAdmin
       .from('system_settings')
-      .select('id')
+      .select('*')
+      .order('id', { ascending: true })
       .limit(1)
       .maybeSingle();
 
@@ -144,15 +146,41 @@ export default async function handler(req: any, res: any) {
 
     let savedRow: any = null;
     if (existingRow && existingRow.id !== undefined && existingRow.id !== null) {
-      const { data: updated, error: updateErr } = await supabaseAdmin
-        .from('system_settings')
-        .update(updatePayload)
-        .eq('id', existingRow.id)
-        .select('*')
-        .single();
+      const missingNonEmptyCols: string[] = [];
+      const filteredPayload: Record<string, any> = {};
 
-      if (updateErr) throw updateErr;
-      savedRow = updated;
+      for (const [col, val] of Object.entries(updatePayload)) {
+        if (Object.prototype.hasOwnProperty.call(existingRow, col)) {
+          filteredPayload[col] = val;
+        } else if (val !== '' && val !== null && val !== undefined) {
+          missingNonEmptyCols.push(col);
+        }
+      }
+
+      if (Object.keys(filteredPayload).length > 0) {
+        const { data: updated, error: updateErr } = await supabaseAdmin
+          .from('system_settings')
+          .update(filteredPayload)
+          .eq('id', existingRow.id)
+          .select('*')
+          .single();
+
+        if (updateErr) throw updateErr;
+        savedRow = updated;
+      } else {
+        savedRow = existingRow;
+      }
+
+      if (missingNonEmptyCols.length > 0) {
+        const alterSql = missingNonEmptyCols
+          .map((c) => `ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS ${c} TEXT;`)
+          .join(' ');
+        return res.status(422).json({
+          error: `Database column missing in system_settings: ${missingNonEmptyCols.join(', ')}. Please run in Supabase SQL Editor: ${alterSql}`,
+          missing_columns: missingNonEmptyCols,
+          settings: savedRow
+        });
+      }
     } else {
       const { data: inserted, error: insertErr } = await supabaseAdmin
         .from('system_settings')
@@ -160,7 +188,15 @@ export default async function handler(req: any, res: any) {
         .select('*')
         .single();
 
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        const msg = String(insertErr?.message || '');
+        if (insertErr?.code === 'PGRST204' || insertErr?.code === '42703' || msg.includes('column')) {
+          return res.status(422).json({
+            error: msg || 'Database schema mismatch in system_settings table.'
+          });
+        }
+        throw insertErr;
+      }
       savedRow = inserted;
     }
 
@@ -170,8 +206,15 @@ export default async function handler(req: any, res: any) {
     });
   } catch (err: any) {
     console.error('System settings API error:', err);
+    const errMsg =
+      err?.message ||
+      err?.error_description ||
+      err?.details ||
+      err?.hint ||
+      (typeof err === 'string' && err.trim() ? err : '') ||
+      'Failed to update system settings';
     return res.status(500).json({
-      error: err?.message || 'Failed to update system settings'
+      error: errMsg
     });
   }
 }

@@ -42,20 +42,22 @@ function vercelApiPlugin() {
 
             
             if (handler) {
-              // Read body if POST/PUT
-              let body = '';
-              if (req.method === 'POST' || req.method === 'PUT') {
+              // Preserve body if Express middleware already parsed it, otherwise read stream
+              let parsedBody = req.body;
+              if (
+                parsedBody === undefined &&
+                (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH')
+              ) {
+                let body = '';
                 for await (const chunk of req) {
                   body += chunk;
                 }
-              }
-
-              let parsedBody = undefined;
-              if (body) {
-                try {
-                  parsedBody = JSON.parse(body);
-                } catch (e) {
-                  parsedBody = body;
+                if (body) {
+                  try {
+                    parsedBody = JSON.parse(body);
+                  } catch {
+                    parsedBody = body;
+                  }
                 }
               }
 
@@ -88,7 +90,8 @@ function vercelApiPlugin() {
           } catch (e: any) {
             console.error('API Error:', e);
             res.statusCode = 500;
-            res.end(JSON.stringify({ error: e.message }));
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: e?.message || String(e) || 'Internal server error' }));
             return;
           }
         }

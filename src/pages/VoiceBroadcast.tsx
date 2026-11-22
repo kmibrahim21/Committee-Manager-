@@ -898,9 +898,18 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
         })
       });
 
-      const awajData = await awajRes.json().catch(() => ({}));
+      const rawText = await awajRes.text();
+      let awajData: any = {};
+      try {
+        awajData = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        awajData = { error: rawText || awajRes.statusText };
+      }
+      if (awajRes.status === 413) {
+        throw new Error('অডিও ফাইলটি সার্ভারের সীমার চেয়ে বড় (অনুগ্রহ করে ৩.৫ MB এর কম ফাইল দিন)।');
+      }
       if (!awajRes.ok) {
-        throw new Error(awajData.error || awajData.message || 'Awaj ভয়েস আপলোড ব্যর্থ হয়েছে');
+        throw new Error(awajData.error || awajData.message || `Awaj ভয়েস আপলোড ব্যর্থ হয়েছে (${awajRes.status})`);
       }
 
       const providerVoiceId = (awajData.id || awajData.voice_id || awajData.voice?.id || '').toString();

@@ -75,7 +75,6 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
   const [uploadMode, setUploadMode] = useState<'file' | 'record'>('file');
   const [voiceName, setVoiceName] = useState('');
   const [selectedAudioFile, setSelectedAudioFile] = useState<File | null>(null);
-  const [targetInstitutionId, setTargetInstitutionId] = useState('');
   const [isUploadingVoice, setIsUploadingVoice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -235,17 +234,9 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
       .filter(Boolean);
   }, [institutions]);
 
-  const selectedUploadInstitution = useMemo(() => {
-    return institutions.find(inst => inst.id === targetInstitutionId) || null;
-  }, [institutions, targetInstitutionId]);
-
-  const uploadInstShortCode = useMemo(() => {
-    return extractInstitutionShortCode(selectedUploadInstitution);
-  }, [selectedUploadInstitution]);
-
   const awajPreviewName = useMemo(() => {
-    return buildCmVoiceName(voiceName, uploadInstShortCode);
-  }, [voiceName, uploadInstShortCode]);
+    return buildCmVoiceName(voiceName);
+  }, [voiceName]);
 
   const totalCommitteeWalletBalance = useMemo(() => {
     return institutions.reduce((sum, inst) => sum + (Number(inst?.balance) || 0), 0);
@@ -360,10 +351,13 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
 
     setIsUploadingVoice(true);
     try {
-      const awajVoiceName = buildCmVoiceName(voiceName, uploadInstShortCode);
+      const awajVoiceName = buildCmVoiceName(voiceName);
       const cleanTitle = stripCmVoicePrefix(voiceName, knownInstCodes) || voiceName.trim();
 
       let fileToUpload: File | Blob = selectedAudioFile || recordedAudioBlob!;
+      if (fileToUpload.size > 3.5 * 1024 * 1024) {
+        throw new Error('অডিও ফাইলটি অনেক বড়। অনুগ্রহ করে ৩.৫ মেগাবাইটের কম সাইজের ফাইল আপলোড করুন।');
+      }
       let fileName = selectedAudioFile ? selectedAudioFile.name : `${cleanTitle.replace(/\s+/g, '_')}_record.webm`;
 
       const reader = new FileReader();
@@ -393,36 +387,30 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         })
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message || 'Upload failed');
-
-      // If assigned to an institution, save in Supabase voice_templates
-      if (targetInstitutionId) {
-        const providerVoiceName = data.name || data.voice?.name || awajVoiceName;
-        const providerStatus = (data.status || data.voice?.status || 'pending').toLowerCase();
-        await supabase.from('voice_templates').insert({
-          institution_id: targetInstitutionId,
-          title: cleanTitle,
-          provider_voice_name: providerVoiceName,
-          file_url: data.url || data.previewUrl || data.audioUrl || data.voice?.previewUrl || '',
-          provider_voice_id: (data.id || data.voice_id || data.voice?.id || '').toString(),
-          provider_status: providerStatus,
-          admin_status: 'approved'
-        });
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        data = { error: rawText || res.statusText };
       }
+
+      if (res.status === 413) {
+        throw new Error('অডিও ফাইলটি সার্ভারের সীমার চেয়ে বড় (সর্বোচ্চ ৩.৫ MB দিন)।');
+      }
+      if (!res.ok) throw new Error(data.error || data.message || `Upload failed (${res.status})`);
 
       setStatusModal({
         show: true,
         type: 'success',
         title: 'ভয়েস আপলোড সফল',
-        message: `ভয়েস সফলভাবে AWAJ ডিজিটাল প্ল্যাটফর্মে (${awajVoiceName}) আপলোড করা হয়েছে।`
+        message: `ভয়েস সফলভাবে AWAJ ডিজিটাল প্ল্যাটফর্মে (${awajVoiceName}) আপলোড করা হয়েছে। এখন তালিকা থেকে কমিটিকে বরাদ্দ দিতে পারবেন।`
       });
 
       setShowUploadModal(false);
       setVoiceName('');
       setSelectedAudioFile(null);
       setRecordedAudioBlob(null);
-      setTargetInstitutionId('');
       fetchData();
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -446,8 +434,14 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         method: 'DELETE',
         headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        data = { error: rawText || res.statusText };
+      }
+      if (!res.ok) throw new Error(data.error || data.message || `Delete failed (${res.status})`);
 
       setStatusModal({
         show: true,
@@ -1293,29 +1287,9 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                   <ShieldCheck size={13} className="shrink-0 text-emerald-500" />
                   <span>Awaj সার্ভারে নাম হবে:</span>
                   <span className="font-mono font-black break-all">
-                    {awajPreviewName || (uploadInstShortCode ? `CM_${uploadInstShortCode}_...` : 'CM_...')}
+                    {awajPreviewName || 'CM_...'}
                   </span>
                 </div>
-              </div>
-
-              <div>
-                <label className={`text-xs font-black uppercase tracking-widest px-1 ${
-                  isDark ? 'text-slate-300' : 'text-slate-700'
-                }`}>
-                  নির্দিষ্ট কমিটিকে বরাদ্দ (ঐচ্ছিক)
-                </label>
-                <select
-                  value={targetInstitutionId}
-                  onChange={(e) => setTargetInstitutionId(e.target.value)}
-                  className={`w-full h-12 mt-1 rounded-2xl px-4 text-sm font-black border outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white'
-                  }`}
-                >
-                  <option value="">Global (সবার জন্য উন্মুক্ত)</option>
-                  {institutions.map(inst => (
-                    <option key={inst.id} value={inst.id}>{inst.name}</option>
-                  ))}
-                </select>
               </div>
 
               {uploadMode === 'file' && (
@@ -1323,7 +1297,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                   <label className={`text-xs font-black uppercase tracking-widest px-1 ${
                     isDark ? 'text-slate-300' : 'text-slate-700'
                   }`}>
-                    অডিও ফাইল সিলেক্ট করুন (সর্বোচ্চ 10MB)
+                    অডিও ফাইল সিলেক্ট করুন (সর্বোচ্চ ৩.৫ MB)
                   </label>
                   <div
                     onClick={() => fileInputRef.current?.click()}

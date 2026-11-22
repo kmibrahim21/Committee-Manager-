@@ -47,6 +47,16 @@ export function isSafePublicHttpsUrl(rawUrl: string): boolean {
   }
 }
 
+const parseSafeJson = async (response: any) => {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text, message: text };
+  }
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
@@ -55,9 +65,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // More robust action detection
   let action = parts[2]; // e.g. 'voices', 'broadcast', 'senders', etc.
   if (parts[1] === 'awaj' && !action) {
-    action = (req.query.action as string) || 'voices';
+    action = (req.query?.action as string) || url.searchParams.get('action') || 'voices';
   }
-  const subAction = parts[3] || (req.query.id as string);
+  const subAction = parts[3] || (req.query?.id as string) || url.searchParams.get('id') || undefined;
 
   try {
     // Parse string body early if needed
@@ -96,8 +106,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'voices') {
       if (req.method === 'GET') {
         const response = await fetch(`${AWAJ_BASE_URL}/voices`, { headers: getAwajHeaders() as any });
-        if (!response.ok) throw new Error(`Awaj API Error: ${response.statusText}`);
-        const data = await response.json();
+        const data = await parseSafeJson(response);
+        if (!response.ok) return res.status(response.status).json(data);
         return res.status(200).json(data);
       }
       if (req.method === 'POST') {
@@ -132,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             headers: { 'Authorization': `Bearer ${process.env.AWAJ_API_TOKEN}`, 'Accept': 'application/json', ...formData.getHeaders() },
             body: formData
           });
-          const data = await response.json();
+          const data = await parseSafeJson(response);
           if (!response.ok) return res.status(response.status).json(data);
           return res.status(200).json(data);
         } else {
@@ -141,9 +151,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (req.method === 'DELETE' && subAction) {
         const response = await fetch(`${AWAJ_BASE_URL}/voices/${subAction}`, { method: 'DELETE', headers: getAwajHeaders() as any });
-        if (!response.ok) throw new Error(`Awaj API Error: ${response.statusText}`);
-        let data = {};
-        try { data = await response.json(); } catch (e) {}
+        const data = await parseSafeJson(response);
+        if (!response.ok) return res.status(response.status).json(data);
         return res.status(200).json({ success: true, ...data });
       }
     }

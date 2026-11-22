@@ -36,6 +36,10 @@
       "destination": "/api/executives?action=:action"
     },
     {
+      "source": "/api/awaj/:action/:id",
+      "destination": "/api/awaj?action=:action&id=:id"
+    },
+    {
       "source": "/api/awaj/:action",
       "destination": "/api/awaj?action=:action"
     },

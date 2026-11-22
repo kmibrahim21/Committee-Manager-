@@ -1,15 +1,31 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import https from 'node:https';
 import fetch from 'node-fetch';
 import { getSupabaseAdmin } from '../../lib/supabase-admin.js';
 
 const MRAM_BASE_URL = 'https://msg.mram.com.bd';
 const AUTOMAS_BASE_URL = 'https://api.automas.com.bd/smsapiv3';
 const REVE_BASE_URL = 'https://smpp.revesms.com:7790/sendtext';
-const DEFAULT_SENDER_ID = '8809601017065';
+const DEFAULT_MRAM_SENDER_ID = '8809601017065';
+
+const reveHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const BN_TO_EN_DIGITS: Record<string, string> = {
   '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
   '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
+};
+
+const AUTOMAS_ERROR_MAP: Record<string, string> = {
+  '101': 'বার্তা অনেক লম্বা বা খালি (Code 101)',
+  '102': 'Sender ID অনুমোদিত নয় (Code 102)',
+  '103': 'Authentication ত্রুটি - API Key সঠিক নয় (Code 103)',
+  '104': 'Invalid User (Code 104)',
+  '105': 'মোবাইল নম্বর সঠিক নয় (Code 105)',
+  '106': 'সার্ভারে পর্যাপ্ত ব্যালেন্স নেই (Code 106)',
+  '107': 'Sender ID দেওয়া হয়নি (Code 107)',
+  '110': 'গেটওয়ে অনুমোদিত নয় (Code 110)',
+  '111': 'এসএমএস টাইপ সঠিক নয় (Code 111)',
+  '1000': 'অজানা সার্ভার ত্রুটি (Code 1000)'
 };
 
 function formatBangladeshPhone(phone: string): string {
@@ -26,6 +42,15 @@ function formatBangladeshPhone(phone: string): string {
 
 function isUnicodeText(text: string): boolean {
   return /[^\x00-\x7F]/.test(text);
+}
+
+function countSmsParts(text: string): number {
+  const len = String(text || '').length;
+  if (len === 0) return 0;
+  if (isUnicodeText(text)) {
+    return len <= 70 ? 1 : Math.ceil(len / 67);
+  }
+  return len <= 160 ? 1 : Math.ceil(len / 153);
 }
 
 function formatAutomasSender(rawSender: string): string {
@@ -46,6 +71,111 @@ function parseJsonSafe(raw: unknown): Record<string, any> {
     }
   }
   return typeof raw === 'object' ? (raw as Record<string, any>) : {};
+}
+
+function httpsGet(url: string, timeoutMs = 12000): Promise<{ statusCode: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { agent: reveHttpsAgent }, (resp) => {
+      let data = '';
+      resp.setEncoding('utf8');
+      resp.on('data', (chunk) => {
+        data += chunk;
+      });
+      resp.on('end', () => {
+        resolve({ statusCode: resp.statusCode || 200, body: data });
+      });
+    });
+
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`REVE request timeout after ${timeoutMs / 1000}s`));
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+function mapAutomasError(codeVal: unknown, fallbackText?: string): string {
+  const key = String(codeVal ?? '').trim();
+  if (key && AUTOMAS_ERROR_MAP[key]) {
+    return AUTOMAS_ERROR_MAP[key];
+  }
+  return fallbackText || `Automas error (code: ${key || 'unknown'})`;
+}
+
+function parseAutomasResponse(rawBody: string): { providerMessageId: string; raw: any } {
+  const trimmed = String(rawBody || '').trim();
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    parsed = null;
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    if (/\b(error|invalid|failed|unauthorized|insufficient)\b/i.test(trimmed) || !trimmed) {
+      throw new Error(`Automas error: ${trimmed ? trimmed.slice(0, 140) : 'Empty response'}`);
+    }
+    return { providerMessageId: '', raw: trimmed };
+  }
+
+  if (parsed.error && typeof parsed.error === 'string') {
+    throw new Error(`Automas error: ${parsed.error}`);
+  }
+
+  if (Array.isArray(parsed.response)) {
+    const first = parsed.response[0];
+    if (!first || typeof first !== 'object') {
+      throw new Error(`Automas error: ${trimmed.slice(0, 140)}`);
+    }
+    const st = Number(first.status);
+    if (!Number.isNaN(st) && st === 0) {
+      return {
+        providerMessageId: String(first.message_id || first.id || first.trxid || ''),
+        raw: parsed
+      };
+    }
+    throw new Error(mapAutomasError(first.status, first.message || first.error || trimmed.slice(0, 140)));
+  }
+
+  if (parsed.response !== undefined && parsed.response !== null) {
+    const respStr = String(parsed.response).trim().toLowerCase();
+    const respNum = Number(parsed.response);
+    if ((!Number.isNaN(respNum) && respNum === 0) || respStr === 'success' || respStr === 'submitted') {
+      return {
+        providerMessageId: String(parsed.message_id || parsed.id || ''),
+        raw: parsed
+      };
+    }
+    throw new Error(mapAutomasError(parsed.response, parsed.message || parsed.error || trimmed.slice(0, 140)));
+  }
+
+  if (parsed.status !== undefined || parsed.response_code !== undefined) {
+    const code = parsed.status !== undefined ? parsed.status : parsed.response_code;
+    const codeStr = String(code).trim().toLowerCase();
+    const codeNum = Number(code);
+    if (
+      (!Number.isNaN(codeNum) && (codeNum === 0 || codeNum === 200 || codeNum === 202)) ||
+      codeStr === 'success' ||
+      codeStr === 'submitted'
+    ) {
+      return {
+        providerMessageId: String(parsed.message_id || parsed.id || ''),
+        raw: parsed
+      };
+    }
+    throw new Error(mapAutomasError(code, parsed.message || parsed.error || trimmed.slice(0, 140)));
+  }
+
+  if (parsed.status === false || parsed.status === 'error') {
+    throw new Error(`Automas error: ${parsed.message || parsed.error || trimmed.slice(0, 140)}`);
+  }
+
+  return {
+    providerMessageId: String(parsed.message_id || parsed.id || ''),
+    raw: parsed
+  };
 }
 
 interface GatewayCredentials {
@@ -131,12 +261,14 @@ function resolveGatewayCredentials(targetInst: any, sysSettings: any): GatewayCr
     ''
   ).trim();
 
+  // Strictly NO DEFAULT_SENDER_ID fallback for Automas Non-Masking
   const automasNonMaskingSenderId = formatAutomasSender(
     String(
       sysSettings?.automas_non_masking_sender_id ||
       automasCfg.non_masking_sender_id ||
+      sysSettings?.automas_sender_id ||
       process.env.AUTOMAS_SENDER_ID ||
-      DEFAULT_SENDER_ID
+      ''
     ).trim()
   );
 
@@ -150,7 +282,7 @@ function resolveGatewayCredentials(targetInst: any, sysSettings: any): GatewayCr
     targetInst?.reve_caller_id ||
     sysSettings?.reve_caller_id ||
     process.env.MRAM_SENDER_ID ||
-    DEFAULT_SENDER_ID
+    DEFAULT_MRAM_SENDER_ID
   ).trim();
 
   return {
@@ -170,18 +302,21 @@ function resolveGatewayCredentials(targetInst: any, sysSettings: any): GatewayCr
 function hasAnyGatewayConfigured(creds: GatewayCredentials): boolean {
   const hasAutomas = Boolean(creds.automasApiKey);
   const hasReve = Boolean(creds.reveApiKey && creds.reveSecretKey && (creds.reveMaskingCallerId || creds.reveNonMaskingCallerId));
-  const hasMram = Boolean(creds.mramApiKey || creds.reveApiKey);
+  const hasMram = Boolean(creds.mramApiKey);
   return hasAutomas || hasReve || hasMram;
 }
 
-async function sendViaAutomas(apiKey: string, sender: string, recipients: string[], messageText: string) {
+async function sendViaAutomas(apiKey: string, sender: string, recipient: string, messageText: string) {
+  const cleanSender = formatAutomasSender(sender);
+  if (!cleanSender) {
+    throw new Error('Automas Non-Masking Sender ID সেট করা নেই');
+  }
+
   const unicode = isUnicodeText(messageText);
   const typeParam = unicode ? 'unicode' : 'text';
   const formatParam = unicode ? '&smsformat=8' : '';
-  const msisdn = recipients.join(',');
-  const cleanSender = formatAutomasSender(sender || DEFAULT_SENDER_ID);
 
-  const url = `${AUTOMAS_BASE_URL}?apikey=${encodeURIComponent(apiKey)}&sender=${encodeURIComponent(cleanSender)}&msisdn=${encodeURIComponent(msisdn)}&smstext=${encodeURIComponent(messageText)}&type=${typeParam}${formatParam}`;
+  const url = `${AUTOMAS_BASE_URL}?apikey=${encodeURIComponent(apiKey)}&sender=${encodeURIComponent(cleanSender)}&msisdn=${encodeURIComponent(recipient)}&smstext=${encodeURIComponent(messageText)}&type=${typeParam}${formatParam}`;
   const gwRes = await fetch(url, { method: 'GET' });
   const rawBody = await gwRes.text();
 
@@ -189,31 +324,21 @@ async function sendViaAutomas(apiKey: string, sender: string, recipients: string
     throw new Error(`Automas HTTP ${gwRes.status}: ${rawBody.slice(0, 140)}`);
   }
 
-  let parsed: any = null;
-  try {
-    parsed = JSON.parse(rawBody);
-  } catch {
-    parsed = null;
-  }
-
-  if (parsed && (parsed.error || parsed.status === 'error' || parsed.status === false)) {
-    throw new Error(`Automas error: ${parsed.message || parsed.error || rawBody.slice(0, 140)}`);
-  }
-  if (!parsed && /\b(error|invalid|failed|unauthorized)\b/i.test(rawBody)) {
-    throw new Error(`Automas error: ${rawBody.slice(0, 140)}`);
-  }
-
-  return { provider: 'automas', response: parsed || rawBody };
+  const parsedResult = parseAutomasResponse(rawBody);
+  return {
+    provider: 'automas',
+    providerMessageId: parsedResult.providerMessageId,
+    response: parsedResult.raw
+  };
 }
 
-async function sendViaReve(apiKey: string, secretKey: string, callerId: string, recipients: string[], messageText: string) {
-  const toUser = recipients.join(',');
-  const url = `${REVE_BASE_URL}?apikey=${encodeURIComponent(apiKey)}&secretkey=${encodeURIComponent(secretKey)}&callerID=${encodeURIComponent(callerId)}&toUser=${encodeURIComponent(toUser)}&messageContent=${encodeURIComponent(messageText)}&type=3`;
-  const gwRes = await fetch(url, { method: 'GET' });
-  const rawBody = await gwRes.text();
+async function sendViaReve(apiKey: string, secretKey: string, callerId: string, recipient: string, messageText: string) {
+  const url = `${REVE_BASE_URL}?apikey=${encodeURIComponent(apiKey)}&secretkey=${encodeURIComponent(secretKey)}&callerID=${encodeURIComponent(callerId)}&toUser=${encodeURIComponent(recipient)}&messageContent=${encodeURIComponent(messageText)}&type=3`;
+  const gwRes = await httpsGet(url, 12000);
+  const rawBody = gwRes.body;
 
-  if (!gwRes.ok) {
-    throw new Error(`REVE HTTP ${gwRes.status}: ${rawBody.slice(0, 140)}`);
+  if (gwRes.statusCode < 200 || gwRes.statusCode >= 300) {
+    throw new Error(`REVE HTTP ${gwRes.statusCode}: ${rawBody.slice(0, 140)}`);
   }
 
   let parsed: any = null;
@@ -223,20 +348,31 @@ async function sendViaReve(apiKey: string, secretKey: string, callerId: string, 
     parsed = null;
   }
 
-  if (parsed && parsed.Status !== undefined && String(parsed.Status) !== '0') {
-    throw new Error(`REVE error (${parsed.Status}): ${parsed.Text || parsed.Message || rawBody.slice(0, 140)}`);
+  if (parsed && typeof parsed === 'object') {
+    const isOk =
+      String(parsed.Status) === '0' ||
+      parsed.Status === 0 ||
+      Boolean(parsed.Message_ID || parsed.message_id);
+    if (!isOk) {
+      throw new Error(`REVE error (${parsed.Status ?? 'unknown'}): ${parsed.Text || parsed.Message || rawBody.slice(0, 140)}`);
+    }
+    return {
+      provider: 'reve',
+      providerMessageId: String(parsed.Message_ID || parsed.message_id || ''),
+      response: parsed
+    };
   }
-  if (!parsed && /\b(error|invalid|failed|unauthorized)\b/i.test(rawBody)) {
+
+  if (/\b(error|invalid|failed|unauthorized)\b/i.test(rawBody)) {
     throw new Error(`REVE error: ${rawBody.slice(0, 140)}`);
   }
 
-  return { provider: 'reve', response: parsed || rawBody };
+  return { provider: 'reve', providerMessageId: '', response: rawBody };
 }
 
-async function sendViaMram(apiKey: string, senderId: string, recipients: string[], messageText: string) {
+async function sendViaMram(apiKey: string, senderId: string, recipient: string, messageText: string) {
   const smsType = isUnicodeText(messageText) ? 'unicode' : 'text';
-  const contacts = recipients.join('+');
-  const url = `${MRAM_BASE_URL}/smsapi?api_key=${encodeURIComponent(apiKey)}&type=${smsType}&contacts=${contacts}&senderid=${encodeURIComponent(senderId)}&msg=${encodeURIComponent(messageText)}&label=transactional`;
+  const url = `${MRAM_BASE_URL}/smsapi?api_key=${encodeURIComponent(apiKey)}&type=${smsType}&contacts=${encodeURIComponent(recipient)}&senderid=${encodeURIComponent(senderId)}&msg=${encodeURIComponent(messageText)}&label=transactional`;
   const gwRes = await fetch(url, { method: 'GET' });
   const rawBody = await gwRes.text();
 
@@ -247,95 +383,101 @@ async function sendViaMram(apiKey: string, senderId: string, recipients: string[
     throw new Error(`MRAM error: ${rawBody.slice(0, 140)}`);
   }
 
-  return { provider: 'mram', response: rawBody };
+  return { provider: 'mram', providerMessageId: '', response: rawBody };
 }
 
-async function dispatchSmsChunk(creds: GatewayCredentials, recipients: string[], messageText: string) {
+async function dispatchSingleSms(
+  creds: GatewayCredentials,
+  recipient: string,
+  messageText: string
+): Promise<{ provider: string; providerMessageId: string }> {
   const errors: string[] = [];
 
   if (creds.finalType === 'masking') {
-    // 1. Primary for Masking: REVE SMS
     if (creds.reveApiKey && creds.reveSecretKey && creds.reveMaskingCallerId) {
       try {
-        return await sendViaReve(
+        const res = await sendViaReve(
           creds.reveApiKey,
           creds.reveSecretKey,
           creds.reveMaskingCallerId,
-          recipients,
+          recipient,
           messageText
         );
+        return { provider: res.provider, providerMessageId: res.providerMessageId };
       } catch (err: any) {
         errors.push(err?.message || 'REVE masking failed');
       }
     }
 
-    // 2. Fallback for Masking: Automas (if masking sender configured)
     if (creds.automasApiKey && creds.automasMaskingSenderId) {
       try {
-        return await sendViaAutomas(
+        const res = await sendViaAutomas(
           creds.automasApiKey,
           creds.automasMaskingSenderId,
-          recipients,
+          recipient,
           messageText
         );
+        return { provider: res.provider, providerMessageId: res.providerMessageId };
       } catch (err: any) {
         errors.push(err?.message || 'Automas masking fallback failed');
       }
     }
 
-    // 3. Secondary Fallback: MRAM / non-masking Automas
     if (creds.mramApiKey) {
       try {
-        return await sendViaMram(
+        const res = await sendViaMram(
           creds.mramApiKey,
           creds.reveMaskingCallerId || creds.mramSenderId,
-          recipients,
+          recipient,
           messageText
         );
+        return { provider: res.provider, providerMessageId: res.providerMessageId };
       } catch (err: any) {
         errors.push(err?.message || 'MRAM fallback failed');
       }
     }
   } else {
-    // 1. Primary for Non-Masking: Automas
+    // Non-Masking primary: Automas
     if (creds.automasApiKey) {
       try {
-        return await sendViaAutomas(
+        const res = await sendViaAutomas(
           creds.automasApiKey,
           creds.automasNonMaskingSenderId,
-          recipients,
+          recipient,
           messageText
         );
+        return { provider: res.provider, providerMessageId: res.providerMessageId };
       } catch (err: any) {
         errors.push(err?.message || 'Automas non-masking failed');
       }
     }
 
-    // 2. Fallback 1 for Non-Masking: REVE SMS (non-masking ID or caller ID)
+    // Fallback 1: REVE non-masking
     if (creds.reveApiKey && creds.reveSecretKey && creds.reveNonMaskingCallerId) {
       try {
-        return await sendViaReve(
+        const res = await sendViaReve(
           creds.reveApiKey,
           creds.reveSecretKey,
           creds.reveNonMaskingCallerId,
-          recipients,
+          recipient,
           messageText
         );
+        return { provider: res.provider, providerMessageId: res.providerMessageId };
       } catch (err: any) {
         errors.push(err?.message || 'REVE non-masking fallback failed');
       }
     }
 
-    // 3. Fallback 2 for Non-Masking: MRAM (env MRAM_API_KEY or single reveApiKey without secretKey)
-    const fallbackMramKey = creds.mramApiKey || (!creds.reveSecretKey ? creds.reveApiKey : '');
-    if (fallbackMramKey) {
+    // Fallback 2: MRAM
+    if (creds.mramApiKey) {
       try {
-        return await sendViaMram(
-          fallbackMramKey,
+        const res = await sendViaMram(
+          creds.mramApiKey,
           creds.mramSenderId,
-          recipients,
+          recipient,
           messageText
         );
+        return { provider: res.provider, providerMessageId: res.providerMessageId };
       } catch (err: any) {
         errors.push(err?.message || 'MRAM fallback failed');
       }
@@ -344,9 +486,81 @@ async function dispatchSmsChunk(creds: GatewayCredentials, recipients: string[],
 
   throw new Error(
     errors.length > 0
-      ? `SMS Gateway error: ${errors.join(' | ')}`
+      ? errors.join(' | ')
       : 'SMS Gateway credentials are not configured on the server or system settings.'
   );
+}
+
+interface DispatchTarget {
+  phone: string;
+  message: string;
+  parts: number;
+}
+
+interface DispatchOutcome extends DispatchTarget {
+  status: 'delivered' | 'failed';
+  provider: string;
+  providerMessageId: string;
+  errorMessage: string | null;
+}
+
+async function dispatchBatchRecipients(
+  creds: GatewayCredentials,
+  targets: DispatchTarget[],
+  concurrency = 8
+): Promise<DispatchOutcome[]> {
+  const outcomes: DispatchOutcome[] = [];
+  for (let i = 0; i < targets.length; i += concurrency) {
+    const batch = targets.slice(i, i + concurrency);
+    const batchResults = await Promise.all(
+      batch.map(async (target): Promise<DispatchOutcome> => {
+        try {
+          const res = await dispatchSingleSms(creds, target.phone, target.message);
+          return {
+            ...target,
+            status: 'delivered',
+            provider: res.provider,
+            providerMessageId: res.providerMessageId,
+            errorMessage: null
+          };
+        } catch (err: any) {
+          return {
+            ...target,
+            status: 'failed',
+            provider: creds.finalType === 'masking' ? 'reve' : 'automas',
+            providerMessageId: '',
+            errorMessage: err?.message || 'Gateway delivery failed'
+          };
+        }
+      })
+    );
+    outcomes.push(...batchResults);
+  }
+  return outcomes;
+}
+
+async function persistSmsLogs(
+  supabaseAdmin: any,
+  institutionId: string | null,
+  smsType: string,
+  outcomes: DispatchOutcome[]
+) {
+  if (!institutionId || outcomes.length === 0) return;
+  try {
+    const rows = outcomes.map((o) => ({
+      institution_id: institutionId,
+      recipient: o.phone,
+      message: o.message,
+      status: o.status,
+      provider: o.provider,
+      sms_type: smsType,
+      provider_message_id: o.providerMessageId || null,
+      error_message: o.errorMessage || null
+    }));
+    await supabaseAdmin.from('sms_logs').insert(rows);
+  } catch (err) {
+    console.warn('sms_logs insert skipped/failed:', err);
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -479,12 +693,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const targetMemberIds: string[] = Array.isArray(student_ids)
-      ? student_ids
-      : Array.isArray(member_ids)
-        ? member_ids
-        : [];
-
     if (mode === 'direct') {
       if (!isSuperAdmin && !targetInstId) {
         return res.status(403).json({ error: 'Forbidden: Direct SMS requires authorized institution or Super Admin' });
@@ -500,88 +708,153 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (validPhones.length === 0) {
         return res.status(400).json({ error: 'No valid recipient phone numbers provided' });
       }
-      const result = await dispatchSmsChunk(creds, validPhones, String(message).trim());
-      return res.status(200).json({ success: true, provider: result.provider, sms_type: creds.finalType });
+
+      const trimmedMsg = String(message).trim();
+      const msgParts = countSmsParts(trimmedMsg) || 1;
+      const directTargets: DispatchTarget[] = validPhones.map((phone) => ({
+        phone,
+        message: trimmedMsg,
+        parts: msgParts
+      }));
+
+      const outcomes = await dispatchBatchRecipients(creds, directTargets, 8);
+      await persistSmsLogs(supabaseAdmin, targetInstId, creds.finalType, outcomes);
+
+      const delivered = outcomes.filter((o) => o.status === 'delivered');
+      if (delivered.length === 0) {
+        const firstErr = outcomes.find((o) => o.errorMessage)?.errorMessage || 'Direct SMS failed';
+        return res.status(502).json({ success: false, error: firstErr });
+      }
+
+      return res.status(200).json({
+        success: true,
+        sentCount: delivered.length,
+        failedCount: outcomes.length - delivered.length,
+        provider: delivered[0].provider,
+        sms_type: creds.finalType
+      });
     }
 
-    if (targetMemberIds.length === 0) {
+    const targetMemberIds: string[] = Array.isArray(student_ids)
+      ? student_ids
+      : Array.isArray(member_ids)
+        ? member_ids
+        : [];
+
+    if (targetMemberIds.length === 0 && (!Array.isArray(phones) || phones.length === 0) && (!Array.isArray(personalized_messages) || personalized_messages.length === 0)) {
       return res.status(400).json({ error: 'At least one recipient member is required' });
     }
 
-    // Deduct SMS balance via send_bulk_sms_rpc
-    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('send_bulk_sms_rpc', {
-      p_institution_id: targetInstId,
-      p_student_ids: targetMemberIds,
-      p_message: String(message).trim()
-    });
+    // Build per-recipient dispatch list BEFORE deducting any balance
+    let dispatchTargets: DispatchTarget[] = [];
+    const trimmedMessage = String(message).trim();
 
-    if (rpcError) {
-      const smsCount = targetMemberIds.length;
-      const currentBalance = Number(targetInst?.sms_balance || 0);
-      if (currentBalance < smsCount) {
-        return res.status(400).json({ error: `ব্যালেন্স পর্যাপ্ত নয়। প্রয়োজন: ${smsCount}, আছে: ${currentBalance}` });
+    if (Array.isArray(personalized_messages) && personalized_messages.length > 0) {
+      const seen = new Set<string>();
+      for (const item of personalized_messages) {
+        const cleanPhone = formatBangladeshPhone(item.phone);
+        if (cleanPhone.length < 13 || seen.has(cleanPhone)) continue;
+        seen.add(cleanPhone);
+        const msgText = String(item.text || trimmedMessage).trim();
+        const parts = Number(item.parts) > 0 ? Number(item.parts) : (countSmsParts(msgText) || 1);
+        dispatchTargets.push({ phone: cleanPhone, message: msgText, parts });
       }
-      await supabaseAdmin
-        .from('institutions')
-        .update({ sms_balance: currentBalance - smsCount })
-        .eq('id', targetInstId);
+    } else {
+      let phoneList: string[] = [];
+      if (Array.isArray(phones) && phones.length > 0) {
+        phoneList = phones;
+      } else {
+        const uniqueIds = Array.from(new Set(targetMemberIds));
+        const { data: members } = await supabaseAdmin
+          .from('members')
+          .select('phone')
+          .eq('institution_id', targetInstId)
+          .in('id', uniqueIds);
+        phoneList = (members || []).map((m: any) => m.phone).filter(Boolean);
+      }
 
+      const validPhones = Array.from(
+        new Set(phoneList.map(formatBangladeshPhone).filter(p => p.length >= 13))
+      );
+
+      const parts = countSmsParts(trimmedMessage) || 1;
+      dispatchTargets = validPhones.map((phone) => ({
+        phone,
+        message: trimmedMessage,
+        parts
+      }));
+    }
+
+    if (dispatchTargets.length === 0) {
+      return res.status(400).json({ error: 'No valid phone numbers found for selected members' });
+    }
+
+    const totalNeededParts = dispatchTargets.reduce((sum, t) => sum + t.parts, 0);
+    const currentBalance = Number(targetInst?.sms_balance || 0);
+    if (currentBalance < totalNeededParts) {
+      return res.status(400).json({
+        error: `ব্যালেন্স পর্যাপ্ত নয়। প্রয়োজন: ${totalNeededParts}, আছে: ${currentBalance}`
+      });
+    }
+
+    // Dispatch per recipient in batches of 8 (NO pre-deduction before sending)
+    const outcomes = await dispatchBatchRecipients(creds, dispatchTargets, 8);
+    await persistSmsLogs(supabaseAdmin, targetInstId, creds.finalType, outcomes);
+
+    const deliveredOutcomes = outcomes.filter((o) => o.status === 'delivered');
+    const failedOutcomes = outcomes.filter((o) => o.status === 'failed');
+
+    if (deliveredOutcomes.length === 0) {
+      const realError = failedOutcomes[0]?.errorMessage || 'SMS গেটওয়ে থেকে কোনো মেসেজ পাঠানো যায়নি।';
+      return res.status(502).json({
+        success: false,
+        sentCount: 0,
+        failedCount: failedOutcomes.length,
+        error: `${realError} (কোনো ব্যালেন্স কাটা হয়নি)`
+      });
+    }
+
+    // Deduct ONLY for actually succeeded SMS parts
+    const succeededParts = deliveredOutcomes.reduce((sum, o) => sum + o.parts, 0);
+    const { data: latestInst } = await supabaseAdmin
+      .from('institutions')
+      .select('sms_balance')
+      .eq('id', targetInstId)
+      .maybeSingle();
+
+    const latestBalance = Number(latestInst?.sms_balance ?? currentBalance);
+    const updatedBalance = Math.max(0, latestBalance - succeededParts);
+
+    await supabaseAdmin
+      .from('institutions')
+      .update({ sms_balance: updatedBalance })
+      .eq('id', targetInstId);
+
+    try {
       await supabaseAdmin.from('transactions').insert({
         institution_id: targetInstId,
         amount: 0,
         transaction_id: `BULK_SMS_${Math.floor(Date.now() / 1000)}`,
         sender_phone: 'SYSTEM',
-        description: `Sent ${smsCount} SMS messages (${creds.finalType})`,
+        description: `Sent ${deliveredOutcomes.length} SMS (${succeededParts} credits, ${creds.finalType})`,
         type: 'debit',
         status: 'approved',
-        sms_count: smsCount
+        sms_count: succeededParts
       });
-    } else if (rpcResult && rpcResult.success === false) {
-      return res.status(400).json({ error: rpcResult.error || 'SMS balance deduction failed' });
+    } catch (txErr) {
+      console.warn('Bulk SMS transaction debit log failed:', txErr);
     }
 
-    if (Array.isArray(personalized_messages) && personalized_messages.length > 0) {
-      let lastProvider = '';
-      for (const item of personalized_messages) {
-        const cleanPhone = formatBangladeshPhone(item.phone);
-        if (cleanPhone.length < 13) continue;
-        const msgText = String(item.text || message).trim();
-        const result = await dispatchSmsChunk(creds, [cleanPhone], msgText);
-        lastProvider = result.provider;
-      }
-      return res.status(200).json({ success: true, provider: lastProvider, sms_type: creds.finalType });
-    }
-
-    let phoneList: string[] = [];
-    if (Array.isArray(phones) && phones.length > 0) {
-      phoneList = phones;
-    } else {
-      const uniqueIds = Array.from(new Set(targetMemberIds));
-      const { data: members } = await supabaseAdmin
-        .from('members')
-        .select('phone')
-        .eq('institution_id', targetInstId)
-        .in('id', uniqueIds);
-      phoneList = (members || []).map((m: any) => m.phone).filter(Boolean);
-    }
-
-    const validPhones = Array.from(
-      new Set(phoneList.map(formatBangladeshPhone).filter(p => p.length >= 13))
-    );
-
-    if (validPhones.length === 0) {
-      return res.status(400).json({ error: 'No valid phone numbers found for selected members' });
-    }
-
-    const chunkSize = 50;
-    let lastProvider = '';
-    for (let i = 0; i < validPhones.length; i += chunkSize) {
-      const chunk = validPhones.slice(i, i + chunkSize);
-      const result = await dispatchSmsChunk(creds, chunk, String(message).trim());
-      lastProvider = result.provider;
-    }
-
-    return res.status(200).json({ success: true, provider: lastProvider, sms_type: creds.finalType });
+    const primaryProvider = deliveredOutcomes[0]?.provider || 'automas';
+    return res.status(200).json({
+      success: true,
+      sentCount: deliveredOutcomes.length,
+      failedCount: failedOutcomes.length,
+      deductedCredits: succeededParts,
+      remainingBalance: updatedBalance,
+      provider: primaryProvider,
+      sms_type: creds.finalType
+    });
   } catch (err: any) {
     console.error('SMS send API error:', err);
     return res.status(500).json({ error: err?.message || 'Failed to send SMS' });

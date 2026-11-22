@@ -406,21 +406,19 @@ const Members: React.FC<StudentsProps> = ({
       const result = await response.json();
       const campaignId = result.broadcast?.id || result.campaign_id || result.id || result.data?.id || requestId;
 
-      const { error: insertError } = await supabase.from('voice_broadcasts').insert({
-        institution_id: institutionId,
-        voice_template_id: selectedVoiceId,
-        target_type: 'selected_members',
-        total_numbers: validSelectedPhones.length,
-        estimated_cost: estimatedCost,
-        provider_campaign_id: campaignId,
+      const newBalance = Math.max(0, walletBalance - estimatedCost);
+      const { error: balanceError } = await supabase.from('institutions').update({ balance: newBalance }).eq('id', institutionId);
+      if (balanceError) throw balanceError;
+      setWalletBalance(newBalance);
+
+      await smsApi.recordVoiceBroadcast(institutionId, {
+        voiceTemplateId: selectedVoiceId,
+        targetType: 'selected_members',
+        totalNumbers: validSelectedPhones.length,
+        estimatedCost,
+        providerCampaignId: campaignId,
         status: 'sending'
       });
-
-      if (insertError) throw insertError;
-
-      const newBalance = Math.max(0, walletBalance - estimatedCost);
-      await supabase.from('institutions').update({ balance: newBalance }).eq('id', institutionId);
-      setWalletBalance(newBalance);
 
       setShowVoiceModal(false);
       setIsSelectionMode(false);

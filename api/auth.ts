@@ -1,13 +1,116 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import https from 'node:https';
 import fetch from 'node-fetch';
 import { getSupabaseAdmin } from '../lib/supabase-admin.js';
 
 const MRAM_BASE_URL = 'https://msg.mram.com.bd';
+const REVE_BASE_URL = 'https://smpp.revesms.com:7790/sendtext';
 const DEFAULT_SENDER_ID = '8809601017065';
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_COOLDOWN_SECONDS = 30;
+const reveHttpsAgent = new https.Agent({ rejectUnauthorized: false });
+
+const AUTOMAS_ERROR_MAP: Record<string, string> = {
+  '101': 'বার্তা অনেক লম্বা বা খালি (Code 101)',
+  '102': 'Sender ID অনুমোদিত নয় (Code 102)',
+  '103': 'Authentication ত্রুটি - API Key সঠিক নয় (Code 103)',
+  '104': 'Invalid User (Code 104)',
+  '105': 'মোবাইল নম্বর সঠিক নয় (Code 105)',
+  '106': 'সার্ভারে পর্যাপ্ত ব্যালেন্স নেই (Code 106)',
+  '107': 'Sender ID দেওয়া হয়নি (Code 107)',
+  '110': 'গেটওয়ে অনুমোদিত নয় (Code 110)',
+  '111': 'এসএমএস টাইপ সঠিক নয় (Code 111)',
+  '1000': 'অজানা সার্ভার ত্রুটি (Code 1000)'
+};
+
+function httpsGet(url: string, timeoutMs = 12000): Promise<{ statusCode: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { agent: reveHttpsAgent }, (resp) => {
+      let data = '';
+      resp.setEncoding('utf8');
+      resp.on('data', (chunk) => {
+        data += chunk;
+      });
+      resp.on('end', () => {
+        resolve({ statusCode: resp.statusCode || 200, body: data });
+      });
+    });
+
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`REVE request timeout after ${timeoutMs / 1000}s`));
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+function mapAutomasError(codeVal: unknown, fallbackText?: string): string {
+  const key = String(codeVal ?? '').trim();
+  if (key && AUTOMAS_ERROR_MAP[key]) {
+    return AUTOMAS_ERROR_MAP[key];
+  }
+  return fallbackText || `Automas error (code: ${key || 'unknown'})`;
+}
+
+function parseAutomasResponse(rawBody: string): void {
+  const trimmed = String(rawBody || '').trim();
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    parsed = null;
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    if (/\b(error|invalid|failed|unauthorized|insufficient)\b/i.test(trimmed) || !trimmed) {
+      throw new Error(`Automas error: ${trimmed ? trimmed.slice(0, 140) : 'Empty response'}`);
+    }
+    return;
+  }
+
+  if (parsed.error && typeof parsed.error === 'string') {
+    throw new Error(`Automas error: ${parsed.error}`);
+  }
+
+  if (Array.isArray(parsed.response)) {
+    const first = parsed.response[0];
+    if (!first || typeof first !== 'object') {
+      throw new Error(`Automas error: ${trimmed.slice(0, 140)}`);
+    }
+    const st = Number(first.status);
+    if (!Number.isNaN(st) && st === 0) return;
+    throw new Error(mapAutomasError(first.status, first.message || first.error || trimmed.slice(0, 140)));
+  }
+
+  if (parsed.response !== undefined && parsed.response !== null) {
+    const respStr = String(parsed.response).trim().toLowerCase();
+    const respNum = Number(parsed.response);
+    if ((!Number.isNaN(respNum) && respNum === 0) || respStr === 'success' || respStr === 'submitted') return;
+    throw new Error(mapAutomasError(parsed.response, parsed.message || parsed.error || trimmed.slice(0, 140)));
+  }
+
+  if (parsed.status !== undefined || parsed.response_code !== undefined) {
+    const code = parsed.status !== undefined ? parsed.status : parsed.response_code;
+    const codeStr = String(code).trim().toLowerCase();
+    const codeNum = Number(code);
+    if (
+      (!Number.isNaN(codeNum) && (codeNum === 0 || codeNum === 200 || codeNum === 202)) ||
+      codeStr === 'success' ||
+      codeStr === 'submitted'
+    ) {
+      return;
+    }
+    throw new Error(mapAutomasError(code, parsed.message || parsed.error || trimmed.slice(0, 140)));
+  }
+
+  if (parsed.status === false || parsed.status === 'error') {
+    throw new Error(`Automas error: ${parsed.message || parsed.error || trimmed.slice(0, 140)}`);
+  }
+}
 
 function convertBnToEnDigits(str: string): string {
   const bnDigits: Record<string, string> = {
@@ -182,52 +285,73 @@ async function sendOtpSMS(
     providerCfg = sysSettings.sms_provider_config;
   }
 
+  if (Object.keys(providerCfg).length === 0) {
+    const { data: superInst } = await supabaseAdmin
+      .from('institutions')
+      .select('config_json')
+      .eq('is_super_admin', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    let superCfg: any = superInst?.config_json;
+    if (typeof superCfg === 'string') {
+      try { superCfg = JSON.parse(superCfg); } catch { superCfg = {}; }
+    }
+    if (superCfg?.system_sms_provider_config && typeof superCfg.system_sms_provider_config === 'object') {
+      providerCfg = superCfg.system_sms_provider_config;
+    }
+  }
+
   const errors: string[] = [];
 
   // 1. Automas Non-Masking (if configured)
   const automasKey = String(
-    process.env.AUTOMAS_API_KEY ||
     sysSettings?.automas_api_key ||
     providerCfg?.automas?.api_key ||
+    process.env.AUTOMAS_API_KEY ||
     ''
   ).trim();
   if (automasKey) {
     try {
       let automasSender = String(
-        process.env.AUTOMAS_SENDER_ID ||
         sysSettings?.automas_non_masking_sender_id ||
-        sysSettings?.automas_sender_id ||
         providerCfg?.automas?.non_masking_sender_id ||
-        DEFAULT_SENDER_ID
+        sysSettings?.automas_sender_id ||
+        process.env.AUTOMAS_SENDER_ID ||
+        ''
       ).trim();
+      if (!automasSender) {
+        throw new Error('Automas Non-Masking Sender ID সেট করা নেই');
+      }
       if (/^0961\d+/.test(automasSender)) {
         automasSender = `88${automasSender}`;
       }
       const automasUrl = `https://api.automas.com.bd/smsapiv3?apikey=${encodeURIComponent(automasKey)}&sender=${encodeURIComponent(automasSender)}&msisdn=${encodeURIComponent(intlPhone)}&smstext=${encodeURIComponent(message)}&type=unicode&smsformat=8`;
       const gwRes = await fetch(automasUrl, { method: 'GET' });
       const resText = await gwRes.text();
-      if (gwRes.ok && !/\b(error|invalid|failed|unauthorized)\b/i.test(resText)) {
-        return;
+      if (!gwRes.ok) {
+        throw new Error(`Automas HTTP ${gwRes.status}: ${resText.slice(0, 120)}`);
       }
-      errors.push(`Automas HTTP ${gwRes.status}: ${resText.slice(0, 120)}`);
+      parseAutomasResponse(resText);
+      return;
     } catch (err: any) {
-      errors.push(`Automas error: ${err?.message || 'failed'}`);
+      errors.push(`Automas: ${err?.message || 'failed'}`);
     }
   }
 
-  // 2. REVE SMS Gateway (primary if API key + secret key exist)
+  // 2. REVE SMS Gateway
   const reveKey = String(
-    process.env.REVE_API_KEY ||
     sysSettings?.reve_api_key ||
     providerCfg?.reve?.api_key ||
     institution?.reve_api_key ||
+    process.env.REVE_API_KEY ||
     ''
   ).trim();
   const reveSecret = String(
-    process.env.REVE_SECRET_KEY ||
     sysSettings?.reve_secret_key ||
     providerCfg?.reve?.secret_key ||
     institution?.reve_secret_key ||
+    process.env.REVE_SECRET_KEY ||
     ''
   ).trim();
   if (reveKey && reveSecret) {
@@ -241,15 +365,30 @@ async function sendOtpSMS(
         process.env.REVE_CALLER_ID ||
         DEFAULT_SENDER_ID
       ).trim();
-      const reveUrl = `https://smpp.revesms.com:7790/sendtext?apikey=${encodeURIComponent(reveKey)}&secretkey=${encodeURIComponent(reveSecret)}&callerID=${encodeURIComponent(callerId)}&toUser=${encodeURIComponent(intlPhone)}&messageContent=${encodeURIComponent(message)}&type=3`;
-      const gwRes = await fetch(reveUrl, { method: 'GET' });
-      const resText = await gwRes.text();
-      if (gwRes.ok && !/\b(error|invalid|failed|unauthorized)\b/i.test(resText)) {
+      const reveUrl = `${REVE_BASE_URL}?apikey=${encodeURIComponent(reveKey)}&secretkey=${encodeURIComponent(reveSecret)}&callerID=${encodeURIComponent(callerId)}&toUser=${encodeURIComponent(intlPhone)}&messageContent=${encodeURIComponent(message)}&type=3`;
+      const gwRes = await httpsGet(reveUrl, 12000);
+      const resText = gwRes.body;
+      if (gwRes.statusCode < 200 || gwRes.statusCode >= 300) {
+        throw new Error(`REVE HTTP ${gwRes.statusCode}: ${resText.slice(0, 120)}`);
+      }
+      let parsed: any = null;
+      try { parsed = JSON.parse(resText); } catch { parsed = null; }
+      if (parsed && typeof parsed === 'object') {
+        const isOk =
+          String(parsed.Status) === '0' ||
+          parsed.Status === 0 ||
+          Boolean(parsed.Message_ID || parsed.message_id);
+        if (!isOk) {
+          throw new Error(`REVE error (${parsed.Status ?? 'unknown'}): ${parsed.Text || parsed.Message || resText.slice(0, 120)}`);
+        }
         return;
       }
-      errors.push(`REVE HTTP ${gwRes.status}: ${resText.slice(0, 120)}`);
+      if (!/\b(error|invalid|failed|unauthorized)\b/i.test(resText)) {
+        return;
+      }
+      errors.push(`REVE: ${resText.slice(0, 120)}`);
     } catch (err: any) {
-      errors.push(`REVE error: ${err?.message || 'failed'}`);
+      errors.push(`REVE: ${err?.message || 'failed'}`);
     }
   }
 
@@ -257,7 +396,7 @@ async function sendOtpSMS(
   const mramKey = String(
     process.env.MRAM_API_KEY ||
     process.env.SMS_API_KEY ||
-    (!reveSecret ? (sysSettings?.reve_api_key || institution?.reve_api_key || '') : '')
+    ''
   ).trim();
   if (mramKey) {
     try {
@@ -276,7 +415,7 @@ async function sendOtpSMS(
       }
       errors.push(`MRAM HTTP ${gwRes.status}: ${resText.slice(0, 120)}`);
     } catch (err: any) {
-      errors.push(`MRAM error: ${err?.message || 'failed'}`);
+      errors.push(`MRAM: ${err?.message || 'failed'}`);
     }
   }
 

@@ -7,6 +7,7 @@ import { ShortcodeService } from 'services/ShortcodeService';
 import { TrendingUp, DollarSign, BarChart3, AlertCircle, Send, Loader2, CheckCircle2, MessageSquare, Smartphone, PieChart, Users, Filter, Calendar, Wallet, BookOpen, ChevronDown, Info, Phone, Mic, Volume2, Radio, PhoneCall, X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { isValidUUID } from 'utils/validation';
 import { getInstitutionFeeCategories, getCategoryForStructure } from '../utils/feeCategoryHelper';
+import { resolveInstitutionVoiceRate } from 'utils/smsUtils';
 
 interface CommitteeFinancialAnalyticsProps {
   institutionId: string;
@@ -498,29 +499,17 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
     setShowVoiceModal(true);
     setLoadingVoices(true);
     try {
-      // 1. Fetch institution balance & custom voice rate from config_json
-      const { data: instData } = await supabase
-        .from('institutions')
-        .select('balance, config_json')
-        .eq('id', institutionId)
-        .single();
+      // 1. Fetch institution balance & global/custom voice rate
+      const [{ data: instData }, globalRates] = await Promise.all([
+        supabase
+          .from('institutions')
+          .select('balance, config_json')
+          .eq('id', institutionId)
+          .single(),
+        smsApi.getGlobalSettings().catch(() => null)
+      ]);
 
-      let cfg: any = instData?.config_json ?? madrasah?.config_json ?? {};
-      if (typeof cfg === 'string') {
-        try { cfg = JSON.parse(cfg); } catch { cfg = {}; }
-      }
-      const customVoiceRate = Number(cfg?.voice_rate);
-      if (customVoiceRate > 0) {
-        setVoiceRate(customVoiceRate);
-      } else {
-        const { data: sysSettings } = await supabase
-          .from('system_settings')
-          .select('voice_rate')
-          .maybeSingle();
-        if (sysSettings?.voice_rate) {
-          setVoiceRate(Number(sysSettings.voice_rate));
-        }
-      }
+      setVoiceRate(resolveInstitutionVoiceRate(instData || madrasah, globalRates));
 
       if (instData) {
         setWalletBalance(Number(instData.balance) || 0);
@@ -623,23 +612,21 @@ const CommitteeFinancialAnalytics: React.FC<CommitteeFinancialAnalyticsProps> = 
       const result = await response.json();
       const campaignId = result.broadcast?.id || result.campaign_id || result.id || result.data?.id || requestId;
 
-      // Save to Supabase
-      const { error: insertError } = await supabase.from('voice_broadcasts').insert({
-        institution_id: institutionId,
-        voice_template_id: selectedVoiceId,
-        target_type: 'due_reminders',
-        total_numbers: validPhones.length,
-        estimated_cost: estimatedCost,
-        provider_campaign_id: campaignId,
+      // Deduct balance once Awaj broadcast succeeds (do not block on voice_broadcasts log failure)
+      const newBalance = Math.max(0, walletBalance - estimatedCost);
+      const { error: balanceError } = await supabase.from('institutions').update({ balance: newBalance }).eq('id', institutionId);
+      if (balanceError) throw balanceError;
+      setWalletBalance(newBalance);
+
+      // Save to Supabase safely
+      await smsApi.recordVoiceBroadcast(institutionId, {
+        voiceTemplateId: selectedVoiceId,
+        targetType: 'due_reminders',
+        totalNumbers: validPhones.length,
+        estimatedCost,
+        providerCampaignId: campaignId,
         status: 'sending'
       });
-
-      if (insertError) throw insertError;
-
-      // Deduct balance
-      const newBalance = walletBalance - estimatedCost;
-      await supabase.from('institutions').update({ balance: newBalance }).eq('id', institutionId);
-      setWalletBalance(newBalance);
 
       setVoiceStatusModal({
         show: true,

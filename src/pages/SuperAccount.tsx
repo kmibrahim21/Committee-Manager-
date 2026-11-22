@@ -799,10 +799,10 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
                            />
                          </div>
                          <div className="space-y-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Default Masking ID</label>
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Default Masking Client ID</label>
                            <input
                              type="text"
-                             placeholder="e.g. COMMITTEE"
+                             placeholder="e.g. DEENORA / COMMITTEE"
                              className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
                              value={globalSettings.reve_client_id}
                              onChange={(e) => setGlobalSettings({ ...globalSettings, reve_client_id: e.target.value })}
@@ -840,24 +840,26 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
                        </div>
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                          <div className="space-y-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Non-Masking Sender ID</label>
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Automas Non-Masking Sender ID (০.৩৫ ৳)</label>
                            <input
                              type="text"
-                             placeholder="e.g. 0961XXXXXXX"
+                             placeholder="e.g. 8809617640326"
                              className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
                              value={globalSettings.automas_non_masking_sender_id}
                              onChange={(e) => setGlobalSettings({ ...globalSettings, automas_non_masking_sender_id: e.target.value })}
                            />
+                           <p className="text-[10px] font-bold text-slate-400 px-1 font-noto">নন-মাস্কিং নম্বর যেমন 8809617640326 এখানে দিন</p>
                          </div>
                          <div className="space-y-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Masking Sender ID</label>
+                           <label className="text-[9px] font-black text-slate-400 uppercase px-1">Automas Masking Sender ID (ঐচ্ছিক)</label>
                            <input
                              type="text"
-                             placeholder="Optional Masking ID"
+                             placeholder="e.g. COMMITTEE"
                              className={`w-full h-11 rounded-xl px-3.5 font-bold text-[11px] outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#0fb5ab]'}`}
                              value={globalSettings.automas_masking_sender_id}
                              onChange={(e) => setGlobalSettings({ ...globalSettings, automas_masking_sender_id: e.target.value })}
                            />
+                           <p className="text-[10px] font-bold text-slate-400 px-1 font-noto">শুধুমাত্র অনুমোদিত টেক্সট মাস্কিং নামের জন্য</p>
                          </div>
                        </div>
                     </div>

@@ -254,6 +254,27 @@ export const SMSService = {
   getHistory: async (institutionId: string) => {
     if (!institutionId) return [];
     try {
+      const { data: logRows, error: logsError } = await supabase
+        .from('sms_logs')
+        .select('id, institution_id, recipient, message, status, provider, sms_type, error_message, created_at')
+        .eq('institution_id', institutionId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (!logsError && Array.isArray(logRows) && logRows.length > 0) {
+        return logRows.map((row: any) => ({
+          id: row.id,
+          date: row.created_at,
+          recipient: row.recipient || '—',
+          recipients: 1,
+          message: row.message || '',
+          status: row.status === 'delivered' ? 'delivered' : 'failed',
+          provider: row.provider || undefined,
+          sms_type: row.sms_type || undefined,
+          reason: row.error_message || undefined
+        }));
+      }
+
       const { data, error } = await supabase
         .from('transactions')
         .select('id, institution_id, amount, transaction_id, sender_phone, description, type, status, sms_count, created_at')
@@ -278,6 +299,72 @@ export const SMSService = {
       console.error('Error in getHistory:', error);
       return [];
     }
+  },
+
+  recordVoiceBroadcast: async (
+    institutionId: string,
+    params: {
+      voiceTemplateId: string;
+      targetType: string;
+      targetId?: string;
+      totalNumbers: number;
+      estimatedCost: number;
+      providerCampaignId?: string;
+      status?: string;
+    }
+  ) => {
+    const status = params.status || 'sending';
+    const baseNew = {
+      institution_id: institutionId,
+      voice_template_id: params.voiceTemplateId,
+      target_type: params.targetType,
+      ...(params.targetId ? { target_id: params.targetId } : {}),
+      total_numbers: params.totalNumbers,
+      estimated_cost: params.estimatedCost,
+      provider_campaign_id: params.providerCampaignId || null,
+      status
+    };
+
+    const attempts: Record<string, any>[] = [
+      {
+        ...baseNew,
+        template_id: params.voiceTemplateId,
+        total_recipients: params.totalNumbers,
+        cost: params.estimatedCost
+      },
+      {
+        ...baseNew,
+        template_id: params.voiceTemplateId,
+        total_recipients: params.totalNumbers,
+        total_cost: params.estimatedCost
+      },
+      baseNew,
+      {
+        institution_id: institutionId,
+        template_id: params.voiceTemplateId,
+        total_recipients: params.totalNumbers,
+        cost: params.estimatedCost,
+        status
+      },
+      {
+        institution_id: institutionId,
+        template_id: params.voiceTemplateId,
+        total_recipients: params.totalNumbers,
+        total_cost: params.estimatedCost,
+        status
+      }
+    ];
+
+    for (const payload of attempts) {
+      try {
+        const { error } = await supabase.from('voice_broadcasts').insert(payload);
+        if (!error) return { ok: true };
+      } catch {
+        // try next schema fallback
+      }
+    }
+    console.warn('voice_broadcasts insert failed across schema variants');
+    return { ok: false };
   }
 };
 

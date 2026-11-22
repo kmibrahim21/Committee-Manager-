@@ -191,12 +191,13 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
       triggerRefresh();
       setTimeout(() => setBulkSuccess(false), 3000);
     } catch (err: any) { 
-      const isBalanceError = err.message.toLowerCase().includes('balance');
+      const msg = String(err?.message || '');
+      const isBalanceError = msg.toLowerCase().includes('balance') || msg.includes('ব্যালেন্স');
       setStatusModal({
         show: true,
         type: isBalanceError ? 'balance' : 'error',
         title: isBalanceError ? (lang === 'bn' ? 'ব্যালেন্স শেষ!' : 'Out of Balance!') : (lang === 'bn' ? 'ব্যর্থ' : 'Failed'),
-        message: err.message
+        message: msg
       });
     } finally { setSendingBulk(false); }
   };
@@ -497,27 +498,32 @@ const WalletSMS: React.FC<WalletSMSProps> = ({ lang, madrasah, triggerRefresh, d
                             <p className="text-xs font-bold text-slate-500 line-clamp-2 max-w-xs font-noto">{item.message}</p>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              {item.status === 'sent' || item.status === 'delivered' ? (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-600 rounded-full border border-green-100">
-                                  <CheckCircle2 size={12} />
-                                  <span className="text-[10px] font-black uppercase tracking-wider">{t('sent', lang)}</span>
-                                </div>
-                              ) : item.status === 'pending' ? (
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100">
-                                  <Clock size={12} />
-                                  <span className="text-[10px] font-black uppercase tracking-wider">{t('pending', lang)}</span>
-                                </div>
-                              ) : (
-                                <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {item.status === 'sent' || item.status === 'delivered' ? (
+                                  <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 w-fit">
+                                    <CheckCircle2 size={12} />
+                                    <span className="text-[10px] font-black uppercase tracking-wider">{t('sent', lang)}</span>
+                                  </div>
+                                ) : item.status === 'pending' ? (
+                                  <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 w-fit">
+                                    <Clock size={12} />
+                                    <span className="text-[10px] font-black uppercase tracking-wider">{t('pending', lang)}</span>
+                                  </div>
+                                ) : (
                                   <div className="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-600 rounded-full border border-red-100 w-fit">
                                     <XCircle size={12} />
                                     <span className="text-[10px] font-black uppercase tracking-wider">{t('failed', lang)}</span>
                                   </div>
-                                  {item.reason && (
-                                    <span className="text-[9px] font-bold text-red-400 px-1">{item.reason}</span>
-                                  )}
-                                </div>
+                                )}
+                                {item.provider && (
+                                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                    {item.provider}
+                                  </span>
+                                )}
+                              </div>
+                              {item.reason && (
+                                <span className="text-[10px] font-bold text-red-500 px-1 leading-snug">{item.reason}</span>
                               )}
                             </div>
                           </td>

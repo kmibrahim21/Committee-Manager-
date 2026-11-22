@@ -86,6 +86,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (authError || !user) {
         return res.status(401).json({ error: 'Unauthorized: Invalid or expired session token' });
       }
+
+      if (!process.env.AWAJ_API_TOKEN || !process.env.AWAJ_API_TOKEN.trim()) {
+        return res.status(500).json({ error: 'AWAJ_API_TOKEN সার্ভার এনভায়রনমেন্টে সেট করা নেই।' });
+      }
     }
 
     // VOICES

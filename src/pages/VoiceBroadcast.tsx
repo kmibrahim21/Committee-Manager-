@@ -138,7 +138,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
     fetchSystemSettings();
     if (activeTab === 'templates') fetchVoices();
     if (activeTab === 'broadcast') { fetchClasses(); fetchVoices(); fetchSenders(); }
-    if (activeTab === 'history') fetchHistory();
+    if (activeTab === 'history') { fetchVoices(); fetchSenders(); fetchHistory(); }
   }, [activeTab, madrasah?.id, dataVersion, parsedInstConfig?.voice_rate]);
 
   const fetchSystemSettings = async () => {
@@ -329,14 +329,31 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
     }
   };
 
+  const queryVoiceBroadcastRows = async (institutionId: string) => {
+    const { data, error } = await supabase
+      .from('voice_broadcasts')
+      .select('*, voice_templates!voice_broadcasts_voice_template_id_fkey(title)')
+      .eq('institution_id', institutionId)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) return data;
+
+    const { data: fallbackData } = await supabase
+      .from('voice_broadcasts')
+      .select('*')
+      .eq('institution_id', institutionId)
+      .order('created_at', { ascending: false });
+
+    return fallbackData || [];
+  };
+
   const fetchHistory = async () => {
     if (!madrasah) return;
     setLoading(true);
-    const { data } = await supabase.from('voice_broadcasts').select('*, voice_templates(title)').eq('institution_id', madrasah.id).order('created_at', { ascending: false });
-    if (data) setBroadcastHistory(data);
-    
-    // Track results for pending/sending broadcasts
-    if (data) {
+    try {
+      const data = await queryVoiceBroadcastRows(madrasah.id);
+      setBroadcastHistory(data);
+
       data.filter(b => b.status === 'sending' || b.status === 'pending').forEach(async (broadcast) => {
         if (!broadcast.provider_campaign_id) return;
         try {
@@ -346,10 +363,9 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
           });
           if (response.ok) {
             const result = await response.json();
-            // Map Awaj status to our internal status
-            let newStatus = broadcast.status; // Default to current status if unknown
+            let newStatus = broadcast.status;
             const providerStatus = (result.broadcast?.status || result.status || result.state || '').toLowerCase();
-            
+
             if (['pending', 'queued', 'scheduled'].includes(providerStatus)) {
               newStatus = 'pending';
             } else if (['sending', 'processing', 'running'].includes(providerStatus)) {
@@ -362,73 +378,97 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
 
             if (newStatus !== broadcast.status) {
               await supabase.from('voice_broadcasts').update({ status: newStatus }).eq('id', broadcast.id);
-              // Refresh history
-              const { data: updatedData } = await supabase.from('voice_broadcasts').select('*, voice_templates(title)').eq('institution_id', madrasah.id).order('created_at', { ascending: false });
-              if (updatedData) setBroadcastHistory(updatedData);
+              const updatedData = await queryVoiceBroadcastRows(madrasah.id);
+              setBroadcastHistory(updatedData);
             }
           }
         } catch (error) {
           console.error('Error tracking broadcast result:', error);
         }
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleRetryFailed = async (broadcast: any, failedLogs: any[]) => {
-    if (!failedLogs.length) return;
-    
-    // Extract phone numbers from failed logs
-    const phoneNumbers = failedLogs.map(log => log.phone || log.number || log.to || log.msisdn).filter(Boolean);
-    
+    if (!failedLogs.length || !madrasah) return;
+
+    const phoneNumbers = failedLogs
+      .map(log => log.phone || log.number || log.to || log.msisdn)
+      .map((p: any) => {
+        const digits = String(p || '').replace(/[^0-9]/g, '');
+        if (digits.length === 11 && digits.startsWith('01')) return digits;
+        if (digits.length === 13 && digits.startsWith('8801')) return digits.substring(2);
+        if (digits.length === 10 && digits.startsWith('1')) return '0' + digits;
+        return digits;
+      })
+      .filter((p: string) => p.length === 11 && p.startsWith('01'));
+
     if (!phoneNumbers.length) {
-      setStatusModal({ show: true, title: 'Error', type: 'error', message: 'No valid phone numbers found to retry.' });
+      setStatusModal({ show: true, title: lang === 'bn' ? 'ত্রুটি' : 'Error', type: 'error', message: lang === 'bn' ? 'রিট্রাই করার জন্য কোনো বৈধ নম্বর পাওয়া যায়নি।' : 'No valid phone numbers found to retry.' });
       return;
     }
 
-    if (!confirm(`Are you sure you want to retry ${phoneNumbers.length} failed calls? This will deduct from your balance.`)) {
+    if (!confirm(lang === 'bn'
+      ? `আপনি কি ${phoneNumbers.length} টি ব্যর্থ নম্বরে পুনরায় কল পাঠাতে চান? এতে আপনার ব্যালেন্স থেকে চার্জ কাটা হবে।`
+      : `Are you sure you want to retry ${phoneNumbers.length} failed calls? This will deduct from your balance.`)) {
       return;
     }
 
     try {
-      // Get voice and sender IDs from the original broadcast
-      const voiceId = broadcast.voice_id;
-      const senderId = broadcast.sender_id;
-      
-      if (!voiceId || !senderId) {
-        setStatusModal({ show: true, title: 'Error', type: 'error', message: 'Original voice or sender information is missing.' });
+      const voiceId = broadcast.voice_template_id || broadcast.template_id || broadcast.voice_id;
+      let availableVoices = voices;
+      if (availableVoices.length === 0) {
+        const { data: vRows } = await supabase
+          .from('voice_templates')
+          .select('*')
+          .eq('institution_id', madrasah.id);
+        if (vRows) availableVoices = vRows;
+      }
+
+      const voice = availableVoices.find(v => v.id === voiceId);
+      const voiceName = voice?.provider_voice_name || voice?.title || voice?.name || broadcast.voice_templates?.title;
+      if (!voiceId || !voiceName) {
+        setStatusModal({ show: true, title: lang === 'bn' ? 'ত্রুটি' : 'Error', type: 'error', message: lang === 'bn' ? 'মূল ভয়েস টেমপ্লেট পাওয়া যায়নি।' : 'Original voice template is missing.' });
         return;
       }
 
-      // Find the actual voice name and sender number from the state
-      const voice = voices.find(v => v.id === voiceId);
-      const sender = senders.find(s => s.id === senderId);
+      const senderObj = senders.find(s =>
+        (broadcast.sender_id && (s.id === broadcast.sender_id || s.callingNumber === broadcast.sender_id || s.caller_id === broadcast.sender_id)) ||
+        (selectedSenderId && (s.id === selectedSenderId || s.callingNumber === selectedSenderId || s.caller_id === selectedSenderId))
+      ) || senders[0];
 
-      if (!voice || !sender) {
-        setStatusModal({ show: true, title: 'Error', type: 'error', message: 'Voice template or sender is no longer available.' });
+      let rawSender = senderObj
+        ? String(senderObj.callingNumber || senderObj.caller_id || senderObj.number || senderObj.sender_id || senderObj.id)
+        : String(broadcast.sender_id || selectedSenderId || madrasah.voice_sender_id || '');
+
+      const sDigits = rawSender.replace(/[^0-9]/g, '');
+      let sNumber = rawSender;
+      if (sDigits.length === 11 && sDigits.startsWith('01')) sNumber = '88' + sDigits;
+      else if (sDigits.length === 13 && sDigits.startsWith('8801')) sNumber = sDigits;
+      else if (sDigits.length === 10 && sDigits.startsWith('1')) sNumber = '880' + sDigits;
+
+      if (!sNumber) {
+        setStatusModal({ show: true, title: lang === 'bn' ? 'ত্রুটি' : 'Error', type: 'error', message: lang === 'bn' ? 'ভয়েস সেন্ডার আইডি পাওয়া যায়নি।' : 'Voice sender ID is unavailable.' });
         return;
       }
 
-      const voiceName = voice.name || voice.voice_name || voice.id;
-      const sNumber = sender.number || sender.sender_id || sender.id;
-
-      // Calculate cost
       const estimatedCost = phoneNumbers.length * voiceRate;
-
       if (walletBalance < estimatedCost) {
         setStatusModal({
           show: true,
           type: 'balance',
           title: lang === 'bn' ? 'অপর্যাপ্ত ব্যালেন্স' : 'Insufficient Balance',
-          message: lang === 'bn' ? `রিচার্জ প্রয়োজন: ${estimatedCost} ৳` : `Recharge needed: ${estimatedCost} ৳`
+          message: lang === 'bn' ? `রিচার্জ প্রয়োজন: ${estimatedCost.toFixed(2)} ৳` : `Recharge needed: ${estimatedCost.toFixed(2)} ৳`
         });
         return;
       }
 
-      const requestId = 'retry_' + Math.random().toString(36).substr(2, 9);
+      const requestId = 'retry_' + Math.random().toString(36).slice(2, 11);
       const payload = {
         request_id: requestId,
-        voice: voiceName, 
+        voice: voiceName,
         sender: sNumber,
         phone_numbers: phoneNumbers,
         retry: 1,
@@ -447,43 +487,43 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send retry broadcast via Awaj API');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to send retry broadcast via Awaj API');
       }
 
       const result = await response.json();
       const campaignId = result.broadcast?.id || result.campaign_id || result.id || result.data?.id || result.data?.campaign_id || result.request_id || requestId;
 
-      // Save to Supabase
-      const { error } = await supabase.from('voice_broadcasts').insert({
-        institution_id: madrasah?.id,
-        voice_id: voiceId,
-        sender_id: senderId,
-        target_type: 'retry',
-        target_id: broadcast.id, // Link to original broadcast
-        total_numbers: phoneNumbers.length,
-        estimated_cost: estimatedCost,
-        status: 'sending',
-        provider_campaign_id: campaignId
-      });
-
-      if (error) throw error;
-
-      // Deduct balance
-      const newBalance = walletBalance - estimatedCost;
-      const { error: balanceError } = await supabase.from('institutions').update({ balance: newBalance }).eq('id', madrasah?.id);
-      
+      // Deduct balance first/always once Awaj broadcast succeeds
+      const newBalance = Math.max(0, walletBalance - estimatedCost);
+      const { error: balanceError } = await supabase.from('institutions').update({ balance: newBalance }).eq('id', madrasah.id);
       if (balanceError) {
         console.error('Failed to deduct balance:', balanceError);
       } else {
         setWalletBalance(newBalance);
       }
 
-      setStatusModal({ show: true, title: 'Success', type: 'success', message: `Successfully initiated retry for ${phoneNumbers.length} calls.` });
+      // Record broadcast log cleanly (never block success/balance if table schema differs)
+      await smsApi.recordVoiceBroadcast(madrasah.id, {
+        voiceTemplateId: voiceId,
+        targetType: 'retry',
+        targetId: broadcast.id,
+        totalNumbers: phoneNumbers.length,
+        estimatedCost,
+        providerCampaignId: campaignId,
+        status: 'sending'
+      });
+
+      setStatusModal({
+        show: true,
+        title: lang === 'bn' ? 'সফল' : 'Success',
+        type: 'success',
+        message: lang === 'bn' ? `${phoneNumbers.length} টি নম্বরে পুনরায় কল পাঠানো শুরু হয়েছে।` : `Successfully initiated retry for ${phoneNumbers.length} calls.`
+      });
       fetchHistory();
-      
     } catch (err: any) {
       console.error('Error retrying broadcast:', err);
-      setStatusModal({ show: true, title: 'Error', type: 'error', message: err.message || 'Failed to retry broadcast' });
+      setStatusModal({ show: true, title: lang === 'bn' ? 'ব্যর্থ' : 'Error', type: 'error', message: err.message || 'Failed to retry broadcast' });
     }
   };
 
@@ -747,24 +787,21 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
       console.log('Broadcast creation result:', result);
       const campaignId = result.broadcast?.id || result.campaign_id || result.id || result.data?.id || result.data?.campaign_id || result.request_id || requestId;
 
-      // 2. Save to Supabase
-      const { error } = await supabase.from('voice_broadcasts').insert({
-        institution_id: madrasah.id,
-        voice_template_id: selectedVoiceId,
-        target_type: 'members',
-        total_numbers: phoneNumbers.length,
-        estimated_cost: estimatedCost,
-        provider_campaign_id: campaignId,
+      // 2. Deduct balance from institution unconditionally once Awaj broadcast succeeds
+      const newBalance = Math.max(0, walletBalance - estimatedCost);
+      const { error: balanceError } = await supabase.from('institutions').update({ balance: newBalance }).eq('id', madrasah.id);
+      if (balanceError) throw balanceError;
+      setWalletBalance(newBalance);
+
+      // 3. Save to Supabase (dual-schema safe, non-fatal if optional columns differ)
+      await smsApi.recordVoiceBroadcast(madrasah.id, {
+        voiceTemplateId: selectedVoiceId,
+        targetType: 'members',
+        totalNumbers: phoneNumbers.length,
+        estimatedCost,
+        providerCampaignId: campaignId,
         status: 'sending'
       });
-
-      if (error) throw error;
-
-      // 3. Deduct balance from institution
-      const newBalance = walletBalance - estimatedCost;
-      const { error: balanceError } = await supabase.from('institutions').update({ balance: newBalance }).eq('id', madrasah.id);
-      
-      if (balanceError) throw balanceError;
 
       setStatusModal({
         show: true,
@@ -1064,7 +1101,9 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                             <Send size={18} />
                           </div>
                           <div>
-                            <h3 className="font-black text-[#0fb5ab] text-[15px] font-noto">{h.voice_templates?.title || 'Unknown Voice'}</h3>
+                            <h3 className="font-black text-[#0fb5ab] text-[15px] font-noto">
+                              {h.voice_templates?.title || voices.find(v => v.id === (h.voice_template_id || h.template_id))?.title || 'Voice Broadcast'}
+                            </h3>
                             <p className="text-[10px] font-bold text-slate-400 mt-0.5">{new Date(h.created_at).toLocaleString()}</p>
                           </div>
                         </div>
@@ -1078,15 +1117,15 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                       <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-50">
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('target', lang)}</p>
-                          <p className="text-xs font-black text-[#0fb5ab] capitalize">{h.target_type}</p>
+                          <p className="text-xs font-black text-[#0fb5ab] capitalize">{h.target_type || 'members'}</p>
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('numbers', lang)}</p>
-                          <p className="text-xs font-black text-[#0fb5ab]">{h.total_numbers}</p>
+                          <p className="text-xs font-black text-[#0fb5ab]">{h.total_numbers ?? h.total_recipients ?? 0}</p>
                         </div>
                         <div>
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{t('cost', lang)}</p>
-                          <p className="text-xs font-black text-red-500">{h.estimated_cost} ৳</p>
+                          <p className="text-xs font-black text-red-500">{Number(h.estimated_cost ?? h.total_cost ?? h.cost ?? 0).toFixed(2)} ৳</p>
                         </div>
                       </div>
                     </div>
@@ -1121,7 +1160,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     <div className="bg-[#42f5e9]/10 p-3 rounded-xl border border-[#42f5e9]/20">
                                       <div className="text-[9px] font-black text-[#42f5e9] uppercase tracking-widest mb-1">Total Calls</div>
-                                      <div className="text-lg font-black text-[#0e8a84]">{logs.length || h.total_numbers}</div>
+                                      <div className="text-lg font-black text-[#0e8a84]">{logs.length || (h.total_numbers ?? h.total_recipients ?? 0)}</div>
                                     </div>
                                     <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
                                       <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Answered</div>

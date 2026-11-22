@@ -10,6 +10,7 @@ import { supabase, smsApi } from 'supabase';
 import { Department, Member, Language, Institution } from 'types';
 import { t } from 'translations';
 import { bdDivisions, bdDistricts, bdThanas } from '../utils/bdData';
+import { DEFAULT_VOICE_RATE, resolveInstitutionVoiceRate } from '../utils/smsUtils';
 
 interface StudentsProps {
   selectedClass?: Department | null;
@@ -97,14 +98,9 @@ const Members: React.FC<StudentsProps> = ({
   const [loadingVoices, setLoadingVoices] = useState(false);
   const [isVoiceSending, setIsVoiceSending] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
-  const [voiceRate, setVoiceRate] = useState<number>(() => {
-    let cfg: any = madrasah?.config_json || {};
-    if (typeof cfg === 'string') {
-      try { cfg = JSON.parse(cfg); } catch { cfg = {}; }
-    }
-    const r = Number(cfg?.voice_rate);
-    return r > 0 ? r : 0.60;
-  });
+  const [voiceRate, setVoiceRate] = useState<number>(() =>
+    resolveInstitutionVoiceRate(madrasah, { voice_rate: DEFAULT_VOICE_RATE })
+  );
 
   const [statusModal, setStatusModal] = useState<{
     show: boolean;
@@ -304,18 +300,8 @@ const Members: React.FC<StudentsProps> = ({
       if (typeof cfg === 'string') {
         try { cfg = JSON.parse(cfg); } catch { cfg = {}; }
       }
-      const customVoiceRate = Number(cfg?.voice_rate);
-      if (customVoiceRate > 0) {
-        setVoiceRate(customVoiceRate);
-      } else {
-        const { data: sysSettings } = await supabase
-          .from('system_settings')
-          .select('voice_rate')
-          .maybeSingle();
-        if (sysSettings?.voice_rate) {
-          setVoiceRate(Number(sysSettings.voice_rate));
-        }
-      }
+      const globalRates = await smsApi.getGlobalSettings();
+      setVoiceRate(resolveInstitutionVoiceRate({ config_json: cfg }, globalRates));
 
       if (instData) {
         setWalletBalance(Number(instData.balance) || 0);

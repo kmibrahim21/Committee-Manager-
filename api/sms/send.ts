@@ -454,7 +454,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       targetInst = data;
     }
 
-    const creds = resolveGatewayCredentials(targetInst, sysSettings);
+    let effectiveSysSettings = sysSettings;
+    if (sysSettings && Object.keys(parseJsonSafe(sysSettings.sms_provider_config)).length === 0) {
+      const { data: superInst } = await supabaseAdmin
+        .from('institutions')
+        .select('config_json')
+        .eq('is_super_admin', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      const superCfg = parseJsonSafe(superInst?.config_json);
+      if (superCfg.system_sms_provider_config && typeof superCfg.system_sms_provider_config === 'object') {
+        effectiveSysSettings = {
+          ...sysSettings,
+          sms_provider_config: superCfg.system_sms_provider_config
+        };
+      }
+    }
+
+    const creds = resolveGatewayCredentials(targetInst, effectiveSysSettings);
     if (!hasAnyGatewayConfigured(creds)) {
       return res.status(500).json({
         error: 'SMS Gateway API key is not configured on system settings or server environment.'

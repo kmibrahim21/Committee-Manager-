@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from 'supabase';
+import { supabase, smsApi } from 'supabase';
 import { Institution, Language, UserRole, Department, Profile } from 'types';
+import {
+  DEFAULT_MASKING_SMS_RATE,
+  DEFAULT_NON_MASKING_SMS_RATE,
+  DEFAULT_VOICE_RATE,
+  resolveInstitutionSmsPricing,
+  resolveInstitutionVoiceRate
+} from 'utils/smsUtils';
 import {
   CreditCard,
   ArrowLeft,
@@ -95,6 +102,42 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ lang, madrasah, onBack, r
   const [subTransactions, setSubTransactions] = useState<any[]>([]);
   const [loadingSubTx, setLoadingSubTx] = useState<boolean>(false);
   const [downloadingReceiptId, setDownloadingReceiptId] = useState<string | null>(null);
+  const [globalRates, setGlobalRates] = useState<{
+    masking_rate: number;
+    non_masking_rate: number;
+    default_sms_type: 'non_masking' | 'masking';
+    voice_rate: number;
+  }>({
+    masking_rate: DEFAULT_MASKING_SMS_RATE,
+    non_masking_rate: DEFAULT_NON_MASKING_SMS_RATE,
+    default_sms_type: 'non_masking',
+    voice_rate: DEFAULT_VOICE_RATE
+  });
+
+  useEffect(() => {
+    let active = true;
+    smsApi.getGlobalSettings()
+      .then((res) => {
+        if (!active || !res) return;
+        setGlobalRates({
+          masking_rate: Number(res.masking_rate) > 0 ? Number(res.masking_rate) : DEFAULT_MASKING_SMS_RATE,
+          non_masking_rate: Number(res.non_masking_rate) > 0 ? Number(res.non_masking_rate) : DEFAULT_NON_MASKING_SMS_RATE,
+          default_sms_type: res.default_sms_type === 'masking' ? 'masking' : 'non_masking',
+          voice_rate: Number(res.voice_rate) > 0 ? Number(res.voice_rate) : DEFAULT_VOICE_RATE
+        });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [madrasah?.id]);
+
+  const resolvedSmsPricing = useMemo(
+    () => resolveInstitutionSmsPricing(madrasah, globalRates),
+    [madrasah, globalRates]
+  );
+  const resolvedVoiceRate = useMemo(
+    () => resolveInstitutionVoiceRate(madrasah, globalRates),
+    [madrasah, globalRates]
+  );
 
   useEffect(() => {
     if (!subscriptionsModuleEnabled && activeTab !== 'plan') {
@@ -824,8 +867,8 @@ const Subscriptions: React.FC<SubscriptionsProps> = ({ lang, madrasah, onBack, r
               </div>
               <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{lang === 'bn' ? 'SMS / ভয়েস রেট' : 'SMS / Voice Rate'}</p>
-                <p className={`text-sm font-black mt-1 ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
-                  ৳{parsedConfig?.sms_rate ?? '0.40'} / ৳{parsedConfig?.voice_rate ?? '0.50'}
+                <p className={`text-sm font-black mt-1 tabular-nums ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
+                  ৳{resolvedSmsPricing.effectiveRate} / ৳{resolvedVoiceRate}
                 </p>
               </div>
               <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>

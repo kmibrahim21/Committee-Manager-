@@ -19,11 +19,11 @@ import {
   AlertTriangle,
   RefreshCw
 } from 'lucide-react';
-import { supabase } from 'supabase';
+import { supabase, smsApi } from 'supabase';
 import { Institution, Language, Department, Member, Profile, UserRole } from 'types';
 import { t } from 'translations';
 import { sortMadrasahClasses } from 'pages/Departments';
-import { normalizePhone } from 'utils/smsUtils';
+import { DEFAULT_VOICE_RATE, normalizePhone, resolveInstitutionVoiceRate } from 'utils/smsUtils';
 import PaymentCheckout from 'components/PaymentCheckout';
 
 interface VoiceBroadcastProps {
@@ -117,7 +117,9 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
     return raw || {};
   }, [madrasah?.config_json]);
 
-  const [voiceRate, setVoiceRate] = useState<number>(() => Number(parsedInstConfig?.voice_rate) > 0 ? Number(parsedInstConfig.voice_rate) : 1.00);
+  const [voiceRate, setVoiceRate] = useState<number>(() =>
+    resolveInstitutionVoiceRate(madrasah, { voice_rate: DEFAULT_VOICE_RATE })
+  );
 
   // Error/Status Modal
   const [statusModal, setStatusModal] = useState<{show: boolean, type: 'error' | 'balance' | 'success', title: string, message: string}>({
@@ -140,12 +142,11 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   }, [activeTab, madrasah?.id, dataVersion, parsedInstConfig?.voice_rate]);
 
   const fetchSystemSettings = async () => {
-    const { data } = await supabase.from('system_settings').select('voice_rate').maybeSingle();
-    const customVoiceRate = Number(parsedInstConfig?.voice_rate);
-    if (customVoiceRate > 0) {
-      setVoiceRate(customVoiceRate);
-    } else if (data?.voice_rate) {
-      setVoiceRate(Number(data.voice_rate));
+    try {
+      const globalRates = await smsApi.getGlobalSettings();
+      setVoiceRate(resolveInstitutionVoiceRate(madrasah, globalRates));
+    } catch {
+      setVoiceRate(resolveInstitutionVoiceRate(madrasah, { voice_rate: DEFAULT_VOICE_RATE }));
     }
   };
 

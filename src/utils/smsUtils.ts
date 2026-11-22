@@ -39,7 +39,20 @@ export interface SmsRateConfig {
   non_masking_rate?: number;
   default_sms_type?: 'non_masking' | 'masking';
   sms_rate?: number;
+  voice_rate?: number;
 }
+
+const parseConfigJson = (rawCfg: any): Record<string, any> => {
+  if (typeof rawCfg === 'string') {
+    try {
+      const parsed = JSON.parse(rawCfg);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return rawCfg && typeof rawCfg === 'object' ? rawCfg : {};
+};
 
 export const resolveInstitutionSmsPricing = (
   institution: {
@@ -49,17 +62,7 @@ export const resolveInstitutionSmsPricing = (
   } | null | undefined,
   globalRates?: SmsRateConfig | null
 ) => {
-  let configObj: Record<string, any> = {};
-  const rawCfg = institution?.config_json;
-  if (typeof rawCfg === 'string') {
-    try {
-      configObj = JSON.parse(rawCfg);
-    } catch {
-      configObj = {};
-    }
-  } else if (rawCfg && typeof rawCfg === 'object') {
-    configObj = rawCfg;
-  }
+  const configObj = parseConfigJson(institution?.config_json);
 
   const maskingRate =
     Number(globalRates?.masking_rate) > 0
@@ -82,11 +85,16 @@ export const resolveInstitutionSmsPricing = (
     (explicitType !== 'non_masking' && globalRates?.default_sms_type === 'masking');
 
   const smsType: 'masking' | 'non_masking' = isMasking ? 'masking' : 'non_masking';
-  const customRate = Number(configObj?.sms_rate);
-  const hasCustomRate = Number.isFinite(customRate) && customRate > 0;
+  const rawCustomRate = Number(configObj?.sms_rate);
+  // Ignore legacy unflagged 0.40 default previously auto-written by AdminPanel
+  const isLegacyAutoDefault = configObj?.custom_sms_rate !== true && Math.abs(rawCustomRate - 0.4) < 0.0001;
+  const hasCustomRate =
+    Number.isFinite(rawCustomRate) &&
+    rawCustomRate > 0 &&
+    (configObj?.custom_sms_rate === true || !isLegacyAutoDefault);
 
   const effectiveRate = hasCustomRate
-    ? customRate
+    ? rawCustomRate
     : isMasking
       ? maskingRate
       : nonMaskingRate;
@@ -100,5 +108,31 @@ export const resolveInstitutionSmsPricing = (
     maskingRate,
     nonMaskingRate
   };
+};
+
+export const resolveInstitutionVoiceRate = (
+  institution: {
+    config_json?: any;
+  } | null | undefined,
+  globalRates?: SmsRateConfig | null
+): number => {
+  const configObj = parseConfigJson(institution?.config_json);
+  const rawCustomVoice = Number(configObj?.voice_rate);
+  // Ignore legacy unflagged 0.50 default previously auto-written by AdminPanel
+  const isLegacyAutoDefault = configObj?.custom_voice_rate !== true && Math.abs(rawCustomVoice - 0.5) < 0.0001;
+  if (
+    Number.isFinite(rawCustomVoice) &&
+    rawCustomVoice > 0 &&
+    (configObj?.custom_voice_rate === true || !isLegacyAutoDefault)
+  ) {
+    return rawCustomVoice;
+  }
+
+  const globalVoice = Number(globalRates?.voice_rate);
+  if (Number.isFinite(globalVoice) && globalVoice > 0) {
+    return globalVoice;
+  }
+
+  return DEFAULT_VOICE_RATE;
 };
 

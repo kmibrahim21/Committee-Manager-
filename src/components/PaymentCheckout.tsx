@@ -18,13 +18,14 @@ import {
   Package,
   Clock
 } from 'lucide-react';
-import { supabase } from 'supabase';
+import { supabase, smsApi } from 'supabase';
 import { Institution, Language } from 'types';
 import {
   DEFAULT_MASKING_SMS_RATE,
   DEFAULT_NON_MASKING_SMS_RATE,
   DEFAULT_VOICE_RATE,
-  resolveInstitutionSmsPricing
+  resolveInstitutionSmsPricing,
+  resolveInstitutionVoiceRate
 } from 'utils/smsUtils';
 
 export interface PaymentCheckoutProps {
@@ -137,11 +138,10 @@ export const PaymentCheckout: React.FC<PaymentCheckoutProps> = ({
 
   const effectiveSmsRate = smsPricing.effectiveRate;
 
-  const effectiveVoiceRate = useMemo(() => {
-    const custom = Number(instConfig?.voice_rate);
-    if (custom > 0) return custom;
-    return publicSettings.voice_rate > 0 ? publicSettings.voice_rate : DEFAULT_VOICE_RATE;
-  }, [instConfig?.voice_rate, publicSettings.voice_rate]);
+  const effectiveVoiceRate = useMemo(
+    () => resolveInstitutionVoiceRate(madrasah, publicSettings),
+    [madrasah, publicSettings]
+  );
 
   const parsedAmount = useMemo(() => {
     if (module === 'subscription' && fixedAmount !== undefined) {
@@ -157,76 +157,24 @@ export const PaymentCheckout: React.FC<PaymentCheckoutProps> = ({
     return Math.ceil(parsedAmount / effectiveSmsRate);
   }, [module, parsedAmount, effectiveSmsRate]);
 
-  // Fetch global payment settings via RPC with fallback to system_settings
+  // Fetch global payment & rate management settings via API + RPC/table fallbacks
   useEffect(() => {
     let active = true;
     const loadPaymentSettings = async () => {
-      let resolved: {
-        bkash_number?: string;
-        nagad_number?: string;
-        sms_rate?: number;
-        masking_rate?: number;
-        non_masking_rate?: number;
-        default_sms_type?: 'non_masking' | 'masking';
-        voice_rate?: number;
-      } = {};
-
       try {
-        const { data: rpcData, error: rpcErr } = await supabase.rpc('get_public_payment_settings');
-        const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-        if (!rpcErr && row) {
-          resolved = {
-            bkash_number: row.bkash_number || undefined,
-            nagad_number: row.nagad_number || undefined,
-            sms_rate: Number(row.sms_rate) > 0 ? Number(row.sms_rate) : undefined,
-            masking_rate: Number(row.masking_rate) > 0 ? Number(row.masking_rate) : undefined,
-            non_masking_rate: Number(row.non_masking_rate) > 0 ? Number(row.non_masking_rate) : undefined,
-            default_sms_type: row.default_sms_type === 'masking' ? 'masking' : row.default_sms_type === 'non_masking' ? 'non_masking' : undefined,
-            voice_rate: Number(row.voice_rate) > 0 ? Number(row.voice_rate) : undefined
-          };
-        }
-      } catch {
-        // Fallback below
-      }
-
-      if (!resolved.masking_rate || !resolved.non_masking_rate || !resolved.bkash_number) {
-        try {
-          const { data: sysRow } = await supabase
-            .from('system_settings')
-            .select('*')
-            .order('id', { ascending: true })
-            .limit(1)
-            .maybeSingle();
-
-          if (sysRow) {
-            const pCfg = (sysRow.sms_provider_config && typeof sysRow.sms_provider_config === 'object')
-              ? sysRow.sms_provider_config
-              : {};
-            resolved = {
-              bkash_number: resolved.bkash_number || sysRow.bkash_number || undefined,
-              nagad_number: resolved.nagad_number ?? sysRow.nagad_number ?? undefined,
-              sms_rate: resolved.sms_rate || (Number(sysRow.sms_rate) > 0 ? Number(sysRow.sms_rate) : undefined),
-              masking_rate: resolved.masking_rate || (Number(pCfg.masking_rate) > 0 ? Number(pCfg.masking_rate) : undefined),
-              non_masking_rate: resolved.non_masking_rate || (Number(pCfg.non_masking_rate) > 0 ? Number(pCfg.non_masking_rate) : Number(sysRow.sms_rate) > 0 ? Number(sysRow.sms_rate) : undefined),
-              default_sms_type: resolved.default_sms_type || (pCfg.default_type === 'masking' ? 'masking' : 'non_masking'),
-              voice_rate: resolved.voice_rate || (Number(sysRow.voice_rate) > 0 ? Number(sysRow.voice_rate) : undefined)
-            };
-          }
-        } catch (err) {
-          console.error('Failed to load payment settings:', err);
-        }
-      }
-
-      if (active) {
+        const res = await smsApi.getGlobalSettings();
+        if (!active || !res) return;
         setPublicSettings((prev) => ({
-          bkash_number: resolved.bkash_number || prev.bkash_number,
-          nagad_number: resolved.nagad_number ?? prev.nagad_number,
-          sms_rate: resolved.sms_rate || prev.sms_rate,
-          masking_rate: resolved.masking_rate || prev.masking_rate,
-          non_masking_rate: resolved.non_masking_rate || resolved.sms_rate || prev.non_masking_rate,
-          default_sms_type: resolved.default_sms_type || prev.default_sms_type,
-          voice_rate: resolved.voice_rate || prev.voice_rate
+          bkash_number: res.bkash_number || prev.bkash_number,
+          nagad_number: res.nagad_number ?? prev.nagad_number,
+          sms_rate: Number(res.sms_rate) > 0 ? Number(res.sms_rate) : prev.sms_rate,
+          masking_rate: Number(res.masking_rate) > 0 ? Number(res.masking_rate) : prev.masking_rate,
+          non_masking_rate: Number(res.non_masking_rate) > 0 ? Number(res.non_masking_rate) : prev.non_masking_rate,
+          default_sms_type: res.default_sms_type === 'masking' ? 'masking' : 'non_masking',
+          voice_rate: Number(res.voice_rate) > 0 ? Number(res.voice_rate) : prev.voice_rate
         }));
+      } catch (err) {
+        console.error('Failed to load payment settings:', err);
       }
     };
 
@@ -784,30 +732,9 @@ export const PaymentCheckout: React.FC<PaymentCheckoutProps> = ({
           </div>
 
           {parsedAmount > 0 && module !== 'subscription' && (
-            <div className={`p-3.5 rounded-2xl border space-y-2 ${
+            <div className={`p-3.5 rounded-2xl border ${
               isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-[#42f5e9]/10 border-[#42f5e9]/30'
             }`}>
-              {module === 'sms' && (
-                <div className="flex items-center justify-between gap-2 text-[11px] font-black">
-                  <div className="flex items-center gap-1.5">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                      smsPricing.isMasking
-                        ? isDark ? 'bg-[#42f5e9]/20 text-[#42f5e9]' : 'bg-[#0fb5ab] text-white'
-                        : isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-100 text-emerald-700'
-                    }`}>
-                      {smsPricing.isMasking ? 'Masking' : 'Non-Masking'}
-                    </span>
-                    {smsPricing.hasCustomRate && (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] bg-amber-500/15 text-amber-500">
-                        Custom Rate
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-slate-400 tabular-nums">
-                    ৳{effectiveSmsRate} / SMS (৳100 = {Math.ceil(100 / effectiveSmsRate)} SMS)
-                  </span>
-                </div>
-              )}
               <div className="flex items-center justify-between text-xs font-black">
                 <span className="text-slate-400">
                   {module === 'sms'

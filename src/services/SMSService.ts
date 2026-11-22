@@ -34,6 +34,44 @@ export const SMSService = {
       voice_rate: 0.50,
       sms_provider_config: null as any
     };
+
+    try {
+      const apiRes = await fetch('/api/admin/system-settings?public=1', {
+        cache: 'no-store'
+      });
+      if (apiRes.ok) {
+        const json = await apiRes.json();
+        const s = json?.settings;
+        if (s) {
+          const nonMaskingRate = Number(s.non_masking_rate) > 0
+            ? Number(s.non_masking_rate)
+            : Number(s.sms_rate) > 0
+              ? Number(s.sms_rate)
+              : defaults.non_masking_rate;
+          const maskingRate = Number(s.masking_rate) > 0
+            ? Number(s.masking_rate)
+            : defaults.masking_rate;
+          const voiceRate = Number(s.voice_rate) > 0
+            ? Number(s.voice_rate)
+            : defaults.voice_rate;
+
+          return {
+            ...defaults,
+            id: s.id ?? null,
+            bkash_number: s.bkash_number ?? defaults.bkash_number,
+            nagad_number: s.nagad_number || '',
+            sms_rate: nonMaskingRate,
+            non_masking_rate: nonMaskingRate,
+            masking_rate: maskingRate,
+            default_sms_type: (s.default_sms_type === 'masking' ? 'masking' : 'non_masking') as 'non_masking' | 'masking',
+            voice_rate: voiceRate
+          };
+        }
+      }
+    } catch {
+      // Fallback to direct Supabase query below
+    }
+
     try {
       const { data } = await supabase
         .from('system_settings')
@@ -42,52 +80,78 @@ export const SMSService = {
         .limit(1)
         .maybeSingle();
 
-      if (!data) return defaults;
+      if (data) {
+        let providerCfg: any = data.sms_provider_config;
+        if (typeof providerCfg === 'string') {
+          try { providerCfg = JSON.parse(providerCfg); } catch { providerCfg = {}; }
+        }
+        providerCfg = providerCfg && typeof providerCfg === 'object' ? providerCfg : {};
 
-      let providerCfg: any = data.sms_provider_config;
-      if (typeof providerCfg === 'string') {
-        try { providerCfg = JSON.parse(providerCfg); } catch { providerCfg = {}; }
+        const nonMaskingRate =
+          Number(providerCfg?.non_masking_rate) > 0
+            ? Number(providerCfg.non_masking_rate)
+            : Number(data.sms_rate) > 0
+              ? Number(data.sms_rate)
+              : defaults.non_masking_rate;
+
+        const maskingRate =
+          Number(providerCfg?.masking_rate) > 0
+            ? Number(providerCfg.masking_rate)
+            : defaults.masking_rate;
+
+        const defaultSmsType: 'non_masking' | 'masking' =
+          providerCfg?.default_type === 'masking' ? 'masking' : 'non_masking';
+
+        return {
+          id: data.id ?? null,
+          reve_api_key: data.reve_api_key || providerCfg?.reve?.api_key || '',
+          reve_secret_key: data.reve_secret_key || providerCfg?.reve?.secret_key || '',
+          reve_client_id: data.reve_client_id || providerCfg?.reve?.client_id || '',
+          reve_caller_id: data.reve_caller_id || providerCfg?.reve?.caller_id || defaults.reve_caller_id,
+          reve_non_masking_id: data.reve_non_masking_id || providerCfg?.reve?.non_masking_id || data.reve_caller_id || '',
+          automas_api_key: data.automas_api_key || providerCfg?.automas?.api_key || '',
+          automas_non_masking_sender_id: data.automas_non_masking_sender_id || providerCfg?.automas?.non_masking_sender_id || '',
+          automas_masking_sender_id: data.automas_masking_sender_id || providerCfg?.automas?.masking_sender_id || '',
+          bkash_number: data.bkash_number ?? defaults.bkash_number,
+          nagad_number: data.nagad_number || '',
+          rocket_number: data.rocket_number || '',
+          sms_rate: nonMaskingRate,
+          non_masking_rate: nonMaskingRate,
+          masking_rate: maskingRate,
+          default_sms_type: defaultSmsType,
+          voice_rate: Number(data.voice_rate) > 0 ? Number(data.voice_rate) : defaults.voice_rate,
+          sms_provider_config: providerCfg
+        };
       }
-      providerCfg = providerCfg && typeof providerCfg === 'object' ? providerCfg : {};
-
-      const nonMaskingRate =
-        Number(providerCfg?.non_masking_rate) > 0
-          ? Number(providerCfg.non_masking_rate)
-          : Number(data.sms_rate) > 0
-            ? Number(data.sms_rate)
-            : defaults.non_masking_rate;
-
-      const maskingRate =
-        Number(providerCfg?.masking_rate) > 0
-          ? Number(providerCfg.masking_rate)
-          : defaults.masking_rate;
-
-      const defaultSmsType: 'non_masking' | 'masking' =
-        providerCfg?.default_type === 'masking' ? 'masking' : 'non_masking';
-
-      return {
-        id: data.id ?? null,
-        reve_api_key: data.reve_api_key || providerCfg?.reve?.api_key || '',
-        reve_secret_key: data.reve_secret_key || providerCfg?.reve?.secret_key || '',
-        reve_client_id: data.reve_client_id || providerCfg?.reve?.client_id || '',
-        reve_caller_id: data.reve_caller_id || providerCfg?.reve?.caller_id || defaults.reve_caller_id,
-        reve_non_masking_id: data.reve_non_masking_id || providerCfg?.reve?.non_masking_id || data.reve_caller_id || '',
-        automas_api_key: data.automas_api_key || providerCfg?.automas?.api_key || '',
-        automas_non_masking_sender_id: data.automas_non_masking_sender_id || providerCfg?.automas?.non_masking_sender_id || '',
-        automas_masking_sender_id: data.automas_masking_sender_id || providerCfg?.automas?.masking_sender_id || '',
-        bkash_number: data.bkash_number ?? defaults.bkash_number,
-        nagad_number: data.nagad_number || '',
-        rocket_number: data.rocket_number || '',
-        sms_rate: nonMaskingRate,
-        non_masking_rate: nonMaskingRate,
-        masking_rate: maskingRate,
-        default_sms_type: defaultSmsType,
-        voice_rate: Number(data.voice_rate) > 0 ? Number(data.voice_rate) : defaults.voice_rate,
-        sms_provider_config: providerCfg
-      };
     } catch {
-      return defaults;
+      // Fallback to RPC below
     }
+
+    try {
+      const { data: rpcData } = await supabase.rpc('get_public_payment_settings');
+      const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      if (row) {
+        const nonMaskingRate = Number(row.non_masking_rate) > 0
+          ? Number(row.non_masking_rate)
+          : Number(row.sms_rate) > 0
+            ? Number(row.sms_rate)
+            : defaults.non_masking_rate;
+        return {
+          ...defaults,
+          bkash_number: row.bkash_number || defaults.bkash_number,
+          nagad_number: row.nagad_number || '',
+          sms_rate: nonMaskingRate,
+          non_masking_rate: nonMaskingRate,
+          masking_rate: Number(row.masking_rate) > 0 ? Number(row.masking_rate) : defaults.masking_rate,
+          default_sms_type: (row.default_sms_type === 'masking' ? 'masking' : 'non_masking') as 'non_masking' | 'masking',
+          voice_rate: Number(row.voice_rate) > 0 ? Number(row.voice_rate) : defaults.voice_rate
+        };
+      }
+    } catch {
+      // Ignore
+    }
+
+    return defaults;
   },
 
   sendBulk: async (institutionId: string, students: Member[], message: string) => {

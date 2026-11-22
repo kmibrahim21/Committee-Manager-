@@ -223,10 +223,31 @@ serve(async (req: Request) => {
     let updatedSmsCount = Number(matchedTrx.sms_count || 0);
 
     if (moduleName === "sms") {
-      const providerCfg =
+      let providerCfg =
         sysSettings?.sms_provider_config && typeof sysSettings.sms_provider_config === "object"
           ? sysSettings.sms_provider_config
-          : {};
+          : null;
+
+      if (!providerCfg || Object.keys(providerCfg).length === 0) {
+        const { data: superInst } = await supabaseAdmin
+          .from("institutions")
+          .select("config_json")
+          .eq("is_super_admin", true)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        let superCfg: Record<string, any> = {};
+        if (typeof superInst?.config_json === "string") {
+          try { superCfg = JSON.parse(superInst.config_json); } catch { superCfg = {}; }
+        } else if (superInst?.config_json && typeof superInst.config_json === "object") {
+          superCfg = superInst.config_json;
+        }
+        providerCfg =
+          superCfg?.system_sms_provider_config && typeof superCfg.system_sms_provider_config === "object"
+            ? superCfg.system_sms_provider_config
+            : {};
+      }
+
       const globalMaskingRate =
         Number(providerCfg.masking_rate) > 0 ? Number(providerCfg.masking_rate) : 0.55;
       const globalNonMaskingRate =
@@ -243,12 +264,18 @@ serve(async (req: Request) => {
         explicitType === "masking" ||
         (explicitType !== "non_masking" && providerCfg.default_type === "masking");
 
-      const effectiveSmsRate =
-        Number(instConfig?.sms_rate) > 0
-          ? Number(instConfig.sms_rate)
-          : isMasking
-            ? globalMaskingRate
-            : globalNonMaskingRate;
+      const rawCustomRate = Number(instConfig?.sms_rate);
+      const isLegacyAutoDefault = instConfig?.custom_sms_rate !== true && Math.abs(rawCustomRate - 0.4) < 0.0001;
+      const hasCustomRate =
+        Number.isFinite(rawCustomRate) &&
+        rawCustomRate > 0 &&
+        (instConfig?.custom_sms_rate === true || !isLegacyAutoDefault);
+
+      const effectiveSmsRate = hasCustomRate
+        ? rawCustomRate
+        : isMasking
+          ? globalMaskingRate
+          : globalNonMaskingRate;
 
       if (updatedSmsCount <= 0) {
         updatedSmsCount = Math.ceil(amount / effectiveSmsRate);

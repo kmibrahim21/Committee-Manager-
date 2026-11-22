@@ -187,16 +187,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
   const [editVoiceSenderId, setEditVoiceSenderId] = useState('');
   const [editSmsType, setEditSmsType] = useState<'non_masking' | 'masking'>('non_masking');
   const [editSmsRate, setEditSmsRate] = useState<string>('');
-  const [editVoiceRate, setEditVoiceRate] = useState<number>(DEFAULT_VOICE_RATE);
+  const [editVoiceRate, setEditVoiceRate] = useState<string>('');
   const [editMemberLimit, setEditMemberLimit] = useState<number>(0);
   const [globalSmsRates, setGlobalSmsRates] = useState<{
     masking_rate: number;
     non_masking_rate: number;
     default_sms_type: 'non_masking' | 'masking';
+    voice_rate: number;
   }>({
     masking_rate: DEFAULT_MASKING_SMS_RATE,
     non_masking_rate: DEFAULT_NON_MASKING_SMS_RATE,
-    default_sms_type: 'non_masking'
+    default_sms_type: 'non_masking',
+    voice_rate: DEFAULT_VOICE_RATE
   });
 
   const [editModules, setEditModules] = useState<Record<string, boolean>>({
@@ -404,6 +406,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
           });
           return next;
         });
+        setSmsToCredit(prev => {
+          const next = { ...prev };
+          pTrans.forEach((tr: any) => {
+            if (next[tr.id] !== undefined) return;
+            const desc = String(tr.description || '').toLowerCase();
+            const isSub = tr.module === 'subscription' || desc.includes('subscription') || String(tr.transaction_id || '').toUpperCase().startsWith('SUB_');
+            const isVoice = !isSub && (tr.module === 'voice' || desc.includes('voice'));
+            if (isSub || isVoice) return;
+            if (Number(tr.sms_count) > 0) {
+              next[tr.id] = String(tr.sms_count);
+            } else if (Number(tr.amount) > 0) {
+              const pricing = resolveInstitutionSmsPricing(tr.institutions, globalSmsRates);
+              next[tr.id] = String(Math.ceil(Number(tr.amount) / pricing.effectiveRate));
+            }
+          });
+          return next;
+        });
       }
     } catch (err) { 
       console.error("AdminPanel Init Error:", err); 
@@ -424,7 +443,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         setGlobalSmsRates({
           masking_rate: Number(res.masking_rate) > 0 ? Number(res.masking_rate) : DEFAULT_MASKING_SMS_RATE,
           non_masking_rate: Number(res.non_masking_rate) > 0 ? Number(res.non_masking_rate) : DEFAULT_NON_MASKING_SMS_RATE,
-          default_sms_type: res.default_sms_type === 'masking' ? 'masking' : 'non_masking'
+          default_sms_type: res.default_sms_type === 'masking' ? 'masking' : 'non_masking',
+          voice_rate: Number(res.voice_rate) > 0 ? Number(res.voice_rate) : DEFAULT_VOICE_RATE
         });
       })
       .catch(() => {});
@@ -863,8 +883,19 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
     );
     setEditSmsType(resolvedPricing.smsType);
     const customSmsRate = Number(userConfig?.sms_rate);
-    setEditSmsRate(Number.isFinite(customSmsRate) && customSmsRate > 0 ? String(customSmsRate) : '');
-    setEditVoiceRate(Number(userConfig?.voice_rate) > 0 ? Number(userConfig.voice_rate) : DEFAULT_VOICE_RATE);
+    const isLegacyAutoSms = userConfig?.custom_sms_rate !== true && Math.abs(customSmsRate - 0.4) < 0.0001;
+    setEditSmsRate(
+      Number.isFinite(customSmsRate) && customSmsRate > 0 && (userConfig?.custom_sms_rate === true || !isLegacyAutoSms)
+        ? String(customSmsRate)
+        : ''
+    );
+    const customVoiceRate = Number(userConfig?.voice_rate);
+    const isLegacyAutoVoice = userConfig?.custom_voice_rate !== true && Math.abs(customVoiceRate - 0.5) < 0.0001;
+    setEditVoiceRate(
+      Number.isFinite(customVoiceRate) && customVoiceRate > 0 && (userConfig?.custom_voice_rate === true || !isLegacyAutoVoice)
+        ? String(customVoiceRate)
+        : ''
+    );
     setEditMemberLimit(Number(userConfig?.member_limit) || 0);
 
     const userModules = { ...(userConfig?.modules || {}) };
@@ -964,6 +995,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
       const validCustomSmsRate = Number.isFinite(parsedCustomSmsRate) && parsedCustomSmsRate > 0
         ? Math.round(parsedCustomSmsRate * 10000) / 10000
         : null;
+      const parsedCustomVoiceRate = parseFloat(String(editVoiceRate || '').trim());
+      const validCustomVoiceRate = Number.isFinite(parsedCustomVoiceRate) && parsedCustomVoiceRate > 0
+        ? Math.round(parsedCustomVoiceRate * 10000) / 10000
+        : null;
       const effectiveSmsType: 'non_masking' | 'masking' = editReveClientId.trim() ? 'masking' : editSmsType;
 
       const nextConfigJson: Record<string, any> = {
@@ -971,7 +1006,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
         modules: editModules,
         member_limit: Number(editMemberLimit) || 0,
         sms_type: effectiveSmsType,
-        voice_rate: Number(editVoiceRate) || DEFAULT_VOICE_RATE,
         attendance_type: editAttendanceType,
         fee_structure: editFeeStructure,
         subscription_type: editSubscriptionType,
@@ -988,8 +1022,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
 
       if (validCustomSmsRate !== null) {
         nextConfigJson.sms_rate = validCustomSmsRate;
+        nextConfigJson.custom_sms_rate = true;
       } else {
         delete nextConfigJson.sms_rate;
+        delete nextConfigJson.custom_sms_rate;
+      }
+
+      if (validCustomVoiceRate !== null) {
+        nextConfigJson.voice_rate = validCustomVoiceRate;
+        nextConfigJson.custom_voice_rate = true;
+      } else {
+        delete nextConfigJson.voice_rate;
+        delete nextConfigJson.custom_voice_rate;
       }
 
       const updatePayload: Record<string, any> = {
@@ -2693,8 +2737,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ lang, currentView = 'list', dat
                               </p>
                             </div>
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Voice Rate (BDT)</label>
-                              <input type="number" step="0.01" min="0" className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`} value={editVoiceRate} onChange={(e) => setEditVoiceRate(parseFloat(e.target.value) || 0)} placeholder="0.50" />
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                                Custom Voice Rate (BDT) — Optional
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className={`w-full h-12 ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'} border rounded-xl px-4 font-black text-sm outline-none focus:border-[#0fb5ab]`}
+                                value={editVoiceRate}
+                                onChange={(e) => setEditVoiceRate(e.target.value)}
+                                placeholder={`Auto (${globalSmsRates.voice_rate} ৳)`}
+                              />
+                              <p className="text-[10px] font-bold text-slate-400 px-1">
+                                খালি বা ০ রাখলে গ্লোবাল Voice Call রেট ({globalSmsRates.voice_rate} ৳) প্রযোজ্য হবে।
+                              </p>
                             </div>
                           </div>
                         </div>

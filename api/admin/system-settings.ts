@@ -15,6 +15,7 @@ const sanitizeProviderConfig = (raw: any) => {
   if (!raw || typeof raw !== 'object') return null;
   const maskingRate = Number(raw.masking_rate);
   const nonMaskingRate = Number(raw.non_masking_rate);
+  const voiceRate = Number(raw.voice_rate);
 
   const reve = raw.reve && typeof raw.reve === 'object' ? raw.reve : {};
   const automas = raw.automas && typeof raw.automas === 'object' ? raw.automas : {};
@@ -23,6 +24,7 @@ const sanitizeProviderConfig = (raw: any) => {
     default_type: raw.default_type === 'masking' ? 'masking' : 'non_masking',
     masking_rate: Number.isFinite(maskingRate) && maskingRate > 0 ? maskingRate : 0.55,
     non_masking_rate: Number.isFinite(nonMaskingRate) && nonMaskingRate > 0 ? nonMaskingRate : 0.35,
+    ...(Number.isFinite(voiceRate) && voiceRate > 0 ? { voice_rate: voiceRate } : {}),
     primary: {
       masking: raw.primary?.masking || 'reve',
       non_masking: raw.primary?.non_masking || 'automas'
@@ -40,6 +42,59 @@ const sanitizeProviderConfig = (raw: any) => {
       masking_sender_id: String(automas.masking_sender_id ?? '').trim()
     }
   };
+};
+
+const parseConfigObj = (raw: any): Record<string, any> => {
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return raw && typeof raw === 'object' ? { ...raw } : {};
+};
+
+const getFallbackProviderConfig = async (supabaseAdmin: any) => {
+  try {
+    const { data } = await supabaseAdmin
+      .from('institutions')
+      .select('id, config_json')
+      .eq('is_super_admin', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return null;
+    const cfg = parseConfigObj(data.config_json);
+    return cfg.system_sms_provider_config && typeof cfg.system_sms_provider_config === 'object'
+      ? cfg.system_sms_provider_config
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveFallbackProviderConfig = async (supabaseAdmin: any, cleanCfg: any) => {
+  try {
+    const { data } = await supabaseAdmin
+      .from('institutions')
+      .select('id, config_json')
+      .eq('is_super_admin', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!data?.id) return false;
+    const cfg = parseConfigObj(data.config_json);
+    cfg.system_sms_provider_config = cleanCfg;
+    const { error } = await supabaseAdmin
+      .from('institutions')
+      .update({ config_json: cfg })
+      .eq('id', data.id);
+    return !error;
+  } catch {
+    return false;
+  }
 };
 
 export default async function handler(req: any, res: any) {
@@ -62,6 +117,66 @@ export default async function handler(req: any, res: any) {
 
   try {
     const supabaseAdmin = getSupabaseAdmin();
+
+    // Public read-only endpoint for safe pricing & payment numbers (never exposes API keys)
+    const isPublicRequest =
+      req.method === 'GET' &&
+      (req.query?.public === '1' ||
+        req.query?.public === 'true' ||
+        req.query?.scope === 'public');
+
+    if (isPublicRequest) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      const { data: row, error } = await supabaseAdmin
+        .from('system_settings')
+        .select('*')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      let providerCfg = parseConfigObj(row?.sms_provider_config);
+      if (Object.keys(providerCfg).length === 0) {
+        const fallbackCfg = await getFallbackProviderConfig(supabaseAdmin);
+        if (fallbackCfg) providerCfg = fallbackCfg;
+      }
+
+      const nonMaskingRate =
+        Number(providerCfg?.non_masking_rate) > 0
+          ? Number(providerCfg.non_masking_rate)
+          : Number(row?.sms_rate) > 0
+            ? Number(row.sms_rate)
+            : 0.35;
+
+      const maskingRate =
+        Number(providerCfg?.masking_rate) > 0
+          ? Number(providerCfg.masking_rate)
+          : 0.55;
+
+      const voiceRate =
+        Number(row?.voice_rate) > 0
+          ? Number(row.voice_rate)
+          : Number(providerCfg?.voice_rate) > 0
+            ? Number(providerCfg.voice_rate)
+            : 0.50;
+
+      const defaultSmsType = providerCfg?.default_type === 'masking' ? 'masking' : 'non_masking';
+
+      return res.status(200).json({
+        success: true,
+        settings: {
+          id: row?.id ?? null,
+          bkash_number: row?.bkash_number || '',
+          nagad_number: row?.nagad_number || '',
+          sms_rate: nonMaskingRate,
+          non_masking_rate: nonMaskingRate,
+          masking_rate: maskingRate,
+          default_sms_type: defaultSmsType,
+          voice_rate: voiceRate
+        }
+      });
+    }
 
     // Verify caller authentication & super_admin role
     const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
@@ -108,6 +223,12 @@ export default async function handler(req: any, res: any) {
         .maybeSingle();
 
       if (error) throw error;
+      if (data && !data.sms_provider_config) {
+        const fallbackCfg = await getFallbackProviderConfig(supabaseAdmin);
+        if (fallbackCfg) {
+          data.sms_provider_config = fallbackCfg;
+        }
+      }
       return res.status(200).json({ success: true, settings: data || null });
     }
 
@@ -198,23 +319,22 @@ export default async function handler(req: any, res: any) {
     let savedRow: any = null;
     if (existingRow && existingRow.id !== undefined && existingRow.id !== null) {
       const hasSmsProviderConfigCol = Object.prototype.hasOwnProperty.call(existingRow, 'sms_provider_config');
-      const missingNonEmptyCols: string[] = [];
+      const missingCriticalCols: string[] = [];
       const filteredPayload: Record<string, any> = {};
 
       for (const [col, val] of Object.entries(updatePayload)) {
         if (Object.prototype.hasOwnProperty.call(existingRow, col)) {
           filteredPayload[col] = val;
         } else if (val !== '' && val !== null && val !== undefined) {
-          // If sms_provider_config column exists, gateway subfields are also stored in jsonb
-          const coveredByJsonb =
-            hasSmsProviderConfigCol &&
-            col !== 'bkash_number' &&
-            col !== 'nagad_number' &&
-            col !== 'sms_provider_config';
-          if (!coveredByJsonb) {
-            missingNonEmptyCols.push(col);
+          if (col === 'bkash_number' || col === 'nagad_number') {
+            missingCriticalCols.push(col);
           }
         }
+      }
+
+      let storedInFallback = false;
+      if (!hasSmsProviderConfigCol && updatePayload.sms_provider_config) {
+        storedInFallback = await saveFallbackProviderConfig(supabaseAdmin, updatePayload.sms_provider_config);
       }
 
       if (Object.keys(filteredPayload).length > 0) {
@@ -231,16 +351,20 @@ export default async function handler(req: any, res: any) {
         savedRow = existingRow;
       }
 
-      if (missingNonEmptyCols.length > 0) {
-        const alterSql = missingNonEmptyCols
-          .map((c) => {
-            const colType = c === 'sms_provider_config' ? "JSONB DEFAULT '{}'::jsonb" : 'TEXT';
-            return `ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS ${c} ${colType};`;
-          })
+      if (!hasSmsProviderConfigCol && updatePayload.sms_provider_config && storedInFallback) {
+        savedRow = {
+          ...savedRow,
+          sms_provider_config: updatePayload.sms_provider_config
+        };
+      }
+
+      if (missingCriticalCols.length > 0) {
+        const alterSql = missingCriticalCols
+          .map((c) => `ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS ${c} TEXT;`)
           .join(' ');
         return res.status(422).json({
-          error: `Database column missing in system_settings: ${missingNonEmptyCols.join(', ')}. Please run in Supabase SQL Editor: ${alterSql}`,
-          missing_columns: missingNonEmptyCols,
+          error: `Database column missing in system_settings: ${missingCriticalCols.join(', ')}. Please run in Supabase SQL Editor: ${alterSql}`,
+          missing_columns: missingCriticalCols,
           settings: savedRow
         });
       }

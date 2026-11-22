@@ -104,14 +104,23 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
     const nonMaskingRate =
       Number(providerCfg?.non_masking_rate) > 0
         ? Number(providerCfg.non_masking_rate)
-        : Number(row.sms_rate) > 0
-          ? Number(row.sms_rate)
-          : 0.35;
+        : Number(row.non_masking_rate) > 0
+          ? Number(row.non_masking_rate)
+          : Number(row.sms_rate) > 0
+            ? Number(row.sms_rate)
+            : 0.35;
 
     const maskingRate =
       Number(providerCfg?.masking_rate) > 0
         ? Number(providerCfg.masking_rate)
-        : 0.55;
+        : Number(row.masking_rate) > 0
+          ? Number(row.masking_rate)
+          : 0.55;
+
+    const defaultSmsType: 'non_masking' | 'masking' =
+      providerCfg?.default_type === 'masking' || row.default_sms_type === 'masking'
+        ? 'masking'
+        : 'non_masking';
 
     setGlobalSettings({
       id: row.id ?? null,
@@ -128,8 +137,8 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
       sms_rate: nonMaskingRate,
       non_masking_rate: nonMaskingRate,
       masking_rate: maskingRate,
-      default_sms_type: providerCfg?.default_type === 'masking' ? 'masking' : 'non_masking',
-      voice_rate: Number(row.voice_rate) > 0 ? Number(row.voice_rate) : 0.50
+      default_sms_type: defaultSmsType,
+      voice_rate: Number(row.voice_rate) > 0 ? Number(row.voice_rate) : (Number(providerCfg?.voice_rate) > 0 ? Number(providerCfg.voice_rate) : 0.50)
     });
   };
 
@@ -259,12 +268,26 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
   };
 
   const handleSaveBulkSMS = async () => {
-    setSaving(true);
     setBulkSmsError('');
+    const nonMaskingRate = Number(globalSettings.non_masking_rate);
+    const maskingRate = Number(globalSettings.masking_rate);
+    const voiceRate = Number(globalSettings.voice_rate);
+
+    if (!Number.isFinite(nonMaskingRate) || nonMaskingRate <= 0) {
+      setBulkSmsError(lang === 'bn' ? 'সঠিক Non-Masking SMS রেট দিন (০-এর বেশি)।' : 'Please enter a valid Non-Masking SMS rate (> 0).');
+      return;
+    }
+    if (!Number.isFinite(maskingRate) || maskingRate <= 0) {
+      setBulkSmsError(lang === 'bn' ? 'সঠিক Masking SMS রেট দিন (০-এর বেশি)।' : 'Please enter a valid Masking SMS rate (> 0).');
+      return;
+    }
+    if (!Number.isFinite(voiceRate) || voiceRate <= 0) {
+      setBulkSmsError(lang === 'bn' ? 'সঠিক Voice Call রেট দিন (০-এর বেশি)।' : 'Please enter a valid Voice Call rate (> 0).');
+      return;
+    }
+
+    setSaving(true);
     try {
-      const nonMaskingRate = Number(globalSettings.non_masking_rate) > 0 ? Number(globalSettings.non_masking_rate) : 0.35;
-      const maskingRate = Number(globalSettings.masking_rate) > 0 ? Number(globalSettings.masking_rate) : 0.55;
-      const voiceRate = Number(globalSettings.voice_rate) > 0 ? Number(globalSettings.voice_rate) : 0.50;
 
       const reveApiKey = (globalSettings.reve_api_key || '').trim();
       const reveSecretKey = (globalSettings.reve_secret_key || '').trim();
@@ -280,6 +303,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
         default_type: globalSettings.default_sms_type,
         masking_rate: maskingRate,
         non_masking_rate: nonMaskingRate,
+        voice_rate: voiceRate,
         primary: {
           masking: 'reve',
           non_masking: 'automas'

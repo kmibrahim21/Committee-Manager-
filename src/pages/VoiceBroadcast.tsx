@@ -199,10 +199,9 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
         .order('created_at', { ascending: false });
       
       if (localVoices) {
-        // Sync statuses and IDs from Awaj API
+        // Sync statuses and IDs from Awaj API without downgrading admin-approved ready voices
         const syncedVoices = [];
         for (const localVoice of localVoices) {
-          // Try to find matching voice in API by ID, provider_voice_name, or clean/exact title
           const localTitleLower = String(localVoice.title || '').trim().toLowerCase();
           const localProviderNameLower = String(localVoice.provider_voice_name || '').trim().toLowerCase();
           const awajVoice = apiVoices.find(v => {
@@ -218,20 +217,48 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
           });
 
           if (awajVoice) {
-            const newStatus = awajVoice.status || 'approved';
+            const apiAudioUrl = String(
+              awajVoice.previewUrl || awajVoice.preview_url || awajVoice.file_url || awajVoice.audioUrl || awajVoice.url || ''
+            ).trim();
+            const rawApiStatus = String(awajVoice.status || '').toLowerCase();
+
+            let newStatus: string;
+            if (rawApiStatus === 'rejected') {
+              newStatus = 'rejected';
+            } else if (rawApiStatus === 'approved' || Boolean(apiAudioUrl)) {
+              newStatus = 'approved';
+            } else if (
+              localVoice.admin_status === 'approved' &&
+              (localVoice.provider_voice_id || localVoice.file_url)
+            ) {
+              newStatus = 'approved';
+            } else {
+              newStatus = rawApiStatus || localVoice.provider_status || 'pending';
+            }
+
             const newProviderId = awajVoice.id ? awajVoice.id.toString() : localVoice.provider_voice_id;
             const newProviderName = awajVoice.name || localVoice.provider_voice_name;
-            
-            if (localVoice.provider_status !== newStatus || localVoice.provider_voice_id !== newProviderId || localVoice.provider_voice_name !== newProviderName) {
-              await supabase.from('voice_templates').update({ 
+            const newFileUrl = localVoice.file_url || apiAudioUrl;
+
+            if (
+              localVoice.provider_status !== newStatus ||
+              localVoice.provider_voice_id !== newProviderId ||
+              localVoice.provider_voice_name !== newProviderName ||
+              (!localVoice.file_url && newFileUrl)
+            ) {
+              await supabase.from('voice_templates').update({
                 provider_status: newStatus,
                 provider_voice_id: newProviderId,
-                provider_voice_name: newProviderName
+                provider_voice_name: newProviderName,
+                ...(newFileUrl && !localVoice.file_url ? { file_url: newFileUrl } : {})
               }).eq('id', localVoice.id);
-              
+
               localVoice.provider_status = newStatus;
               localVoice.provider_voice_id = newProviderId;
               localVoice.provider_voice_name = newProviderName;
+              if (newFileUrl && !localVoice.file_url) {
+                localVoice.file_url = newFileUrl;
+              }
             }
           }
           syncedVoices.push(localVoice);
@@ -731,15 +758,15 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
         throw new Error('No valid 11-digit phone numbers (01...) found for the selected class.');
       }
 
-      // Get the selected template to get the awaj_voice_id
+      // Get the selected template to verify approval & Awaj identity
       const voice = voices.find(v => v.id === selectedVoiceId);
       if (!voice) throw new Error('Selected voice not found.');
 
-      if (!voice.provider_voice_id) {
+      if (!voice.provider_voice_id && !(voice.provider_voice_name && voice.file_url)) {
         throw new Error('This voice is not yet linked to Awaj Digital. Please try refreshing the page.');
       }
 
-      if (voice.provider_status !== 'approved' && voice.status !== 'approved') {
+      if (!isVoiceUsableForBroadcast(voice) && voice.status !== 'approved') {
         throw new Error('This voice is not yet approved by Awaj Digital.');
       }
 
@@ -979,6 +1006,20 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
     }
   };
 
+  const isVoiceUsableForBroadcast = (v: any) =>
+    v.admin_status === 'approved' &&
+    (v.provider_status === 'approved' || Boolean(v.provider_voice_name && v.file_url));
+
+  const getPlayableAudioSrc = (rawUrl: string): string => {
+    const trimmed = String(rawUrl || '').trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('/api/awaj/stream')) return trimmed;
+    if (trimmed.includes('awajdigital.com') || trimmed.startsWith('/')) {
+      return `/api/awaj/stream?url=${encodeURIComponent(trimmed)}`;
+    }
+    return trimmed;
+  };
+
   const getSelectedClassName = () => {
     const cls = departments.find(c => c.id === selectedClassId);
     return cls ? cls.name : (lang === 'bn' ? 'কমিটি নির্বাচন করুন' : 'Select Committee');
@@ -1067,7 +1108,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                       </button>
                       {showVoiceDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-[2rem] shadow-bubble border border-slate-100 z-[100] p-2 max-h-60 overflow-y-auto">
-                          {voices.filter(v => v.admin_status === 'approved' && v.provider_status === 'approved').map(v => (
+                          {voices.filter(isVoiceUsableForBroadcast).map(v => (
                             <button key={v.id} onClick={() => { setSelectedVoiceId(v.id); setShowVoiceDropdown(false); }} className={`w-full text-left px-5 py-3.5 rounded-xl mb-1 ${selectedVoiceId === v.id ? 'bg-[#42f5e9] text-[#0e8a84]' : 'hover:bg-slate-50 text-[#0fb5ab]'}`}>
                               <span className="font-black font-noto">{stripCmVoicePrefix(v.title, knownInstCodes)}</span>
                             </button>
@@ -1146,15 +1187,15 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
                              <div className="min-w-0">
                                <h4 className="font-black text-[#0fb5ab] text-[15px] font-noto truncate">{stripCmVoicePrefix(v.title, knownInstCodes)}</h4>
                                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${v.admin_status === 'approved' && v.provider_status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                   {v.provider_status === 'approved' ? t('approved', lang) : t('pending', lang)}
+                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isVoiceUsableForBroadcast(v) ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                   {isVoiceUsableForBroadcast(v) ? t('approved', lang) : t('pending', lang)}
                                  </span>
                                </div>
                              </div>
                           </div>
                           <div className="flex items-center gap-2">
                             {v.file_url && (
-                              <audio controls src={v.file_url} className="h-8 w-32 sm:w-48" />
+                              <audio controls src={getPlayableAudioSrc(v.file_url)} className="h-8 w-32 sm:w-48" />
                             )}
                             <button 
                               onClick={() => setShowDeleteConfirm({ id: v.id, providerId: v.provider_voice_id, fileUrl: v.file_url, title: v.title })}

@@ -75,6 +75,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
   const [uploadMode, setUploadMode] = useState<'file' | 'record'>('file');
   const [voiceName, setVoiceName] = useState('');
   const [selectedAudioFile, setSelectedAudioFile] = useState<File | null>(null);
+  const [targetInstitutionId, setTargetInstitutionId] = useState('');
   const [isUploadingVoice, setIsUploadingVoice] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -234,13 +235,49 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
       .filter(Boolean);
   }, [institutions]);
 
+  const selectedUploadInstitution = useMemo(() => {
+    return institutions.find(inst => inst.id === targetInstitutionId) || null;
+  }, [institutions, targetInstitutionId]);
+
+  const uploadInstShortCode = useMemo(() => {
+    return extractInstitutionShortCode(selectedUploadInstitution);
+  }, [selectedUploadInstitution]);
+
   const awajPreviewName = useMemo(() => {
-    return buildCmVoiceName(voiceName);
-  }, [voiceName]);
+    return buildCmVoiceName(voiceName, uploadInstShortCode);
+  }, [voiceName, uploadInstShortCode]);
 
   const totalCommitteeWalletBalance = useMemo(() => {
     return institutions.reduce((sum, inst) => sum + (Number(inst?.balance) || 0), 0);
   }, [institutions]);
+
+  const getVoiceAudioUrl = (voice: any): string => {
+    return String(voice?.previewUrl || voice?.preview_url || voice?.file_url || voice?.audioUrl || voice?.url || '').trim();
+  };
+
+  const isVoiceAudioReady = (voice: any): boolean => {
+    const audioUrl = getVoiceAudioUrl(voice);
+    return Boolean(
+      audioUrl &&
+      (audioUrl.startsWith('http://') || audioUrl.startsWith('https://') || audioUrl.startsWith('/'))
+    );
+  };
+
+  const isVoiceApprovedOrReady = (voice: any): boolean => {
+    const status = String(voice?.status || '').toLowerCase();
+    if (status === 'rejected') return false;
+    return status === 'approved' || isVoiceAudioReady(voice);
+  };
+
+  const getPlayableAudioSrc = (rawUrl: string): string => {
+    const trimmed = String(rawUrl || '').trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('/api/awaj/stream')) return trimmed;
+    if (trimmed.includes('awajdigital.com') || trimmed.startsWith('/')) {
+      return `/api/awaj/stream?url=${encodeURIComponent(trimmed)}`;
+    }
+    return trimmed;
+  };
 
   const isLinkedToCommittee = (voice: any): boolean => {
     const vId = voice.id !== undefined && voice.id !== null ? String(voice.id) : '';
@@ -276,19 +313,20 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
       cleanName.toLowerCase().includes(query) ||
       (voice.id?.toString() || '').includes(query);
 
-    const status = (voice.status || 'approved').toLowerCase();
+    const status = String(voice.status || '').toLowerCase();
+    const readyOrApproved = isVoiceApprovedOrReady(voice);
     let matchesFilter = true;
-    if (voiceFilter === 'approved') matchesFilter = status === 'approved';
-    if (voiceFilter === 'pending') matchesFilter = status === 'pending';
+    if (voiceFilter === 'approved') matchesFilter = readyOrApproved;
+    if (voiceFilter === 'pending') matchesFilter = status !== 'rejected' && !readyOrApproved;
     if (voiceFilter === 'rejected') matchesFilter = status === 'rejected';
 
     return matchesSearch && matchesFilter;
   });
 
-  const approvedCount = sourceBaseVoices.filter(v => (v.status || 'approved').toLowerCase() === 'approved').length;
-  const pendingCount = sourceBaseVoices.filter(v => (v.status || '').toLowerCase() === 'pending').length;
-  const rejectedCount = sourceBaseVoices.filter(v => (v.status || '').toLowerCase() === 'rejected').length;
-  const cmApprovedCount = cmVoices.filter(v => (v.status || 'approved').toLowerCase() === 'approved').length;
+  const approvedCount = sourceBaseVoices.filter(isVoiceApprovedOrReady).length;
+  const rejectedCount = sourceBaseVoices.filter(v => String(v.status || '').toLowerCase() === 'rejected').length;
+  const pendingCount = sourceBaseVoices.filter(v => String(v.status || '').toLowerCase() !== 'rejected' && !isVoiceApprovedOrReady(v)).length;
+  const cmApprovedCount = cmVoices.filter(isVoiceApprovedOrReady).length;
 
   // Recording Handlers
   const startRecording = async () => {
@@ -351,7 +389,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
 
     setIsUploadingVoice(true);
     try {
-      const awajVoiceName = buildCmVoiceName(voiceName);
+      const awajVoiceName = buildCmVoiceName(voiceName, uploadInstShortCode);
       const cleanTitle = stripCmVoicePrefix(voiceName, knownInstCodes) || voiceName.trim();
 
       let fileToUpload: File | Blob = selectedAudioFile || recordedAudioBlob!;
@@ -381,9 +419,11 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         },
         body: JSON.stringify({
           name: awajVoiceName,
+          title: cleanTitle,
           file_base64: base64Data,
           filename: fileName,
-          content_type: fileToUpload.type || 'audio/mpeg'
+          content_type: fileToUpload.type || 'audio/mpeg',
+          ...(targetInstitutionId ? { institution_id: targetInstitutionId } : {})
         })
       });
 
@@ -400,17 +440,35 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
       }
       if (!res.ok) throw new Error(data.error || data.message || `Upload failed (${res.status})`);
 
+      // Fallback client-side assign if targetInstitutionId was selected and server didn't insert
+      if (targetInstitutionId && !data.assigned_template) {
+        const providerVoiceName = data.name || data.voice?.name || awajVoiceName;
+        const resolvedAudioUrl = getVoiceAudioUrl(data.voice || data);
+        await supabase.from('voice_templates').insert({
+          institution_id: targetInstitutionId,
+          title: cleanTitle,
+          provider_voice_name: providerVoiceName,
+          file_url: resolvedAudioUrl,
+          provider_voice_id: (data.id || data.voice_id || data.voice?.id || '').toString() || null,
+          provider_status: 'approved',
+          admin_status: 'approved'
+        });
+      }
+
       setStatusModal({
         show: true,
         type: 'success',
         title: 'ভয়েস আপলোড সফল',
-        message: `ভয়েস সফলভাবে AWAJ ডিজিটাল প্ল্যাটফর্মে (${awajVoiceName}) আপলোড করা হয়েছে। এখন তালিকা থেকে কমিটিকে বরাদ্দ দিতে পারবেন।`
+        message: targetInstitutionId
+          ? `ভয়েস সফলভাবে আপলোড ও অনুমোদিত হয়ে নির্বাচিত কমিটিতে বরাদ্দ দেওয়া হয়েছে (${awajVoiceName})।`
+          : `ভয়েস সফলভাবে AWAJ ডিজিটাল প্ল্যাটফর্মে (${awajVoiceName}) আপলোড করা হয়েছে।`
       });
 
       setShowUploadModal(false);
       setVoiceName('');
       setSelectedAudioFile(null);
       setRecordedAudioBlob(null);
+      setTargetInstitutionId('');
       fetchData();
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -468,13 +526,14 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
     try {
       const rawAwajName = String(assigningVoice.name || assigningVoice.title || 'Voice Template').trim();
       const cleanTitle = stripCmVoicePrefix(rawAwajName, knownInstCodes) || rawAwajName;
+      const resolvedUrl = getVoiceAudioUrl(assigningVoice);
       const { error } = await supabase.from('voice_templates').insert({
         institution_id: assignInstitutionId,
         title: cleanTitle,
         provider_voice_name: rawAwajName,
-        file_url: assigningVoice.previewUrl || assigningVoice.audioUrl || assigningVoice.url || '',
-        provider_voice_id: (assigningVoice.id || '').toString(),
-        provider_status: (assigningVoice.status || 'approved').toLowerCase(),
+        file_url: resolvedUrl,
+        provider_voice_id: (assigningVoice.id || '').toString() || null,
+        provider_status: 'approved',
         admin_status: 'approved'
       });
 
@@ -484,7 +543,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         show: true,
         type: 'success',
         title: 'ভয়েস বরাদ্দ সম্পন্ন',
-        message: 'নির্বাচিত কমিটিতে ভয়েসটি সফলভাবে বরাদ্দ করা হয়েছে।'
+        message: 'নির্বাচিত কমিটিতে ভয়েসটি সফলভাবে অনুমোদিত ও বরাদ্দ করা হয়েছে।'
       });
 
       setShowAssignModal(false);
@@ -496,6 +555,32 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
       setStatusModal({ show: true, type: 'error', title: 'ত্রুটি', message: error.message || "Failed to assign voice" });
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  // Manual Approve Action for Assigned Voices
+  const handleApproveAssignedVoice = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('voice_templates')
+        .update({
+          admin_status: 'approved',
+          provider_status: 'approved'
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setStatusModal({
+        show: true,
+        type: 'success',
+        title: 'ভয়েস অনুমোদিত',
+        message: 'ভয়েসটি সফলভাবে Approve করা হয়েছে। এখন কমিটি ব্রডকাস্ট করতে পারবে।'
+      });
+      fetchData();
+    } catch (error: any) {
+      console.error("Approve error:", error);
+      setStatusModal({ show: true, type: 'error', title: 'ত্রুটি', message: error.message || "Failed to approve voice" });
     }
   };
 
@@ -934,9 +1019,11 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
           ) : filteredVoices.length > 0 ? (
             <div className="space-y-3">
               {filteredVoices.map((voice) => {
-                const status = (voice.status || 'approved').toLowerCase();
-                const isApproved = status === 'approved';
-                const audioUrl = voice.previewUrl || voice.audioUrl || voice.url || '';
+                const status = String(voice.status || '').toLowerCase();
+                const isRejected = status === 'rejected';
+                const isReady = isVoiceApprovedOrReady(voice);
+                const audioUrl = getVoiceAudioUrl(voice);
+                const playableAudioUrl = getPlayableAudioSrc(audioUrl);
                 const voiceIdStr = voice.id?.toString() || voice.name;
                 const isPlaying = playingVoiceId === voiceIdStr;
 
@@ -1003,29 +1090,29 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                       </div>
 
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shrink-0 ${
-                        isApproved 
+                        isRejected
                           ? isDark 
-                            ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900' 
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : status === 'pending'
+                            ? 'bg-rose-950/40 text-rose-400 border-rose-900' 
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                          : isReady
                             ? isDark 
+                              ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900' 
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : isDark 
                               ? 'bg-amber-950/40 text-amber-400 border-amber-900' 
                               : 'bg-amber-50 text-amber-700 border-amber-200'
-                            : isDark 
-                              ? 'bg-rose-950/40 text-rose-400 border-rose-900' 
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
                       }`}>
-                        {voice.status || 'APPROVED'}
+                        {isRejected ? 'REJECTED' : isReady ? 'APPROVED / READY' : 'PROCESSING / PENDING'}
                       </span>
                     </div>
 
                     {/* Audio Player Bar */}
-                    {audioUrl && (
+                    {playableAudioUrl && (
                       <div className={`p-2.5 rounded-2xl border flex items-center gap-3 ${
                         isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-slate-100/90 border-slate-200'
                       }`}>
                         <button
-                          onClick={() => togglePlayAudio(voiceIdStr, audioUrl)}
+                          onClick={() => togglePlayAudio(voiceIdStr, playableAudioUrl)}
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                             isPlaying 
                               ? 'bg-emerald-500 text-white shadow-md' 
@@ -1040,7 +1127,7 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                         <div className="flex-1 min-w-0">
                           <audio 
                             ref={(el) => { audioRefs.current[voiceIdStr] = el; }}
-                            src={audioUrl}
+                            src={playableAudioUrl}
                             onEnded={() => setPlayingVoiceId(null)}
                             className="hidden" 
                           />
@@ -1121,7 +1208,10 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
         <div className="space-y-3 animate-in fade-in duration-300">
           {assignedVoices.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {assignedVoices.map((voice) => (
+              {assignedVoices.map((voice) => {
+                const isFullyApproved = voice.admin_status === 'approved' && voice.provider_status === 'approved';
+                const playableUrl = getPlayableAudioSrc(voice.file_url || '');
+                return (
                 <div 
                   key={voice.id} 
                   className={`p-5 rounded-[2rem] border shadow-sm space-y-3 ${
@@ -1156,19 +1246,36 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                       </div>
                     </div>
                     <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border ${
-                      isDark 
-                        ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900' 
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      isFullyApproved
+                        ? isDark 
+                          ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900' 
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : isDark
+                          ? 'bg-amber-950/40 text-amber-400 border-amber-900'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
                     }`}>
-                      ASSIGNED
+                      {isFullyApproved ? 'APPROVED' : 'PENDING'}
                     </span>
                   </div>
 
-                  {voice.file_url && (
-                    <audio controls src={voice.file_url} className="w-full h-8 rounded-xl" />
+                  {playableUrl && (
+                    <audio controls src={playableUrl} className="w-full h-8 rounded-xl" />
                   )}
 
-                  <div className="flex justify-end pt-1">
+                  <div className="flex justify-end items-center gap-2 pt-1 flex-wrap">
+                    {!isFullyApproved && (
+                      <button
+                        onClick={() => handleApproveAssignedVoice(voice.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors flex items-center gap-1 ${
+                          isDark
+                            ? 'text-emerald-300 bg-emerald-950/40 border border-emerald-800 hover:bg-emerald-900/50'
+                            : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
+                        }`}
+                      >
+                        <CheckCircle2 size={13} />
+                        <span>Approve</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => handleUnassignVoice(voice.id)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-black transition-colors flex items-center gap-1 ${
@@ -1182,7 +1289,8 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className={`p-12 rounded-[2.5rem] border text-center space-y-3 ${
@@ -1287,9 +1395,29 @@ export const VoiceServiceDashboard: React.FC<VoiceServiceDashboardProps> = ({ on
                   <ShieldCheck size={13} className="shrink-0 text-emerald-500" />
                   <span>Awaj সার্ভারে নাম হবে:</span>
                   <span className="font-mono font-black break-all">
-                    {awajPreviewName || 'CM_...'}
+                    {awajPreviewName || (uploadInstShortCode ? `CM_${uploadInstShortCode}_...` : 'CM_...')}
                   </span>
                 </div>
+              </div>
+
+              <div>
+                <label className={`text-xs font-black uppercase tracking-widest px-1 ${
+                  isDark ? 'text-slate-300' : 'text-slate-700'
+                }`}>
+                  নির্দিষ্ট কমিটিকে বরাদ্দ (ঐচ্ছিক)
+                </label>
+                <select
+                  value={targetInstitutionId}
+                  onChange={(e) => setTargetInstitutionId(e.target.value)}
+                  className={`w-full h-12 mt-1 rounded-2xl px-4 text-sm font-black border outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900 focus:bg-white'
+                  }`}
+                >
+                  <option value="">শুধু Awaj লাইব্রেরিতে রাখুন (পরে বরাদ্দ দিন)</option>
+                  {institutions.map(inst => (
+                    <option key={inst.id} value={inst.id}>{inst.name}</option>
+                  ))}
+                </select>
               </div>
 
               {uploadMode === 'file' && (

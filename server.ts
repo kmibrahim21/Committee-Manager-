@@ -41,6 +41,7 @@ import executivesHandler from "./api/executives";
 import smsSendHandler from "./api/sms/send";
 import createCommitteeHandler from "./api/admin/create-committee";
 import updateUserPasswordHandler from "./api/admin/update-user-password";
+import systemSettingsHandler from "./api/admin/system-settings";
 import { isSafePublicHttpsUrl } from "./api/awaj";
 
 // API Routes
@@ -50,6 +51,7 @@ app.all("/api/teachers*all", (req, res) => executivesHandler(req, res));
 app.all("/api/sms/send", (req, res) => smsSendHandler(req as any, res as any));
 app.all("/api/admin/create-committee", (req, res) => createCommitteeHandler(req, res));
 app.all("/api/admin/update-user-password", (req, res) => updateUserPasswordHandler(req, res));
+app.all("/api/admin/system-settings", (req, res) => systemSettingsHandler(req, res));
 
 app.all("/api/awaj*all", async (req, res) => {
   const AWAJ_BASE_URL = 'https://api.awajdigital.com/api';

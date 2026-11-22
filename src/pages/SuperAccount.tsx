@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { LogOut, Loader2, User as UserIcon, ShieldCheck, ChevronRight, Smartphone, Save, Sliders, CreditCard, LayoutDashboard, X, Play, Mic, Moon, Sun, Languages, Globe, CheckCircle2, Users, Bell } from 'lucide-react';
+import { LogOut, Loader2, User as UserIcon, ShieldCheck, ChevronRight, Smartphone, Save, Sliders, CreditCard, LayoutDashboard, X, Play, Mic, Moon, Sun, Languages, Globe, CheckCircle2, Users, Bell, AlertCircle } from 'lucide-react';
 import { supabase, smsApi } from 'supabase';
 import { Institution, Language, View } from 'types';
 import { t } from 'translations';
@@ -15,11 +15,21 @@ interface SuperAccountProps {
   initialMadrasah: Institution | null;
 }
 
+const BN_TO_EN_DIGITS: Record<string, string> = {
+  '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
+  '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
+};
+
+const normalizePaymentNumber = (val: string): string =>
+  String(val || '').replace(/[০-৯]/g, d => BN_TO_EN_DIGITS[d] || d).trim();
+
 const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onLogout, onProfileUpdate, initialMadrasah }) => {
   const [madrasah, setMadrasah] = useState<Institution | null>(initialMadrasah);
   const [saving, setSaving] = useState(false);
   const [isEditingBulkSMS, setIsEditingBulkSMS] = useState(false);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [bulkSmsError, setBulkSmsError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState({ show: false, title: '', message: '' });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -43,10 +53,20 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
     }
   };
 
-  const [globalSettings, setGlobalSettings] = useState({
+  const [globalSettings, setGlobalSettings] = useState<{
+    id: string | number | null;
+    reve_api_key: string;
+    reve_caller_id: string;
+    bkash_number: string;
+    nagad_number: string;
+    sms_rate: number;
+    voice_rate: number;
+  }>({
+    id: null,
     reve_api_key: '',
     reve_caller_id: '',
     bkash_number: '',
+    nagad_number: '',
     sms_rate: 0.50,
     voice_rate: 1.00
   });
@@ -55,50 +75,169 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
     fetchGlobalSettings();
   }, []);
 
-  const fetchGlobalSettings = async () => {
-    const settings = await smsApi.getGlobalSettings();
+  const applySettingsRow = (row: any) => {
+    if (!row) return;
     setGlobalSettings({
-      reve_api_key: settings.reve_api_key,
-      reve_caller_id: settings.reve_caller_id,
-      bkash_number: settings.bkash_number,
-      sms_rate: settings.sms_rate || 0.50,
-      voice_rate: settings.voice_rate || 1.00
+      id: row.id ?? null,
+      reve_api_key: row.reve_api_key || '',
+      reve_caller_id: row.reve_caller_id || '',
+      bkash_number: row.bkash_number || '',
+      nagad_number: row.nagad_number || '',
+      sms_rate: Number(row.sms_rate) > 0 ? Number(row.sms_rate) : 0.50,
+      voice_rate: Number(row.voice_rate) > 0 ? Number(row.voice_rate) : 1.00
     });
+  };
+
+  const fetchGlobalSettings = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const res = await fetch('/api/admin/system-settings', {
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.settings) {
+            applySettingsRow(json.settings);
+            return;
+          }
+        }
+      }
+    } catch {
+      // Fallback to client query below
+    }
+
+    const settings = await smsApi.getGlobalSettings();
+    applySettingsRow(settings);
+  };
+
+  const persistSystemSettings = async (payload: Record<string, any>) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      try {
+        const res = await fetch('/api/admin/system-settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json?.success && json?.settings) {
+          return json.settings;
+        }
+        if (res.status !== 404 && !String(json?.error || '').includes('SUPABASE_SERVICE_ROLE_KEY')) {
+          throw new Error(json?.error || `Failed to update settings (${res.status})`);
+        }
+      } catch (apiErr: any) {
+        if (!String(apiErr?.message || '').includes('Failed to fetch') && !String(apiErr?.message || '').includes('SUPABASE_SERVICE_ROLE_KEY')) {
+          throw apiErr;
+        }
+      }
+    }
+
+    // Fallback: direct Supabase update using the actual existing row ID
+    let targetId = globalSettings.id;
+    if (targetId === null || targetId === undefined) {
+      const { data: existingRow, error: lookupErr } = await supabase
+        .from('system_settings')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+      if (lookupErr) throw lookupErr;
+      targetId = existingRow?.id ?? null;
+    }
+
+    if (targetId !== null && targetId !== undefined) {
+      const { data: updatedRow, error: updateErr } = await supabase
+        .from('system_settings')
+        .update(payload)
+        .eq('id', targetId)
+        .select('*')
+        .maybeSingle();
+
+      if (updateErr) throw updateErr;
+      if (!updatedRow) {
+        throw new Error(
+          lang === 'bn'
+            ? 'ডাটাবেস আপডেট অনুমোদিত হয়নি (RLS বা কোনো রো পাওয়া যায়নি)।'
+            : 'Update did not affect any row. Please check database permissions or row existence.'
+        );
+      }
+      return updatedRow;
+    }
+
+    const { data: insertedRow, error: insertErr } = await supabase
+      .from('system_settings')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (insertErr) throw insertErr;
+    return insertedRow;
   };
 
   const handleSaveBulkSMS = async () => {
     setSaving(true);
+    setBulkSmsError('');
     try {
-      const { error } = await supabase.from('system_settings').update({
+      const savedRow = await persistSystemSettings({
         reve_api_key: (globalSettings.reve_api_key || '').trim(),
-        reve_caller_id: (globalSettings.reve_caller_id || "").trim(),
+        reve_caller_id: (globalSettings.reve_caller_id || '').trim(),
         sms_rate: Number(globalSettings.sms_rate),
         voice_rate: Number(globalSettings.voice_rate)
-      }).eq('id', '00000000-0000-0000-0000-000000000001');
-      if (error) throw error;
+      });
+      applySettingsRow(savedRow);
       setIsEditingBulkSMS(false);
       setShowSuccessModal({ show: true, title: 'Bulk SMS আপডেট', message: 'Bulk SMS ও রেট সেটিংস আপডেট হয়েছে।' });
       fetchGlobalSettings();
     } catch (err: any) {
-      if (err.message?.includes('reve_caller_id')) {
-        alert("Database schema mismatch: Please run this SQL in Supabase:\n\nALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS reve_api_key TEXT;\nALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS reve_caller_id TEXT;\nNOTIFY pgrst, 'reload config';");
+      if (err?.message?.includes('reve_caller_id')) {
+        setBulkSmsError('Database schema mismatch: reve_api_key / reve_caller_id column missing in system_settings.');
       } else {
-        alert(err.message);
+        setBulkSmsError(err?.message || (lang === 'bn' ? 'সেটিংস আপডেট করতে সমস্যা হয়েছে।' : 'Failed to update settings.'));
       }
     } finally { setSaving(false); }
   };
 
   const handleSavePayment = async () => {
+    setPaymentError('');
+    const cleanBkash = normalizePaymentNumber(globalSettings.bkash_number);
+    const cleanNagad = normalizePaymentNumber(globalSettings.nagad_number);
+
+    if (!cleanBkash && !cleanNagad) {
+      setPaymentError(
+        lang === 'bn'
+          ? 'কমপক্ষে বিকাশ অথবা নগদ নম্বর প্রদান করুন।'
+          : 'Please enter at least a bKash or Nagad number.'
+      );
+      return;
+    }
+
     setSaving(true);
     try {
-      const { error } = await supabase.from('system_settings').update({
-        bkash_number: (globalSettings.bkash_number || '').trim()
-      }).eq('id', '00000000-0000-0000-0000-000000000001');
-      if (error) throw error;
+      const savedRow = await persistSystemSettings({
+        bkash_number: cleanBkash,
+        nagad_number: cleanNagad
+      });
+      applySettingsRow(savedRow);
       setIsEditingPayment(false);
-      setShowSuccessModal({ show: true, title: 'পেমেন্ট আপডেট', message: 'পেমেন্ট সেটিংস আপডেট হয়েছে।' });
+      setShowSuccessModal({
+        show: true,
+        title: lang === 'bn' ? 'পেমেন্ট আপডেট' : 'Payment Updated',
+        message: lang === 'bn' ? 'বিকাশ ও নগদ মাস্টার পেমেন্ট নম্বর সফলভাবে আপডেট হয়েছে।' : 'bKash & Nagad master payment numbers updated successfully.'
+      });
       fetchGlobalSettings();
-    } catch (err: any) { alert(err.message); } finally { setSaving(false); }
+    } catch (err: any) {
+      if (err?.message?.includes('nagad_number')) {
+        setPaymentError('Database column "nagad_number" is missing in system_settings. Please run: ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS nagad_number TEXT;');
+      } else {
+        setPaymentError(err?.message || (lang === 'bn' ? 'পেমেন্ট নম্বর আপডেট করা যায়নি।' : 'Failed to update payment numbers.'));
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleTheme = async () => {
@@ -290,17 +429,25 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
         </button>
         
         <button 
-          onClick={() => setIsEditingPayment(true)}
+          onClick={() => {
+            setPaymentError('');
+            setIsEditingPayment(true);
+          }}
           className={`p-6 rounded-[2.5rem] border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3 group active:scale-95 ${madrasah?.theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}
         >
-          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
             <CreditCard size={24} />
           </div>
-          <div>
+          <div className="w-full min-w-0">
             <h5 className={`text-sm font-black font-noto leading-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0e8a84]'}`}>Master Payment</h5>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-              {formatDigitsByLang(globalSettings.bkash_number, lang)}
-            </p>
+            <div className="text-[10px] font-bold text-slate-400 mt-1.5 space-y-0.5 tabular-nums">
+              <p className="truncate">
+                <span className="text-[#E2136E] font-black">{lang === 'bn' ? 'বিকাশ:' : 'bKash:'}</span> {formatDigitsByLang(globalSettings.bkash_number, lang)}
+              </p>
+              <p className="truncate">
+                <span className="text-[#F6921E] font-black">{lang === 'bn' ? 'নগদ:' : 'Nagad:'}</span> {formatDigitsByLang(globalSettings.nagad_number, lang)}
+              </p>
+            </div>
           </div>
         </button>
 
@@ -385,6 +532,12 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
                        <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Voice Call Rate (TK)</label><input type="number" step="0.01" className={`w-full h-11 rounded-xl px-4 font-bold text-[11px] outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-[#42f5e9] focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.voice_rate} onChange={(e) => setGlobalSettings({...globalSettings, voice_rate: parseFloat(e.target.value)})} /></div>
                     </div>
                  </div>
+                 {bulkSmsError && (
+                   <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-start gap-2">
+                     <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                     <span>{bulkSmsError}</span>
+                   </div>
+                 )}
                  <div className="pt-2">
                     <button onClick={handleSaveBulkSMS} disabled={saving} className="relative w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/20 text-[13px] uppercase tracking-[0.25em]">
                        {saving ? <Loader2 className="animate-spin" size={22} /> : <>Save Settings</>}
@@ -403,21 +556,66 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
                  <div className="flex items-center justify-between relative z-10">
                     <div className="flex items-center gap-3">
                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${madrasah?.theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 border-indigo-900/50' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}><CreditCard size={20} strokeWidth={2.5} /></div>
-                       <div><h3 className={`text-lg font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>Master Payment</h3><p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Global Gateway</p></div>
+                       <div>
+                         <h3 className={`text-lg font-black font-noto tracking-tight ${madrasah?.theme === 'dark' ? 'text-white' : 'text-[#0fb5ab]'}`}>Master Payment</h3>
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.2em]">Global bKash & Nagad</p>
+                       </div>
                     </div>
                     <button onClick={() => setIsEditingPayment(false)} className={`w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-all border ${madrasah?.theme === 'dark' ? 'bg-slate-800 text-slate-500 border-slate-700' : 'bg-slate-50 text-slate-300 border-slate-100'}`}><X size={18} /></button>
                  </div>
               </div>
               <div className="px-6 pb-8 space-y-5 overflow-y-auto custom-scrollbar flex-1 relative z-10">
                  <div className="space-y-2.5">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Global Identities</h4>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">
+                      {lang === 'bn' ? 'পেমেন্ট গেটওয়ে নম্বরসমূহ' : 'Gateway Numbers'}
+                    </h4>
                     <div className={`p-4 rounded-[2rem] border space-y-4 ${madrasah?.theme === 'dark' ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
-                       <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase px-1">Master Payment Number</label><input type="text" className={`w-full h-11 rounded-xl px-4 font-black text-sm outline-none ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white focus:border-[#42f5e9]/50' : 'bg-white border-slate-100 text-[#0fb5ab] focus:border-[#42f5e9]/50'}`} value={globalSettings.bkash_number} onChange={(e) => setGlobalSettings({...globalSettings, bkash_number: e.target.value})} /></div>
+                       <div className="space-y-1.5">
+                         <label className="text-[10px] font-black uppercase px-1 flex items-center gap-1.5 text-[#E2136E]">
+                           <span className="w-2 h-2 rounded-full bg-[#E2136E] inline-block" />
+                           {lang === 'bn' ? 'বিকাশ নম্বর (bKash)' : 'bKash Number'}
+                         </label>
+                         <input
+                           type="tel"
+                           placeholder="017XXXXXXXX"
+                           className={`w-full h-11 rounded-xl px-4 font-black text-sm tabular-nums outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white focus:border-[#E2136E]/60' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#E2136E]/60'}`}
+                           value={globalSettings.bkash_number}
+                           onChange={(e) => {
+                             setPaymentError('');
+                             setGlobalSettings({ ...globalSettings, bkash_number: e.target.value });
+                           }}
+                         />
+                       </div>
+
+                       <div className="space-y-1.5">
+                         <label className="text-[10px] font-black uppercase px-1 flex items-center gap-1.5 text-[#F6921E]">
+                           <span className="w-2 h-2 rounded-full bg-[#F6921E] inline-block" />
+                           {lang === 'bn' ? 'নগদ নম্বর (Nagad)' : 'Nagad Number'}
+                         </label>
+                         <input
+                           type="tel"
+                           placeholder="018XXXXXXXX"
+                           className={`w-full h-11 rounded-xl px-4 font-black text-sm tabular-nums outline-none border ${madrasah?.theme === 'dark' ? 'bg-slate-900 border-slate-700 text-white focus:border-[#F6921E]/60' : 'bg-white border-slate-200 text-[#0fb5ab] focus:border-[#F6921E]/60'}`}
+                           value={globalSettings.nagad_number}
+                           onChange={(e) => {
+                             setPaymentError('');
+                             setGlobalSettings({ ...globalSettings, nagad_number: e.target.value });
+                           }}
+                         />
+                       </div>
                     </div>
                  </div>
+
+                 {paymentError && (
+                   <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-start gap-2">
+                     <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                     <span>{paymentError}</span>
+                   </div>
+                 )}
+
                  <div className="pt-2">
-                    <button onClick={handleSavePayment} disabled={saving} className="relative w-full h-16 bg-[#42f5e9] text-[#0fb5ab] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-3 border border-white/20 text-[13px] uppercase tracking-[0.25em]">
-                       {saving ? <Loader2 className="animate-spin" size={22} /> : <>Save Settings</>}
+                    <button onClick={handleSavePayment} disabled={saving} className="relative w-full h-14 bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-premium active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/20 text-xs uppercase tracking-[0.2em] disabled:opacity-60">
+                       {saving ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> {lang === 'bn' ? 'সংরক্ষণ করুন' : 'Save Settings'}</>}
                     </button>
                  </div>
               </div>

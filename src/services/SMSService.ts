@@ -15,25 +15,31 @@ const normalizePhone = (phone: string): string => {
 export const SMSService = {
   getGlobalSettings: async () => {
     const defaults = {
+      id: null as string | number | null,
       reve_api_key: '',
       reve_caller_id: '8809601017065',
       bkash_number: '01766-XXXXXX',
+      nagad_number: '',
+      rocket_number: '',
       sms_rate: 0.50,
       voice_rate: 1.00
     };
     try {
       const { data } = await supabase
         .from('system_settings')
-        .select('id, bkash_number, rocket_number, nagad_number, voice_rate, sms_rate, maintenance_mode')
-        .eq('id', 1)
+        .select('*')
+        .limit(1)
         .maybeSingle();
 
       if (!data) return defaults;
 
       return {
-        reve_api_key: '',
-        reve_caller_id: defaults.reve_caller_id,
-        bkash_number: data.bkash_number || defaults.bkash_number,
+        id: data.id ?? null,
+        reve_api_key: data.reve_api_key || '',
+        reve_caller_id: data.reve_caller_id || defaults.reve_caller_id,
+        bkash_number: data.bkash_number ?? defaults.bkash_number,
+        nagad_number: data.nagad_number || '',
+        rocket_number: data.rocket_number || '',
         sms_rate: data.sms_rate ?? defaults.sms_rate,
         voice_rate: data.voice_rate ?? defaults.voice_rate
       };

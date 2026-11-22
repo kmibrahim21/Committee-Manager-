@@ -24,6 +24,7 @@ import { Institution, Language, Department, Member, Profile, UserRole } from 'ty
 import { t } from 'translations';
 import { sortMadrasahClasses } from 'pages/Departments';
 import { normalizePhone } from 'utils/smsUtils';
+import PaymentCheckout from 'components/PaymentCheckout';
 
 interface VoiceBroadcastProps {
   lang: Language;
@@ -108,12 +109,6 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Recharge state
-  const [rechargeAmount, setRechargeAmount] = useState('');
-  const [rechargeTrx, setRechargeTrx] = useState('');
-  const [rechargePhone, setRechargePhone] = useState('');
-  const [isRecharging, setIsRecharging] = useState(false);
-  const [requestSuccess, setRequestSuccess] = useState(false);
   const parsedInstConfig: any = useMemo(() => {
     const raw = madrasah?.config_json as any;
     if (typeof raw === 'string') {
@@ -122,16 +117,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
     return raw || {};
   }, [madrasah?.config_json]);
 
-  const [adminBkash, setAdminBkash] = useState('01766-XXXXXX');
   const [voiceRate, setVoiceRate] = useState<number>(() => Number(parsedInstConfig?.voice_rate) > 0 ? Number(parsedInstConfig.voice_rate) : 1.00);
-
-  const formatDigits = (str: string) => {
-    if (!str) return 'N/A';
-    const bnToEn: Record<string, string> = { '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4', '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9' };
-    const enToBn: Record<string, string> = { '0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪', '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯' };
-    if (lang === 'en') return str.replace(/[০-৯]/g, d => bnToEn[d] || d);
-    return str.replace(/[0-9]/g, d => enToBn[d] || d);
-  };
 
   // Error/Status Modal
   const [statusModal, setStatusModal] = useState<{show: boolean, type: 'error' | 'balance' | 'success', title: string, message: string}>({
@@ -154,8 +140,7 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
   }, [activeTab, madrasah?.id, dataVersion, parsedInstConfig?.voice_rate]);
 
   const fetchSystemSettings = async () => {
-    const { data } = await supabase.from('system_settings').select('bkash_number, voice_rate').maybeSingle();
-    if (data?.bkash_number) setAdminBkash(data.bkash_number);
+    const { data } = await supabase.from('system_settings').select('voice_rate').maybeSingle();
     const customVoiceRate = Number(parsedInstConfig?.voice_rate);
     if (customVoiceRate > 0) {
       setVoiceRate(customVoiceRate);
@@ -876,46 +861,6 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
     }
   };
 
-  const handleRecharge = async () => {
-    if (!madrasah || !rechargeAmount || !rechargeTrx || !rechargePhone) return;
-    setIsRecharging(true);
-    try {
-      const { error } = await supabase.from('transactions').insert({
-        institution_id: madrasah.id,
-        amount: parseInt(rechargeAmount),
-        transaction_id: rechargeTrx.trim().toUpperCase(),
-        sender_phone: rechargePhone.trim(),
-        description: 'Voice Recharge Request',
-        type: 'credit',
-        status: 'pending',
-        module: 'voice'
-      });
-      if (error) throw error;
-      setRequestSuccess(true);
-      setRechargeAmount('');
-      setRechargeTrx('');
-      setRechargePhone('');
-      
-      setStatusModal({
-        show: true,
-        type: 'success',
-        title: lang === 'bn' ? 'অনুরোধ পাঠানো হয়েছে' : 'Request Sent',
-        message: lang === 'bn' ? 'আপনার রিচার্জ অনুরোধটি সফলভাবে পাঠানো হয়েছে। অ্যাডমিন ভেরিফাই করার পর ব্যালেন্স যোগ হবে।' : 'Your recharge request has been sent successfully. Balance will be added after admin verification.'
-      });
-      
-      setTimeout(() => setRequestSuccess(false), 5000);
-    } catch (err: any) {
-      setStatusModal({
-        show: true,
-        type: 'error',
-        title: lang === 'bn' ? 'ব্যর্থ' : 'Failed',
-        message: err.message
-      });
-    } finally {
-      setIsRecharging(false);
-    }
-  };
-
   const getSelectedClassName = () => {
     const cls = departments.find(c => c.id === selectedClassId);
     return cls ? cls.name : (lang === 'bn' ? 'কমিটি নির্বাচন করুন' : 'Select Committee');
@@ -1305,54 +1250,18 @@ const VoiceBroadcast: React.FC<VoiceBroadcastProps> = ({ lang, madrasah, trigger
 
         {activeTab === 'recharge' && (
           <div className="max-w-2xl mx-auto animate-in slide-in-from-bottom-5 duration-500">
-             <div className="bg-white p-8 rounded-[3rem] shadow-bubble border border-slate-100 space-y-6">
-                <div className="text-center">
-                  <div className="inline-flex p-3 bg-[#42f5e9]/10 rounded-2xl text-[#0fb5ab] mb-3"><CreditCard size={32} /></div>
-                  <h3 className="text-xl font-black text-[#0e8a84]">{t('recharge_request', lang)}</h3>
-                  <p className="text-xs font-bold text-slate-400 font-noto">{t('recharge_desc', lang)}</p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-[#42f5e9]/10 p-6 rounded-[2.2rem] text-center border border-[#42f5e9]/20 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-2 opacity-10">
-                      <Mic size={60} />
-                    </div>
-                    <p className="text-[10px] font-black text-[#0fb5ab] uppercase tracking-[0.2em] mb-1 relative z-10">Voice Rate</p>
-                    <h3 className="text-3xl font-black text-[#0e8a84] relative z-10">{voiceRate} ৳</h3>
-                  </div>
-
-                  <div className="bg-emerald-50 p-6 rounded-[2.2rem] text-center border border-emerald-100 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-2 opacity-10">
-                      <Smartphone size={60} />
-                    </div>
-                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-1 relative z-10">{t('bkash_personal', lang)}</p>
-                    <h3 className="text-3xl font-black text-[#0fb5ab] relative z-10">{formatDigits(adminBkash)}</h3>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {requestSuccess && (
-                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex items-center gap-3 text-emerald-600 text-sm font-black animate-in slide-in-from-top-2">
-                       <CheckCircle2 size={20} /> {t('recharge_success_msg', lang)}
-                    </div>
-                  )}
-                  <div className="space-y-1.5 px-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('amount', lang)}</label>
-                    <input type="number" className="w-full h-14 px-6 bg-slate-50 border-2 border-slate-100 rounded-full font-black text-lg" value={rechargeAmount} onChange={(e) => setRechargeAmount(e.target.value)} placeholder="0.00" />
-                  </div>
-                  <div className="space-y-1.5 px-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('bkash_number', lang)}</label>
-                    <input type="tel" className="w-full h-14 px-6 bg-slate-50 border-2 border-slate-100 rounded-full font-black text-lg" value={rechargePhone} onChange={(e) => setRechargePhone(e.target.value)} placeholder="017XXXXXXXX" />
-                  </div>
-                  <div className="space-y-1.5 px-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TrxID</label>
-                    <input type="text" className="w-full h-14 px-6 bg-slate-50 border-2 border-slate-100 rounded-full font-black text-lg uppercase" value={rechargeTrx} onChange={(e) => setRechargeTrx(e.target.value.toUpperCase())} placeholder="8X23M1..." />
-                  </div>
-                  <button onClick={handleRecharge} disabled={isRecharging || !rechargeAmount || !rechargeTrx || !rechargePhone} className="w-full h-16 bg-[#42f5e9] text-[#0e8a84] font-black rounded-full shadow-premium flex items-center justify-center gap-3 text-lg mt-4 disabled:opacity-40 active:scale-95 transition-all">
-                    {isRecharging ? <Loader2 className="animate-spin" size={24} /> : t('send_request', lang)}
-                  </button>
-                </div>
-             </div>
+            <PaymentCheckout
+              lang={lang}
+              madrasah={madrasah}
+              module="voice"
+              onSuccess={() => {
+                fetchWalletBalance();
+                triggerRefresh();
+              }}
+              onCancel={() => {
+                fetchWalletBalance();
+              }}
+            />
           </div>
         )}
       </div>

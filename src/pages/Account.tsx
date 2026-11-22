@@ -10,6 +10,7 @@ import MultiCalendar from 'components/MultiCalendar';
 import { generateMemberFormPDF } from '../utils/pdfGenerator';
 import { SONGHO_ACTIVITIES, getDefaultSonghoActivityIds } from '../utils/songhoActivities';
 import { uploadOptimizedImage } from '../utils/imageOptimizer';
+import PaymentCheckout from 'components/PaymentCheckout';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 
@@ -204,20 +205,10 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   const [packageDetailModal, setPackageDetailModal] = useState<SubscriptionPackage | null>(null);
   const [subscriptionYear, setSubscriptionYear] = useState<number>(new Date().getFullYear());
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
-  const [senderPhone, setSenderPhone] = useState('');
-  const [trxId, setTrxId] = useState('');
-  const [submittingPayment, setSubmittingPayment] = useState(false);
-  const [subPaymentError, setSubPaymentError] = useState('');
+  const [showSubCheckout, setShowSubCheckout] = useState(false);
   const [subTransactions, setSubTransactions] = useState<any[]>([]);
   const [loadingSubTx, setLoadingSubTx] = useState(false);
   const [downloadingReceiptId, setDownloadingReceiptId] = useState<string | null>(null);
-  const [paymentNumbers, setPaymentNumbers] = useState({
-    bkash_number: '01700-000000',
-    nagad_number: '',
-    rocket_number: ''
-  });
-  const [copiedPayNum, setCopiedPayNum] = useState(false);
 
   const toggleTheme = async () => {
     if (!madrasah) return;
@@ -386,19 +377,12 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
     if (!madrasah?.id) return;
     setLoadingSubTx(true);
     try {
-      const [txRes, sysRes] = await Promise.all([
-        supabase
-          .from('transactions')
-          .select('*')
-          .eq('institution_id', madrasah.id)
-          .order('created_at', { ascending: false })
-          .limit(50),
-        supabase
-          .from('system_settings')
-          .select('bkash_number, nagad_number, rocket_number')
-          .limit(1)
-          .maybeSingle()
-      ]);
+      const txRes = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('institution_id', madrasah.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (!txRes.error && txRes.data) {
         const subOnly = txRes.data.filter((tr: any) =>
@@ -407,14 +391,6 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           String(tr.transaction_id || '').toUpperCase().startsWith('SUB_')
         );
         setSubTransactions(subOnly);
-      }
-
-      if (!sysRes.error && sysRes.data) {
-        setPaymentNumbers({
-          bkash_number: sysRes.data.bkash_number || '01700-000000',
-          nagad_number: sysRes.data.nagad_number || '',
-          rocket_number: sysRes.data.rocket_number || ''
-        });
       }
     } catch (err) {
       console.error('Failed to load subscription data:', err);
@@ -428,7 +404,8 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
     const matchedPkg = SUBSCRIPTION_PACKAGES.find(p => p.name === activePkgName || p.id === activePkgName);
     setSelectedPackageId(matchedPkg ? matchedPkg.id : 'STANDARD');
     setSelectedMonths([]);
-    setSubPaymentError('');
+    const hasPendingSub = Boolean(madrasah?.id && localStorage.getItem(`pending_payment_${madrasah.id}_subscription`));
+    setShowSubCheckout(hasPendingSub);
     setIsEditingSubscription(true);
     fetchSubscriptionData();
   };
@@ -454,8 +431,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
   const calculatedFee = effectiveRate * selectedMonths.length;
 
   const toggleMonth = (monthKey: string) => {
-    if (paidMonths.includes(monthKey)) return;
-    setSubPaymentError('');
+    if (paidMonths.includes(monthKey) || showSubCheckout) return;
     setSelectedMonths(prev =>
       prev.includes(monthKey) ? prev.filter(m => m !== monthKey) : [...prev, monthKey].sort()
     );
@@ -470,90 +446,6 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
       }
     }
     return ym;
-  };
-
-  const getCurrentPaymentNumber = () => {
-    if (paymentMethod === 'Nagad' && paymentNumbers.nagad_number) return paymentNumbers.nagad_number;
-    if (paymentMethod === 'Rocket' && paymentNumbers.rocket_number) return paymentNumbers.rocket_number;
-    return paymentNumbers.bkash_number || '01700-000000';
-  };
-
-  const handleCopyPaymentNumber = async () => {
-    const num = getCurrentPaymentNumber();
-    if (!num) return;
-    try {
-      await navigator.clipboard.writeText(num);
-      setCopiedPayNum(true);
-      setTimeout(() => setCopiedPayNum(false), 2000);
-    } catch {
-      // ignore clipboard errors
-    }
-  };
-
-  const handleSubmitSubscriptionPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!madrasah || selectedMonths.length === 0) return;
-
-    const cleanPhone = senderPhone.trim();
-    const cleanTrx = trxId.trim();
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setSubPaymentError(lang === 'bn' ? 'সঠিক প্রেরকের মোবাইল নম্বর দিন।' : 'Please enter a valid sender phone number.');
-      return;
-    }
-    if (!cleanTrx || cleanTrx.length < 4) {
-      setSubPaymentError(lang === 'bn' ? 'সঠিক ট্রানজ্যাকশন আইডি (TrxID) দিন।' : 'Please enter a valid Transaction ID (TrxID).');
-      return;
-    }
-
-    setSubmittingPayment(true);
-    setSubPaymentError('');
-
-    const subDescription = `Subscription Payment (${selectedPackage.name}) - ${selectedMonths.join(', ')} via ${paymentMethod}`;
-    const fullPayload: Record<string, any> = {
-      institution_id: madrasah.id,
-      amount: calculatedFee,
-      transaction_id: cleanTrx,
-      sender_phone: cleanPhone,
-      description: subDescription,
-      type: 'credit',
-      status: 'pending',
-      sms_count: 0,
-      module: 'subscription',
-      metadata: {
-        months: selectedMonths,
-        package_name: selectedPackage.name,
-        subscription_type: configObj.subscription_type || 'monthly',
-        payment_method: paymentMethod,
-        expected_amount: calculatedFee
-      }
-    };
-
-    try {
-      let { error: insertErr } = await supabase.from('transactions').insert(fullPayload);
-      if (insertErr && (insertErr.message?.includes('module') || insertErr.message?.includes('metadata') || insertErr.code === '42703')) {
-        const { module: _m, metadata: _md, ...basePayload } = fullPayload;
-        const retryRes = await supabase.from('transactions').insert(basePayload);
-        insertErr = retryRes.error;
-      }
-
-      if (insertErr) throw insertErr;
-
-      setSelectedMonths([]);
-      setSenderPhone('');
-      setTrxId('');
-      await fetchSubscriptionData();
-      setShowSuccessModal({
-        show: true,
-        title: lang === 'bn' ? 'রিকোয়েস্ট সফল' : 'Request Submitted',
-        message: lang === 'bn'
-          ? 'পেমেন্ট রিকোয়েস্ট পাঠানো হয়েছে! সুপার অ্যাডমিন অনুমোদন করলে আপনার সাবস্ক্রিপশন আপডেট হয়ে যাবে।'
-          : 'Payment request submitted! Your subscription will update once Super Admin approves it.'
-      });
-    } catch (err: any) {
-      setSubPaymentError(err?.message || (lang === 'bn' ? 'পেমেন্ট রিকোয়েস্ট পাঠাতে সমস্যা হয়েছে।' : 'Failed to submit payment request.'));
-    } finally {
-      setSubmittingPayment(false);
-    }
   };
 
   const handleDownloadSubReceipt = async (tr: any) => {
@@ -684,7 +576,10 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => setIsEditingSubscription(false)}
+              onClick={() => {
+                setShowSubCheckout(false);
+                setIsEditingSubscription(false);
+              }}
               className={`w-11 h-11 rounded-2xl border flex items-center justify-center active:scale-95 transition-all shadow-sm shrink-0 ${
                 isDark ? 'bg-slate-800 text-[#42f5e9] border-slate-700' : 'bg-white text-[#0fb5ab] border-slate-200'
               }`}
@@ -816,8 +711,8 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                   return (
                     <div
                       key={pkg.id}
-                      onClick={() => setSelectedPackageId(pkg.id)}
-                      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-3 relative ${
+                      onClick={() => !showSubCheckout && setSelectedPackageId(pkg.id)}
+                      className={`p-4 rounded-2xl border-2 transition-all flex flex-col justify-between gap-3 relative ${showSubCheckout ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'} ${
                         isSelectedPkg
                           ? isDark
                             ? 'bg-[#0fb5ab]/15 border-[#42f5e9] ring-2 ring-[#42f5e9]/20'
@@ -923,7 +818,7 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                     <button
                       key={monthKey}
                       type="button"
-                      disabled={isPaid}
+                      disabled={isPaid || showSubCheckout}
                       onClick={() => toggleMonth(monthKey)}
                       className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between min-h-[72px] ${
                         isPaid
@@ -976,154 +871,101 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
 
           {/* Right Column */}
           <div className="lg:col-span-5 space-y-5">
-            {/* Payment Submission Card */}
-            <div className={`p-6 rounded-[2.2rem] border shadow-sm space-y-5 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-              <div className="flex items-center justify-between">
-                <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                  {lang === 'bn' ? '৩. পেমেন্ট সাবমিট করুন' : '3. Submit Payment'}
-                </h3>
-                <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-[#42f5e9]/15 text-[#0fb5ab]'}`}>
-                  bKash / Nagad / Rocket
-                </span>
-              </div>
-
-              {selectedMonths.length === 0 ? (
-                <div className={`p-8 rounded-3xl border-2 border-dashed text-center space-y-3 ${isDark ? 'bg-slate-900/40 border-slate-700' : 'bg-slate-50/70 border-slate-200'}`}>
-                  <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-[#42f5e9]' : 'bg-white text-[#0fb5ab] shadow-sm'}`}>
-                    <Clock size={28} />
-                  </div>
-                  <h4 className={`text-base font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                    {lang === 'bn' ? 'মাস নির্বাচন করুন' : 'Select Months'}
-                  </h4>
-                  <p className="text-xs font-bold text-slate-400 leading-relaxed max-w-xs mx-auto">
-                    {lang === 'bn'
-                      ? 'পেমেন্ট করার জন্য বাম পাশের ২ নম্বর ধাপ থেকে অন্তত একটি বকেয়া মাস সিলেক্ট করুন।'
-                      : 'Select at least one unpaid month from Step 2 on the left to proceed with payment.'}
-                  </p>
+            {/* Payment Checkout Card */}
+            {showSubCheckout ? (
+              <PaymentCheckout
+                lang={lang}
+                madrasah={madrasah}
+                module="subscription"
+                fixedAmount={calculatedFee}
+                metadata={{
+                  months: selectedMonths,
+                  package_name: selectedPackage.name,
+                  package_rate: effectiveRate,
+                  subscription_type: configObj.subscription_type || 'monthly',
+                  expected_amount: calculatedFee
+                }}
+                onSuccess={async () => {
+                  setSelectedMonths([]);
+                  if (onProfileUpdate) onProfileUpdate();
+                  await Promise.all([fetchSubscriptionData(), fetchStats()]);
+                }}
+                onCancel={() => {
+                  setShowSubCheckout(false);
+                  fetchSubscriptionData();
+                }}
+              />
+            ) : (
+              <div className={`p-6 rounded-[2.2rem] border shadow-sm space-y-5 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-sm font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                    {lang === 'bn' ? '৩. পেমেন্ট করুন' : '3. Make Payment'}
+                  </h3>
+                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${isDark ? 'bg-[#42f5e9]/15 text-[#42f5e9]' : 'bg-[#42f5e9]/15 text-[#0fb5ab]'}`}>
+                    bKash / Nagad
+                  </span>
                 </div>
-              ) : (
-                <form onSubmit={handleSubmitSubscriptionPayment} className="space-y-4">
-                  {/* Selected Summary */}
-                  <div className={`p-4 rounded-2xl border space-y-2.5 ${isDark ? 'bg-slate-900/70 border-slate-700' : 'bg-[#42f5e9]/10 border-[#42f5e9]/30'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-black text-slate-500 dark:text-slate-400">
-                        {lang === 'bn' ? `নির্বাচিত মাস (${selectedMonths.length}টি)` : `Selected (${selectedMonths.length} mos)`}
-                      </span>
-                      <span className={`text-lg font-black ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
-                        {calculatedFee.toLocaleString()} ৳
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedMonths.map(m => (
-                        <span
-                          key={m}
-                          onClick={() => toggleMonth(m)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black cursor-pointer ${
-                            isDark ? 'bg-slate-800 text-[#42f5e9] border border-slate-700' : 'bg-white text-[#0fb5ab] border border-[#0fb5ab]/20'
-                          }`}
-                        >
-                          {formatMonthBadge(m)}
-                          <X size={10} />
-                        </span>
-                      ))}
-                    </div>
-                  </div>
 
-                  {/* Admin Payment Number Box */}
-                  <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 ${isDark ? 'bg-slate-900/60 border-slate-700' : 'bg-slate-50 border-slate-200/80'}`}>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                        {lang === 'bn' ? `${paymentMethod} পার্সোনাল/মার্চেন্ট নম্বর` : `${paymentMethod} Payment Number`}
-                      </p>
-                      <p className={`text-base font-black font-mono mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                        {getCurrentPaymentNumber()}
-                      </p>
+                {selectedMonths.length === 0 ? (
+                  <div className={`p-8 rounded-3xl border-2 border-dashed text-center space-y-3 ${isDark ? 'bg-slate-900/40 border-slate-700' : 'bg-slate-50/70 border-slate-200'}`}>
+                    <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center ${isDark ? 'bg-slate-800 text-[#42f5e9]' : 'bg-white text-[#0fb5ab] shadow-sm'}`}>
+                      <Clock size={28} />
                     </div>
+                    <h4 className={`text-base font-black font-noto ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                      {lang === 'bn' ? 'মাস নির্বাচন করুন' : 'Select Months'}
+                    </h4>
+                    <p className="text-xs font-bold text-slate-400 leading-relaxed max-w-xs mx-auto">
+                      {lang === 'bn'
+                        ? 'পেমেন্ট করার জন্য বাম পাশের ২ নম্বর ধাপ থেকে অন্তত একটি বকেয়া মাস সিলেক্ট করুন।'
+                        : 'Select at least one unpaid month from Step 2 on the left to proceed with payment.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className={`p-4 rounded-2xl border space-y-3 ${isDark ? 'bg-slate-900/70 border-slate-700' : 'bg-[#42f5e9]/10 border-[#42f5e9]/30'}`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                            {selectedPackage.name} • ৳{effectiveRate}/{lang === 'bn' ? 'মাস' : 'mo'}
+                          </span>
+                          <span className={`text-xs font-black ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {lang === 'bn' ? `নির্বাচিত মাস (${selectedMonths.length}টি)` : `Selected (${selectedMonths.length} mos)`}
+                          </span>
+                        </div>
+                        <span className={`text-2xl font-black tabular-nums ${isDark ? 'text-[#42f5e9]' : 'text-[#0fb5ab]'}`}>
+                          {calculatedFee.toLocaleString()} ৳
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedMonths.map(m => (
+                          <span
+                            key={m}
+                            onClick={() => toggleMonth(m)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black cursor-pointer transition-opacity hover:opacity-80 ${
+                              isDark ? 'bg-slate-800 text-[#42f5e9] border border-slate-700' : 'bg-white text-[#0fb5ab] border border-[#0fb5ab]/20'
+                            }`}
+                          >
+                            {formatMonthBadge(m)}
+                            <X size={10} />
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
                     <button
                       type="button"
-                      onClick={handleCopyPaymentNumber}
-                      className={`px-3 py-2 rounded-xl text-[11px] font-black flex items-center gap-1.5 shrink-0 transition-all ${
-                        isDark ? 'bg-slate-800 hover:bg-slate-700 text-[#42f5e9]' : 'bg-white hover:bg-slate-100 text-[#0fb5ab] border border-slate-200'
-                      }`}
+                      onClick={() => setShowSubCheckout(true)}
+                      className="w-full h-14 bg-[#0fb5ab] hover:bg-[#0d9e95] text-white font-black rounded-2xl text-sm uppercase tracking-wider shadow-lg shadow-[#0fb5ab]/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
                     >
-                      {copiedPayNum ? <Check size={14} /> : <Copy size={14} />}
-                      {copiedPayNum ? (lang === 'bn' ? 'কপি হয়েছে' : 'Copied') : (lang === 'bn' ? 'কপি' : 'Copy')}
+                      <CreditCard size={18} />
+                      {lang === 'bn' ? 'পেমেন্ট করুন' : 'Pay Now'}
+                      <ArrowRight size={16} />
                     </button>
                   </div>
-
-                  {/* Method Selector */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['bKash', 'Nagad', 'Rocket'] as const).map(method => (
-                      <button
-                        key={method}
-                        type="button"
-                        onClick={() => setPaymentMethod(method)}
-                        className={`py-2.5 rounded-xl text-xs font-black border transition-all ${
-                          paymentMethod === method
-                            ? 'bg-[#0fb5ab] text-white border-[#0fb5ab] shadow-sm'
-                            : isDark
-                              ? 'bg-slate-900/60 text-slate-300 border-slate-700'
-                              : 'bg-slate-50 text-slate-600 border-slate-200'
-                        }`}
-                      >
-                        {method}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Sender Phone & TrxID */}
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                        {lang === 'bn' ? 'প্রেরকের নম্বর (Send Money)' : 'Sender Phone Number'}
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={senderPhone}
-                        onChange={(e) => setSenderPhone(e.target.value)}
-                        placeholder="01XXXXXXXXX"
-                        className={`w-full h-11 px-4 rounded-xl border text-xs font-black outline-none ${
-                          isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-[#42f5e9]' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-[#0fb5ab]'
-                        }`}
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                        {lang === 'bn' ? 'ট্রানজ্যাকশন আইডি (TrxID)' : 'Transaction ID (TrxID)'}
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={trxId}
-                        onChange={(e) => setTrxId(e.target.value)}
-                        placeholder="e.g. BGD9X4K21M"
-                        className={`w-full h-11 px-4 rounded-xl border text-xs font-mono font-black uppercase outline-none ${
-                          isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-[#42f5e9]' : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-[#0fb5ab]'
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  {subPaymentError && (
-                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-2">
-                      <AlertCircle size={15} className="shrink-0" />
-                      <span>{subPaymentError}</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={submittingPayment}
-                    className="w-full h-12 bg-[#0fb5ab] hover:bg-[#0d9e95] text-white font-black rounded-2xl text-xs uppercase tracking-wider shadow-lg shadow-[#0fb5ab]/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-60"
-                  >
-                    {submittingPayment ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                    {lang === 'bn' ? 'পেমেন্ট রিকোয়েস্ট পাঠান' : 'Submit Payment Request'}
-                  </button>
-                </form>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Subscription Payment History List */}
             <div className={`p-6 rounded-[2.2rem] border shadow-sm space-y-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
@@ -1158,7 +1000,9 @@ const Account: React.FC<AccountProps> = ({ lang, setLang, onProfileUpdate, setVi
                         ? { label: lang === 'bn' ? 'সফল' : 'Approved', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', icon: CheckCircle2 }
                         : st === 'rejected'
                           ? { label: lang === 'bn' ? 'প্রত্যাখ্যাত' : 'Rejected', cls: 'bg-red-500/10 text-red-500 border-red-500/20', icon: X }
-                          : { label: lang === 'bn' ? 'অপেক্ষা' : 'Pending', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', icon: Clock };
+                          : st === 'cancelled'
+                            ? { label: lang === 'bn' ? 'বাতিল' : 'Cancelled', cls: 'bg-slate-500/10 text-slate-500 border-slate-500/20', icon: X }
+                            : { label: lang === 'bn' ? 'অপেক্ষা' : 'Pending', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20', icon: Clock };
                     const StIcon = stMeta.icon;
                     const txMonths: string[] = Array.isArray(tr.metadata?.months) ? tr.metadata.months : [];
 

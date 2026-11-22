@@ -540,7 +540,7 @@ export interface Transaction {
   sender_phone: string;
   description: string;
   type?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   created_at: string;
   sms_count?: number;
   module?: string;

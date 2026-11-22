@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
-import { getSupabaseAdmin } from '../lib/supabase-admin';
+import { getSupabaseAdmin } from '../lib/supabase-admin.js';
 
 const MRAM_BASE_URL = 'https://msg.mram.com.bd';
 const DEFAULT_SENDER_ID = '8809601017065';

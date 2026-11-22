@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '../../lib/supabase-admin';
+import { getSupabaseAdmin } from '../../lib/supabase-admin.js';
 
 const ACCOUNT_TYPE_DEFAULT_MODULES: Record<string, Record<string, boolean>> = {
   committee: {

@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '../../lib/supabase-admin';
+import { getSupabaseAdmin } from '../../lib/supabase-admin.js';
 
 const BN_TO_EN_DIGITS: Record<string, string> = {
   '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',

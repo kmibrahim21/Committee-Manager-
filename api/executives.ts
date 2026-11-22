@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '../lib/supabase-admin';
+import { getSupabaseAdmin } from '../lib/supabase-admin.js';
 import * as crypto from 'crypto';
 
 function hashPin(rawPin: string): string {

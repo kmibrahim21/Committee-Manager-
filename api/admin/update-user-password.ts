@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from '../../lib/supabase-admin';
+import { getSupabaseAdmin } from '../../lib/supabase-admin.js';
 
 export default async function handler(req: any, res: any) {
   // CORS handling

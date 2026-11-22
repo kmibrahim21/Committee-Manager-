@@ -114,6 +114,7 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
   const persistSystemSettings = async (payload: Record<string, any>) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
+      let apiResponse: { status: number; rawText: string; json: any } | null = null;
       try {
         const res = await fetch('/api/admin/system-settings', {
           method: 'POST',
@@ -130,19 +131,31 @@ const SuperAccount: React.FC<SuperAccountProps> = ({ lang, setLang, setView, onL
         } catch {
           json = {};
         }
-        if (res.ok && json?.success && json?.settings) {
+        apiResponse = { status: res.status, rawText, json };
+      } catch (networkErr: any) {
+        console.warn('System settings API network error, falling back to direct Supabase:', networkErr?.message || networkErr);
+      }
+
+      if (apiResponse) {
+        const { status, rawText, json } = apiResponse;
+        if (status >= 200 && status < 300 && json?.success && json?.settings) {
           return json.settings;
         }
         const serverMessage =
           json?.error ||
           (rawText && !rawText.trim().startsWith('<') ? rawText.slice(0, 220) : '');
-        if (res.status !== 404 && !String(serverMessage).includes('SUPABASE_SERVICE_ROLE_KEY')) {
-          throw new Error(serverMessage || `Failed to update settings (${res.status})`);
+
+        const shouldFallback =
+          status === 404 ||
+          status >= 500 ||
+          /FUNCTION_INVOCATION_FAILED|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_URL|ERR_MODULE_NOT_FOUND/i.test(
+            `${serverMessage} ${rawText}`
+          );
+
+        if (!shouldFallback) {
+          throw new Error(serverMessage || `Failed to update settings (${status})`);
         }
-      } catch (apiErr: any) {
-        if (!String(apiErr?.message || '').includes('Failed to fetch') && !String(apiErr?.message || '').includes('SUPABASE_SERVICE_ROLE_KEY')) {
-          throw apiErr;
-        }
+        console.warn('System settings API fallback triggered:', status, serverMessage);
       }
     }
 

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 import { Buffer } from 'node:buffer';
-import { getSupabaseAdmin } from '../lib/supabase-admin';
+import { getSupabaseAdmin } from '../lib/supabase-admin.js';
 
 const AWAJ_BASE_URL = 'https://api.awajdigital.com/api';
 
